@@ -1,0 +1,7 @@
+yarn-error.log
+.idea
+.env
+.env.test
+node_modules
+test_data
+dist
