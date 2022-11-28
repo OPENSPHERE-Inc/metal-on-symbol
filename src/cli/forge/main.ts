@@ -1,4 +1,4 @@
-import {MetadataType} from "symbol-sdk";
+import {MetadataType, UInt64} from "symbol-sdk";
 import fs from "fs";
 import assert from "assert";
 import {CommandlineInput, parseInput, printUsage, validateInput} from "./input";
@@ -20,6 +20,13 @@ export const forgeMetal = async (
     const signerAccount = input.signer.publicAccount;
     const sourceAccount = input.sourceAccount || input.sourceSigner?.publicAccount || signerAccount;
     const targetAccount = input.targetAccount || input.targetSigner?.publicAccount || signerAccount;
+    const metadataPoll = input.recover
+        ? await SymbolService.searchMetadata(input.type, {
+            source: sourceAccount,
+            target: targetAccount,
+            targetId
+        })
+        : undefined;
 
     const { key, txs, additive } = await MetalService.createForgeTxs(
         input.type,
@@ -27,7 +34,8 @@ export const forgeMetal = async (
         targetAccount,
         targetId,
         payload,
-        input.additive
+        input.additive,
+        metadataPoll,
     );
 
     const metalId = MetalService.calculateMetalId(
@@ -39,8 +47,8 @@ export const forgeMetal = async (
     );
     console.log(`Computed Metal ID is ${metalId}`);
 
-    if (input.checkCollision) {
-        // Check collision
+    if (input.checkCollision && !input.recover) {
+        // Check collision (Don't on recover mode)
         const collisions = await MetalService.checkCollision(
             txs,
             input.type,
@@ -49,7 +57,9 @@ export const forgeMetal = async (
             targetId,
         );
         if (collisions.length) {
-            throw Error(`${key?.toHex()}: Already exists on the target ${["account", "mosaic", "namespace"][input.type]}`);
+            throw Error(`${key?.toHex()}: Already exists on the target ${
+                ["account", "mosaic", "namespace"][input.type]
+            }`);
         }
     }
 
@@ -59,18 +69,20 @@ export const forgeMetal = async (
     ) && (
         signerAccount.equals(targetAccount) || !!input.targetSigner
     );
-    const { batches, totalFee } = await buildAndExecuteBatches(
-        txs,
-        input.signer,
-        [
-            ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
-            ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
-        ],
-        input.feeRatio,
-        input.maxParallels,
-        canAnnounce,
-        !input.force,
-    );
+    const { batches, totalFee } = txs.length
+        ? await buildAndExecuteBatches(
+            txs,
+            input.signer,
+            [
+                ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
+                ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
+            ],
+            input.feeRatio,
+            input.maxParallels,
+            canAnnounce,
+            !input.force,
+        )
+        : { batches: [], totalFee: UInt64.fromUint(0) };
 
     if (key && input.verify) {
         await doVerify(

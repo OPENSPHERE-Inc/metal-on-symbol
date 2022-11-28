@@ -18,6 +18,7 @@ export interface CommandlineInput {
     namespaceId?: NamespaceId;
     nodeUrl?: string;
     outputPath?: string;
+    recover: boolean;
     signerPrivateKey?: string;
     sourcePrivateKey?: string;
     sourcePublicKey?: string;
@@ -46,6 +47,7 @@ export const parseInput = () => {
         feeRatio: Number(process.env.FEE_RATIO || 0),
         nodeUrl: process.env.NODE_URL,
         signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
+        recover: false,
     };
 
     for (let i = 2; i < process.argv.length; i++) {
@@ -157,6 +159,12 @@ export const parseInput = () => {
                     throw Error(`${token} must has signer's private key as a value.`);
                 }
                 input.signerPrivateKey = value;
+                break;
+            }
+
+            case "-r":
+            case "--recover": {
+                input.recover = true;
                 break;
             }
 
