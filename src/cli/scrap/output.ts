@@ -15,13 +15,16 @@ export interface CommandlineOutput {
     mosaicId?: MosaicId,
     namespaceId?: NamespaceId,
     totalFee: UInt64;
-    status: "scrapped" | "estimated";
+    status: "scrapped" | "estimated" | "destroyed";
     metalId: string;
 }
 
 export const printOutputSummary = (output: CommandlineOutput) => {
     console.log(
-        `--- ${output.status === "scrapped" ? "Scrap" : "Estimate of Scrapping"} Summary ---\n` +
+        `--- ${output.status === "scrapped" 
+            ? "Scrap" 
+            : "Estimate of Scrapping"
+        } Summary ---\n` +
         `  Metal ID: ${output.metalId}\n` +
         `  Type: ${output.mosaicId ? "mosaic" : output.namespaceId ? "namespace" : "account" }\n` +
         `  Source Account Address: ${output.sourceAccount.address.plain()}\n` +

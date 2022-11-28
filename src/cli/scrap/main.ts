@@ -1,7 +1,7 @@
 import {CommandlineInput, parseInput, printUsage, validateInput} from "./input";
 import assert from "assert";
 import fs from "fs";
-import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
+import {MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {CommandlineOutput, printOutputSummary, writeOutputFile} from "./output";
 import {MetalService} from "../../services/metal";
 import {VERSION} from "./version";
@@ -22,13 +22,25 @@ const scrapMetal = async (
     let key = input.key;
     let metalId = input.metalId;
     let targetId: undefined | MosaicId | NamespaceId = undefined;
+    let payload: undefined | Buffer;
+
+    if (input.filePath) {
+        // Read input file contents here.
+        console.log(`${input.filePath}: Reading...`);
+        payload = fs.readFileSync(input.filePath);
+        if (!payload.length) {
+            throw Error(`${input.filePath}: The file is empty.`);
+        }
+    }
 
     if (metalId) {
         const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
+        // Obtain type, key and targetId here.
         type = metadataEntry.metadataType
         key = metadataEntry.scopedMetadataKey;
         targetId = metadataEntry.targetId;
 
+        // We cannot retrieve publicKey at this time. Only can do address check.
         if (!sourceAccount.address.equals(metadataEntry?.sourceAddress)) {
             throw new Error(`Source address mismatched.`);
         }
@@ -36,21 +48,15 @@ const scrapMetal = async (
             throw new Error(`Target address mismatched.`);
         }
     } else {
-        if (input.filePath) {
-            // Read input file contents here.
-            console.log(`${input.filePath}: Reading...`);
-            const payload = fs.readFileSync(input.filePath);
-            if (!payload.length) {
-                throw Error(`${input.filePath}: The file is empty.`);
-            }
-
-            // Just calculate key
+        if (!key && payload) {
+            // Obtain metadata key here
             key = MetalService.calculateMetadataKey(payload, input.additive);
         }
 
         assert(type !== undefined);
         assert(key);
 
+        // Obtain targetId and metalId here
         targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
         metalId = MetalService.calculateMetalId(
             type,
@@ -61,13 +67,22 @@ const scrapMetal = async (
         )
     }
 
-    const txs = await MetalService.createScrapTxs(
-        type,
-        sourceAccount,
-        targetAccount,
-        key,
-        targetId,
-    );
+    const txs = (payload)
+        ? await MetalService.createDestroyTxs(
+            type,
+            sourceAccount,
+            targetAccount,
+            targetId,
+            payload,
+            input.additive,
+        )
+        : await MetalService.createScrapTxs(
+            type,
+            sourceAccount,
+            targetAccount,
+            targetId,
+            key,
+        );
     if (!txs) {
         throw Error(`Scrap metal TXs creation failed.`);
     }
@@ -79,18 +94,20 @@ const scrapMetal = async (
         signerAccount.equals(targetAccount) || !!input.targetSigner
     );
 
-    const { batches, totalFee } = await buildAndExecuteBatches(
-        txs,
-        input.signer,
-        [
-            ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
-            ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
-        ],
-        input.feeRatio,
-        input.maxParallels,
-        canAnnounce,
-        !input.force,
-    );
+    const { batches, totalFee } = txs.length
+        ? await buildAndExecuteBatches(
+            txs,
+            input.signer,
+            [
+                ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
+                ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
+            ],
+            input.feeRatio,
+            input.maxParallels,
+            canAnnounce,
+            !input.force,
+        )
+        : { batches: [], totalFee: UInt64.fromUint(0) };
 
     return {
         networkType,
@@ -99,8 +116,8 @@ const scrapMetal = async (
         totalFee,
         sourceAccount,
         targetAccount,
-        ...(input.type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
-        ...(input.type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
+        ...(type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
+        ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
         status: canAnnounce ? "scrapped" : "estimated",
         metalId,
     };
