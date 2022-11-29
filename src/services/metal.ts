@@ -1,14 +1,15 @@
 import {
     Account,
-    AccountMetadataTransaction, Address,
+    AccountMetadataTransaction, Address, AggregateTransaction,
     Convert,
     InnerTransaction,
     Metadata,
+    MetadataEntry,
     MetadataType,
     MosaicId, MosaicMetadataTransaction,
     NamespaceId, NamespaceMetadataTransaction,
-    PublicAccount, TransactionType,
-    UInt64
+    PublicAccount, TransactionMapping, TransactionType,
+    UInt64, UnresolvedAddress
 } from "symbol-sdk";
 import {SymbolService} from "./symbol";
 import assert from "assert";
@@ -17,10 +18,19 @@ import bs58 from "bs58";
 
 
 export namespace MetalService {
-    const VERSION = "010";
+    import SignedAggregateTx = SymbolService.SignedAggregateTx;
     const DEFAULT_ADDITIVE = "0000";
+    const VERSION = "010";
     const HEADER_SIZE = 24;
     const CHUNK_PAYLOAD_MAX_SIZE = 1000;
+    const METAL_ID_HEADER_HEX = "0B2A";
+
+    enum Magic {
+        CHUNK = "C",
+        END_CHUNK = "E",
+    }
+
+    const isMagic = (char: any): char is Magic => Object.values(Magic).includes(char);
 
     // Use sha3_256 of first 64 bits, MSB should be 0
     export const generateMetadataKey = (input: string): UInt64 => {
@@ -51,11 +61,11 @@ export namespace MetalService {
         type: MetadataType,
         sourceAddress: Address,
         targetAddress: Address,
+        targetId: undefined | MosaicId | NamespaceId,
         scopedMetadataKey: UInt64,
-        targetId?: MosaicId | NamespaceId
     ) => {
         const hashBytes = Convert.hexToUint8(
-            SymbolService.calculateMetadataHash(type, sourceAddress, targetAddress, scopedMetadataKey, targetId)
+            METAL_ID_HEADER_HEX + SymbolService.calculateMetadataHash(type, sourceAddress, targetAddress, targetId, scopedMetadataKey)
         );
         return bs58.encode(hashBytes);
     };
@@ -64,21 +74,34 @@ export namespace MetalService {
     export const restoreMetadataHash = (
         metalId: string
     ) => {
-        return Convert.uint8ToHex(
+        const hashHex = Convert.uint8ToHex(
             bs58.decode(`${metalId}`)
         );
+        if (!hashHex.startsWith(METAL_ID_HEADER_HEX)) {
+            throw Error("Invalid metal ID.");
+        }
+        return hashHex.slice(METAL_ID_HEADER_HEX.length);
+    };
+
+    const createMetadataLookupTable = (metadataPool?: Metadata[]) => {
+        // Map key is hex string
+        const lookupTable =  new Map<string, Metadata>();
+        metadataPool?.forEach(
+            (metadata) => lookupTable.set(metadata.metadataEntry.scopedMetadataKey.toHex(), metadata)
+        );
+        return lookupTable;
     };
 
     // Returns:
     //   - value:
-    //       [magic "M","C" or "E" (1 bytes)] +
+    //       [magic "C" or "E" (1 bytes)] +
     //       [version (3 bytes)] +
     //       [additive (4 bytes)] +
-    //       [next key (when magic is "M" or "C"), file hash (when magic is "E") (16 bytes)] +
+    //       [next key (when magic is "C"), file hash (when magic is "E") (16 bytes)] +
     //       [payload (1000 bytes)] = 1024 bytes
     //   - key: Hash of value
     const packChunkBytes = (
-        magic: "M" | "C" | "E",
+        magic: Magic,
         version: string,
         additive: string,
         nextKey: UInt64,
@@ -114,7 +137,9 @@ export namespace MetalService {
         targetId: undefined | MosaicId | NamespaceId,
         payload: Buffer,
         additive: string = DEFAULT_ADDITIVE,
+        metadataPool?: Metadata[],
     ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: string }> => {
+        const lookupTable = createMetadataLookupTable(metadataPool);
         const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
         const txs = new Array<InnerTransaction>();
         const keys = new Array<string>();
@@ -122,7 +147,7 @@ export namespace MetalService {
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
         let nextKey: UInt64 = generateHash(payload);
         for (let i = chunks - 1; i >= 0; i--) {
-            const magic = i === chunks - 1 ? "E" : i === 0 ? "M" : "C";
+            const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
             const chunkBytes = payloadBase64Bytes.subarray(
                 i * CHUNK_PAYLOAD_MAX_SIZE,
                 (i + 1) * CHUNK_PAYLOAD_MAX_SIZE
@@ -139,10 +164,12 @@ export namespace MetalService {
                     targetId,
                     payload,
                     generateRandomAdditive(),
+                    metadataPool,
                 );
             }
 
-            txs.push(await SymbolService.createMetadataTx(
+            // Only non on-chain data to be announced.
+            !lookupTable.has(key.toHex()) && txs.push(await SymbolService.createMetadataTx(
                 type,
                 sourceAccount,
                 targetAccount,
@@ -162,20 +189,46 @@ export namespace MetalService {
         };
     };
 
-    const createMetadataLookupTable = (metadataPool: Metadata[]) => {
-        // Map key is hex string
-        const lookupTable =  new Map<string, Metadata>();
-        metadataPool.forEach(
-            (metadata) => lookupTable.set(metadata.metadataEntry.scopedMetadataKey.toHex(), metadata)
-        );
-        return lookupTable;
+    const extractChunk = (chunk: MetadataEntry) => {
+        const magic = chunk.value.substring(0, 1);
+        if (!isMagic(magic)) {
+            console.error(`Error: Malformed header magic ${magic}`);
+            return undefined;
+        }
+
+        const version = chunk.value.substring(1, 4);
+        if (version !== VERSION) {
+            console.error(`Error: Malformed header version ${version}`);
+            return undefined;
+        }
+
+        const metadataValue = chunk.value;
+        const checksum = generateMetadataKey(metadataValue);
+        if (!checksum.equals(chunk.scopedMetadataKey)) {
+            console.error(
+                `Error: The chunk ${chunk.scopedMetadataKey.toHex()} is broken ` +
+                `(calculated=${checksum.toHex()})`
+            );
+            return undefined;
+        }
+
+        const nextKey = metadataValue.substring(8, HEADER_SIZE);
+        const chunkPayload = metadataValue.substring(HEADER_SIZE, HEADER_SIZE + CHUNK_PAYLOAD_MAX_SIZE);
+
+        return {
+            magic,
+            version,
+            checksum,
+            nextKey,
+            chunkPayload,
+        };
     };
 
-    // Return: Decoded base64 string.
-    export const decodeAsBase64 = (key: UInt64, metadataPool: Metadata[]) => {
+    // Return: Decoded payload string.
+    export const decode = (key: UInt64, metadataPool: Metadata[]) => {
         const lookupTable = createMetadataLookupTable(metadataPool);
 
-        let decodedBase64 = "";
+        let decodedString = "";
         let currentKeyHex = key.toHex();
         let magic = "";
         do {
@@ -186,29 +239,17 @@ export namespace MetalService {
             }
             lookupTable.delete(currentKeyHex);  // Prevent loop
 
-            magic = metadata.value.substring(0, 1);
-            if (!["M", "C", "E"].includes(magic)) {
-                console.error(`Error: Malformed header magic ${magic}`);
-            }
-            const version = metadata.value.substring(1, 4);
-            if (version !== VERSION) {
-                console.error(`Error: Malformed header version ${version}`);
+            const result = extractChunk(metadata);
+            if (!result) {
                 break;
             }
 
-            const metadataValue = metadata.value;
-            const checksumHex = generateMetadataKey(metadataValue).toHex();
-            if (checksumHex !== currentKeyHex) {
-                console.error(`Error: The chunk  ${currentKeyHex} is broken (received=${checksumHex})`);
-                break;
-            }
+            magic = result.magic;
+            currentKeyHex = result.nextKey;
+            decodedString += result.chunkPayload;
+        } while (magic !== Magic.END_CHUNK);
 
-            currentKeyHex = metadataValue.substring(8, HEADER_SIZE);
-            decodedBase64 += metadataValue.substring(HEADER_SIZE, HEADER_SIZE + CHUNK_PAYLOAD_MAX_SIZE);
-
-        } while (magic !== "E");
-
-        return decodedBase64;
+        return decodedString;
     };
 
     // Calculate metadata key from payload. "additive" must be specified when using non-default one.
@@ -218,7 +259,7 @@ export namespace MetalService {
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
         let nextKey: UInt64 = generateHash(payload);
         for (let i = chunks - 1; i >= 0; i--) {
-            const magic = i === chunks - 1 ? "E" : i === 0 ? "M" : "C";
+            const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
             const chunkBytes = payloadBase64Bytes.subarray(i * CHUNK_PAYLOAD_MAX_SIZE, (i + 1) * CHUNK_PAYLOAD_MAX_SIZE);
             nextKey = packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes).key;
         }
@@ -235,8 +276,8 @@ export namespace MetalService {
         type: MetadataType,
         sourceAccount: PublicAccount,
         targetAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
         key: UInt64,
-        targetId?: MosaicId | NamespaceId,
         metadataPool?: Metadata[],
     ) => {
         const lookupTable = createMetadataLookupTable(
@@ -252,7 +293,7 @@ export namespace MetalService {
         const scrappedValueBytes = Convert.utf8ToUint8("");
         const txs = new Array<InnerTransaction>();
         let currentKeyHex = key.toHex();
-        let magic = "";
+        let magic: string | undefined;
 
         do {
             const metadata = lookupTable.get(currentKeyHex)?.metadataEntry;
@@ -262,21 +303,19 @@ export namespace MetalService {
             }
             lookupTable.delete(currentKeyHex);  // Prevent loop
 
+            magic = extractChunk(metadata)?.magic;
+            if (!magic) {
+                break;
+            }
+
             const value = metadata.value;
-            magic = value.substring(0, 1);
-            if (!["M", "C", "E"].includes(magic)) {
+            magic = value.substring(0, 1) as Magic;
+            if (!isMagic(magic)) {
                 console.error(`Error: Malformed header magic ${magic}`);
                 break;
             }
 
             const valueBytes = Convert.utf8ToUint8(value);
-            if (valueBytes.length === scrappedValueBytes.length &&
-                valueBytes.toString() === scrappedValueBytes.toString()
-            ) {
-                console.error(`Error: The chunk ${currentKeyHex} is already scrapped`);
-                break;
-            }
-
             txs.push(await SymbolService.createMetadataTx(
                 type,
                 sourceAccount,
@@ -288,9 +327,58 @@ export namespace MetalService {
             ));
 
             currentKeyHex = value.substring(8, HEADER_SIZE);
-        } while (magic !== "E");
+        } while (magic !== Magic.END_CHUNK);
 
         return txs;
+    };
+
+    export const createDestroyTxs = async (
+        type: MetadataType,
+        sourceAccount: PublicAccount,
+        targetAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
+        payload: Buffer,
+        additive: string = DEFAULT_ADDITIVE,
+        metadataPool?: Metadata[],
+    ) => {
+        const lookupTable = createMetadataLookupTable(
+            metadataPool ||
+            // Retrieve scoped metadata from on-chain
+            await SymbolService.searchMetadata(type,  { source: sourceAccount, target: targetAccount, targetId })
+        );
+        const scrappedValueBytes = Convert.utf8ToUint8("");
+        const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
+        const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
+        const txs = new Array<InnerTransaction>();
+        let nextKey: UInt64 = generateHash(payload);
+
+        for (let i = chunks - 1; i >= 0; i--) {
+            const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
+            const chunkBytes = payloadBase64Bytes.subarray(
+                i * CHUNK_PAYLOAD_MAX_SIZE,
+                (i + 1) * CHUNK_PAYLOAD_MAX_SIZE
+            );
+            const { key } = packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes);
+
+            const onChainMetadata = lookupTable.get(key.toHex());
+            if (onChainMetadata) {
+                // Only on-chain data to be announced.
+                const valueBytes = Convert.utf8ToUint8(onChainMetadata.metadataEntry.value);
+                txs.push(await SymbolService.createMetadataTx(
+                    type,
+                    sourceAccount,
+                    targetAccount,
+                    targetId,
+                    key,
+                    Convert.hexToUint8(Convert.xor(valueBytes, scrappedValueBytes)),
+                    scrappedValueBytes.length - valueBytes.length,
+                ));
+            }
+
+            nextKey = key;
+        }
+
+        return txs.reverse();
     };
 
     export const checkCollision = async (
@@ -337,18 +425,18 @@ export namespace MetalService {
     export const verify = async (
         payload: Buffer,
         type: MetadataType,
-        source: Account | PublicAccount | Address,
-        target: Account | PublicAccount | Address,
+        sourceAddress: Address,
+        targetAddress: Address,
         key: UInt64,
         targetId?: MosaicId | NamespaceId,
         metadataPool?: Metadata[],
     ) => {
         const payloadBase64 = payload.toString("base64");
-        const decodedBase64 = decodeAsBase64(
+        const decodedBase64 = decode(
             key,
             metadataPool ||
             // Retrieve scoped metadata from on-chain
-            await SymbolService.searchMetadata(type,  { source, target, targetId })
+            await SymbolService.searchMetadata(type,  { source: sourceAddress, target: targetAddress, targetId })
         ) || "";
 
         let mismatches = 0;
@@ -376,6 +464,133 @@ export namespace MetalService {
         key: UInt64,
     ) => {
         const metadataPool = await SymbolService.searchMetadata(type, { source, target, targetId });
-        return Buffer.from(decodeAsBase64(key, metadataPool), "base64");
+        return Buffer.from(decode(key, metadataPool), "base64");
+    };
+
+    // Returns:
+    //   - payload: Decoded metal contents
+    //   - type: Metadata type
+    //   - sourceAddress: Metadata source address
+    //   - targetAddress: Metadata target address
+    //   - targetId: Metadata target ID (NamespaceId, MosaicId or undefined for account)
+    //   - key: Metadata key
+    export const fetchByMetalId = async (
+        metalId: string,
+    ) => {
+        const metadata = await getFirstChunk(metalId);
+        const metadataEntry = metadata.metadataEntry;
+
+        const payload = await fetch(
+            metadataEntry.metadataType,
+            metadataEntry.sourceAddress,
+            metadataEntry.targetAddress,
+            metadataEntry.targetId,
+            metadataEntry.scopedMetadataKey,
+        );
+
+        return {
+            payload,
+            type: metadataEntry.metadataType,
+            sourceAddress: metadataEntry.sourceAddress,
+            targetAddress: metadataEntry.targetAddress,
+            targetId: metadataEntry.targetId,
+            key: metadataEntry.scopedMetadataKey,
+        };
+    };
+
+    export const validateBatch = (
+        batch: SignedAggregateTx,
+        type: MetadataType,
+        sourceAddress: Address,
+        targetAddress: Address,
+        targetId: undefined | MosaicId | NamespaceId,
+        signerAddress: Address,
+        metadataKeys: string[],
+    ) => {
+        const tx = TransactionMapping.createFromPayload(batch.signedTx.payload) as AggregateTransaction;
+
+        if (tx.type !== TransactionType.AGGREGATE_COMPLETE) {
+            console.error(`TX validation error: Wrong transaction type.`);
+            return false;
+        }
+
+        if (!tx.signer?.address.equals(signerAddress)) {
+            console.error(`TX validation error: Wrong signer.`);
+            return false;
+        }
+
+        for (const innerTx of tx.innerTransactions) {
+            let metadata: {
+                sourceAddress?: UnresolvedAddress;
+                targetAddress: UnresolvedAddress;
+                targetId?: MosaicId | NamespaceId;
+                key: UInt64;
+            };
+
+            switch (innerTx.type) {
+                case TransactionType.ACCOUNT_METADATA: {
+                    if (type !== MetadataType.Account) {
+                        console.error(`TX validation error: Invalid transaction type.`);
+                        return false;
+                    }
+                    const metadataTx = innerTx as AccountMetadataTransaction;
+                    metadata = {
+                        sourceAddress: metadataTx.signer?.address,
+                        targetAddress: metadataTx.targetAddress,
+                        key: metadataTx.scopedMetadataKey,
+                    };
+                    break;
+                }
+
+                case TransactionType.MOSAIC_METADATA: {
+                    if (type !== MetadataType.Mosaic) {
+                        console.error(`TX validation error: Invalid transaction type.`);
+                        return false;
+                    }
+                    const metadataTx = innerTx as MosaicMetadataTransaction;
+                    metadata = {
+                        sourceAddress: metadataTx.signer?.address,
+                        targetAddress: metadataTx.targetAddress,
+                        targetId: metadataTx.targetMosaicId,
+                        key: metadataTx.scopedMetadataKey,
+                    };
+                    break;
+                }
+
+                case TransactionType.NAMESPACE_METADATA: {
+                    if (type !== MetadataType.Namespace) {
+                        console.error(`TX validation error: Invalid transaction type.`);
+                        return false;
+                    }
+                    const metadataTx = innerTx as NamespaceMetadataTransaction;
+                    metadata = {
+                        sourceAddress: metadataTx.signer?.address,
+                        targetAddress: metadataTx.targetAddress,
+                        targetId: metadataTx.targetNamespaceId,
+                        key: metadataTx.scopedMetadataKey,
+                    };
+                    break;
+                }
+
+                default:
+                    console.error(`TX validation error: Invalid transaction type.`);
+                    return false;
+            }
+
+            if (!metadata.sourceAddress?.equals(sourceAddress) ||
+                !metadata.targetAddress?.equals(targetAddress) ||
+                (!metadata.targetId !== !targetId || (metadata.targetId && !metadata.targetId.equals(targetId)))
+            ) {
+                console.error(`TX validation error: Malformed transaction.`);
+                return false;
+            }
+
+            // The chunk must be existing on the contents.
+            if (!metadataKeys.includes(metadata.key.toHex())) {
+                console.error(`TX validation error: Unknown chunk contains.`);
+            }
+        }
+
+        return true;
     };
 }
