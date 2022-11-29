@@ -1,18 +1,19 @@
 import {MetadataType, UInt64} from "symbol-sdk";
 import fs from "fs";
 import assert from "assert";
-import {CommandlineInput, parseInput, printUsage, validateInput} from "./input";
-import {CommandlineOutput, printOutputSummary, writeOutputFile} from "./output";
+import {ForgeInput} from "./input";
+import {ForgeOutput} from "./output";
 import {VERSION} from "./version";
 import {SymbolService} from "../../services/symbol";
 import {MetalService} from "../../services/metal";
 import {buildAndExecuteBatches, doVerify} from "../common";
+import {writeIntermediateFile} from "../intermediate";
 
 
 export const forgeMetal = async (
     payload: Buffer,
-    input: CommandlineInput,
-): Promise<CommandlineOutput> => {
+    input: ForgeInput.CommandlineInput,
+): Promise<ForgeOutput.CommandlineOutput> => {
     const { networkType } = await SymbolService.getNetwork();
     assert(input.signer);
 
@@ -20,7 +21,7 @@ export const forgeMetal = async (
     const signerAccount = input.signer.publicAccount;
     const sourceAccount = input.sourceAccount || input.sourceSigner?.publicAccount || signerAccount;
     const targetAccount = input.targetAccount || input.targetSigner?.publicAccount || signerAccount;
-    const metadataPoll = input.recover
+    const metadataPool = input.recover
         ? await SymbolService.searchMetadata(input.type, {
             source: sourceAccount,
             target: targetAccount,
@@ -35,15 +36,15 @@ export const forgeMetal = async (
         targetId,
         payload,
         input.additive,
-        metadataPoll,
+        metadataPool,
     );
 
     const metalId = MetalService.calculateMetalId(
         input.type,
         sourceAccount.address,
         targetAccount.address,
+        targetId,
         key,
-        targetId
     );
     console.log(`Computed Metal ID is ${metalId}`);
 
@@ -64,11 +65,12 @@ export const forgeMetal = async (
     }
 
     // Not estimate mode. Cosigns are unnecessary: Announce TXs
-    const canAnnounce = !input.estimate && (
+    const canAnnounce = !input.estimate && !input.outputPath && (
         signerAccount.equals(sourceAccount) || !!input.sourceSigner
     ) && (
         signerAccount.equals(targetAccount) || !!input.targetSigner
     );
+
     const { batches, totalFee } = txs.length
         ? await buildAndExecuteBatches(
             txs,
@@ -76,6 +78,7 @@ export const forgeMetal = async (
             [
                 ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
                 ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
+                ...(input.cosigners || []),
             ],
             input.feeRatio,
             input.maxParallels,
@@ -88,36 +91,40 @@ export const forgeMetal = async (
         await doVerify(
             payload,
             input.type,
-            sourceAccount,
-            targetAccount,
+            sourceAccount.address,
+            targetAccount.address,
             key,
             targetId
         );
     }
 
     return {
+        command: "forge",
         networkType,
         batches,
         key,
         totalFee,
         additive,
-        sourceAccount,
-        targetAccount,
+        sourceAccount: sourceAccount,
+        targetAccount: targetAccount,
         ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),
         ...(input.type === MetadataType.Namespace ? { namespaceId: input.namespaceId } : {}),
         status: canAnnounce ? "forged" : "estimated",
         metalId,
+        signerAccount,
+        type: input.type,
+        createdAt: new Date(),
     };
 };
 
-const main = async () => {
-    console.log(`Forge Metal CLI version ${VERSION}`);
+export const main = async (argv: string[]) => {
+    console.log(`Forge Metal CLI version ${VERSION}\n`);
 
-    let input: CommandlineInput;
+    let input: ForgeInput.CommandlineInput;
     try {
-        input = await validateInput(parseInput());
+        input = await ForgeInput.validateInput(ForgeInput.parseInput(argv));
     } catch (e) {
-        printUsage();
+        ForgeInput.printUsage();
         if (e === "help") {
             return;
         }
@@ -133,15 +140,13 @@ const main = async () => {
     }
 
     const output = await forgeMetal(payload, input);
-
     if (input.outputPath) {
-        writeOutputFile(output, input.outputPath);
+        writeIntermediateFile(output, input.outputPath);
     }
-
-    printOutputSummary(output);
+    ForgeOutput.printOutputSummary(output);
 };
 
-main()
+main(process.argv.slice(2))
     .catch((e) => {
         console.error(e.toString());
         process.exit(1);

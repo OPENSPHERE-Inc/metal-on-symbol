@@ -1,20 +1,20 @@
-import {CommandlineInput, parseInput, printUsage, validateInput} from "./input";
+import {FetchInput} from "./input";
 import assert from "assert";
 import {VERSION} from "./version";
 import {MetalService} from "../../services/metal";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {CommandlineOutput, printOutputSummary, writeOutputFile} from "./output";
+import {FetchOutput} from "./output";
 import {SymbolService} from "../../services/symbol";
 
 
-const main = async () => {
-    console.log(`Fetch Metal CLI version ${VERSION}`);
+export const main = async (argv: string[]) => {
+    console.log(`Fetch Metal CLI version ${VERSION}\n`);
 
-    let input: CommandlineInput;
+    let input: FetchInput.CommandlineInput;
     try {
-        input = await validateInput(parseInput());
+        input = await FetchInput.validateInput(FetchInput.parseInput(argv));
     } catch (e) {
-        printUsage();
+        FetchInput.printUsage();
         if (e === "help") {
             return;
         }
@@ -26,28 +26,42 @@ const main = async () => {
     let type = input.type;
     let key = input.key;
     let targetId: undefined | MosaicId | NamespaceId;
+    let payload: Buffer;
 
     if (input.metalId) {
-        const metadataEntry = (await MetalService.getFirstChunk(input.metalId)).metadataEntry;
-        type = metadataEntry.metadataType
-        sourceAddress = metadataEntry.sourceAddress;
-        targetAddress = metadataEntry.targetAddress;
-        key = metadataEntry.scopedMetadataKey;
-        targetId = metadataEntry.targetId;
+        console.log(`Fetching metal ${input.metalId}`);
+        const result = await MetalService.fetchByMetalId(input.metalId);
+        if (!result) {
+            throw Error(`The metal fetch failed.`);
+        }
+        type = result.type
+        sourceAddress = result.sourceAddress;
+        targetAddress = result.targetAddress;
+        key = result.key;
+        targetId = result.targetId;
+        payload = result.payload;
     } else {
         assert(type !== undefined);
         targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
+
+        assert(key);
+        assert(sourceAddress);
+        assert(targetAddress);
+
+        console.log(`Fetching metal key:${key.toHex()},source:${sourceAddress.plain()},${
+            type === MetadataType.Mosaic
+                ? `mosaic:${targetId?.toHex()}`
+                : type === MetadataType.Namespace
+                    ? `namespace:${(targetId as NamespaceId)?.fullName}`
+                    : `account:${targetAddress.plain()}`
+        }`);
+        payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
     }
 
-    assert(key);
-    assert(sourceAddress);
-    assert(targetAddress);
-
-    const payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
-
     const { networkType } = await SymbolService.getNetwork();
-    const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, key, targetId);
-    const output: CommandlineOutput = {
+    const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
+    const output: FetchOutput.CommandlineOutput = {
+        type,
         networkType,
         payload,
         sourceAddress,
@@ -57,12 +71,11 @@ const main = async () => {
         key,
         metalId,
     };
-    writeOutputFile(output, input.outputPath || metalId);
-
-    printOutputSummary(output);
+    FetchOutput.writeOutputFile(output, input.outputPath || metalId);
+    FetchOutput.printOutputSummary(output);
 };
 
-main()
+main(process.argv.slice(2))
     .catch((e) => {
         console.error(e.toString());
         process.exit(1);

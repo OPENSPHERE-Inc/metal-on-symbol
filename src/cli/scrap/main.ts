@@ -1,17 +1,18 @@
-import {CommandlineInput, parseInput, printUsage, validateInput} from "./input";
+import {ScrapInput} from "./input";
 import assert from "assert";
 import fs from "fs";
 import {MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
-import {CommandlineOutput, printOutputSummary, writeOutputFile} from "./output";
+import {ScrapOutput} from "./output";
 import {MetalService} from "../../services/metal";
 import {VERSION} from "./version";
 import {SymbolService} from "../../services/symbol";
 import {buildAndExecuteBatches} from "../common";
+import {writeIntermediateFile} from "../intermediate";
 
 
 const scrapMetal = async (
-    input: CommandlineInput,
-): Promise<CommandlineOutput> => {
+    input: ScrapInput.CommandlineInput,
+): Promise<ScrapOutput.CommandlineOutput> => {
     const { networkType } = await SymbolService.getNetwork();
     assert(input.signer);
 
@@ -62,9 +63,9 @@ const scrapMetal = async (
             type,
             sourceAccount.address,
             targetAccount.address,
-            key,
             targetId,
-        )
+            key,
+        );
     }
 
     const txs = (payload)
@@ -88,7 +89,7 @@ const scrapMetal = async (
     }
 
     // Not estimate mode. Cosigns are unnecessary: Announce TXs
-    const canAnnounce = !input.estimate && (
+    const canAnnounce = !input.estimate && !input.outputPath && (
         signerAccount.equals(sourceAccount) || !!input.sourceSigner
     ) && (
         signerAccount.equals(targetAccount) || !!input.targetSigner
@@ -101,6 +102,7 @@ const scrapMetal = async (
             [
                 ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
                 ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
+                ...(input.cosigners || []),
             ],
             input.feeRatio,
             input.maxParallels,
@@ -110,27 +112,32 @@ const scrapMetal = async (
         : { batches: [], totalFee: UInt64.fromUint(0) };
 
     return {
+        command: "scrap",
         networkType,
         batches,
         key,
         totalFee,
-        sourceAccount,
-        targetAccount,
+        sourceAccount: sourceAccount,
+        targetAccount: targetAccount,
         ...(type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
         ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
         status: canAnnounce ? "scrapped" : "estimated",
         metalId,
+        signerAccount,
+        additive: input.additive,
+        type,
+        createdAt: new Date(),
     };
 };
 
-const main = async () => {
-    console.log(`Scrap Metal CLI version ${VERSION}`);
+export const main = async (argv: string[]) => {
+    console.log(`Scrap Metal CLI version ${VERSION}\n`);
 
-    let input: CommandlineInput;
+    let input: ScrapInput.CommandlineInput;
     try {
-        input = await validateInput(parseInput());
+        input = await ScrapInput.validateInput(ScrapInput.parseInput(argv));
     } catch (e) {
-        printUsage();
+        ScrapInput.printUsage();
         if (e === "help") {
             return;
         }
@@ -138,15 +145,13 @@ const main = async () => {
     }
 
     const output = await scrapMetal(input);
-
     if (input.outputPath) {
-        writeOutputFile(output, input.outputPath);
+        writeIntermediateFile(output, input.outputPath);
     }
-
-    printOutputSummary(output);
+    ScrapOutput.printOutputSummary(output);
 };
 
-main()
+main(process.argv.slice(2))
     .catch((e) => {
         console.error(e.toString());
         process.exit(1);

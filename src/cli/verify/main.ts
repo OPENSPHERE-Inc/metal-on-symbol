@@ -1,4 +1,4 @@
-import {CommandlineInput, parseInput, printUsage, validateInput} from "./input";
+import {VerifyInput} from "./input";
 import assert from "assert";
 import fs from "fs";
 import {doVerify} from "../common";
@@ -6,14 +6,14 @@ import {VERSION} from "./version";
 import {MetalService} from "../../services/metal";
 
 
-const main = async () => {
-    console.log(`Verify Metal CLI version ${VERSION}`);
+export const main = async (argv: string[]) => {
+    console.log(`Verify Metal CLI version ${VERSION}\n`);
 
-    let input: CommandlineInput;
+    let input: VerifyInput.CommandlineInput;
     try {
-        input = await validateInput(parseInput());
+        input = await VerifyInput.validateInput(VerifyInput.parseInput(argv));
     } catch (e) {
-        printUsage();
+        VerifyInput.printUsage();
         if (e === "help") {
             return;
         }
@@ -66,7 +66,7 @@ const main = async () => {
     );
 };
 
-main()
+main(process.argv.slice(2))
     .catch((e) => {
         console.error(e.toString());
         process.exit(1);

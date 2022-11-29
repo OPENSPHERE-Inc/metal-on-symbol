@@ -6,7 +6,6 @@ import {
     MetadataType,
     MosaicId,
     NamespaceId,
-    PublicAccount,
     UInt64
 } from "symbol-sdk";
 import {toXYM} from "../libs/utils";
@@ -17,7 +16,6 @@ import PromptSync from "prompt-sync";
 
 
 const prompt = PromptSync();
-
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 
 export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
@@ -26,63 +24,11 @@ export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
         node_url: nodeUrl,
         fee_ratio: feeRatio,
         logging: false,
+        deadline_hours: 6,
     });
 
     const { networkType } = await SymbolService.getNetwork();
-    console.log(`Using node url: ${nodeUrl} (network type is ${networkType})`);
-};
-
-interface AccountsInput {
-    signerPrivateKey?: string;
-    sourcePublicKey?: string;
-    sourcePrivateKey?: string;
-    targetPublicKey?: string;
-    targetPrivateKey?: string;
-    signer?: Account;
-    sourceAccount?: PublicAccount;
-    sourceSigner?: Account;
-    targetAccount?: PublicAccount;
-    targetSigner?: Account;
-}
-
-export const validateAccountsInput = async <T extends AccountsInput>(
-    input: T
-) => {
-    const { networkType } = await SymbolService.getNetwork();
-
-    if (!input.signerPrivateKey) {
-        input.signerPrivateKey = prompt("Signer Private Key? ");
-        if (!input.signerPrivateKey) {
-            throw Error(
-                "Signer's private key wasn't specified. [--priv-key value] or SIGNER_PRIVATE_KEY are required."
-            );
-        }
-    }
-    input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-
-    if (input.sourcePublicKey) {
-        input.sourceAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);
-    }
-
-    if (input.sourcePrivateKey) {
-        input.sourceSigner = Account.createFromPrivateKey(input.sourcePrivateKey, networkType);
-        if (input.sourceAccount && !input.sourceSigner.publicAccount.equals(input.sourceAccount)) {
-            throw Error("Mismatched source account between public key and private key (You don't need to specify public key)");
-        }
-    }
-
-    if (input.targetPublicKey) {
-        input.targetAccount = PublicAccount.createFromPublicKey(input.targetPublicKey, networkType);
-    }
-
-    if (input.targetPrivateKey) {
-        input.targetSigner = Account.createFromPrivateKey(input.targetPrivateKey, networkType);
-        if (input.targetAccount && !input.targetSigner.publicAccount.equals(input.targetAccount)) {
-            throw Error("Mismatched target account between public key and private key (You don't need to specify public key)");
-        }
-    }
-
-    return input;
+    console.log(`Using node url: ${nodeUrl} (network_type:${networkType})`);
 };
 
 export const buildAndExecuteBatches = async (
@@ -109,11 +55,14 @@ export const buildAndExecuteBatches = async (
     );
 
     if (canAnnounce) {
-        console.log(`Announcing ${batches.length} aggregate TXs with fee ${toXYM(Long.fromString(totalFee.toString()))} XYM total.`);
+        console.log(
+            `Announcing ${batches.length} aggregate TXs ` +
+            `with fee ${toXYM(Long.fromString(totalFee.toString()))} XYM total.`
+        );
         if (usePrompt) {
-            const decision = prompt("Are you sure announce these TXs [Y/n]? ", "Y");
+            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "Y");
             if (decision !== "Y" && decision !== "y") {
-                throw new Error("Canceled by user.");
+                throw Error("Canceled by user.");
             }
         }
 
@@ -124,7 +73,7 @@ export const buildAndExecuteBatches = async (
         });
 
         if (errors) {
-            throw Error(`Error: Some errors occurred during announcing.`);
+            throw Error(`Some errors occurred during announcing.`);
         } else {
             console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
         }
@@ -139,16 +88,23 @@ export const buildAndExecuteBatches = async (
 export const doVerify = async (
     payload: Buffer,
     type: MetadataType,
-    source: Account | PublicAccount | Address,
-    target: Account | PublicAccount | Address,
+    sourceAddress: Address,
+    targetAddress: Address,
     key: UInt64,
     targetId?: MosaicId | NamespaceId,
 ) => {
+    console.log(`Verifying metal key:${key.toHex()},source:${sourceAddress.plain()},${
+        type === MetadataType.Mosaic
+            ? `mosaic:${targetId?.toHex()}`
+            : type === MetadataType.Namespace
+                ? `namespace:${(targetId as NamespaceId)?.fullName}`
+                : `account:${targetAddress.plain()}`
+    }`);
     const { mismatches, maxLength } = await MetalService.verify(
         payload,
         type,
-        source,
-        target,
+        sourceAddress,
+        targetAddress,
         key,
         targetId,
     );
