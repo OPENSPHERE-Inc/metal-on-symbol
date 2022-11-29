@@ -58,6 +58,7 @@ describe("SymbolService", () => {
             MetadataType.Account,
             source.address,
             target.address,
+            undefined,
             SymbolService.generateKey(metadataKey),
         );
         console.log(`compositeHash=${compositeHash}`);
@@ -148,8 +149,8 @@ describe("SymbolService", () => {
             MetadataType.Mosaic,
             target.address,
             creator.address,
-            SymbolService.generateKey(metadataKey),
             mosaicId,
+            SymbolService.generateKey(metadataKey),
         );
         console.log(`compositeHash=${compositeHash}`);
 
@@ -239,8 +240,8 @@ describe("SymbolService", () => {
             MetadataType.Namespace,
             target.address,
             owner.address,
-            SymbolService.generateKey(metadataKey),
             namespaceId,
+            SymbolService.generateKey(metadataKey),
         );
         console.log(`compositeHash=${compositeHash}`);
 
