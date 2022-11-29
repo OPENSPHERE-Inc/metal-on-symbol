@@ -7,7 +7,7 @@ import {
     CosignatureSignedTransaction,
     CosignatureTransaction,
     Deadline,
-    HashLockTransaction,
+    HashLockTransaction, IListener,
     InnerTransaction,
     KeyGenerator,
     Metadata,
@@ -37,28 +37,42 @@ import {
     UInt64
 } from "symbol-sdk";
 import assert from "assert";
-import {firstValueFrom} from "rxjs";
+import {firstValueFrom, Subscription} from "rxjs";
 import moment from "moment";
 import {sha3_256} from "js-sha3";
 
 
 export namespace SymbolService {
 
+    export type MetadataTransaction = AccountMetadataTransaction |
+        MosaicMetadataTransaction |
+        NamespaceMetadataTransaction;
+
     interface SymbolServiceConfig {
         emit_mode?: boolean;
         logging?: boolean;
         node_url: string;
         fee_ratio: number;
+        deadline_hours: number;
     }
+
+    let config: SymbolServiceConfig = {
+        emit_mode: true,
+        logging: true,
+        node_url: "",
+        fee_ratio: 0.0,
+        deadline_hours: 2,
+    };
+
+    export const init = (cfg: SymbolServiceConfig) => {
+        config = { ...config, ...cfg };
+    };
 
     export interface SignedAggregateTx {
         signedTx: SignedTransaction;
         cosignatures: CosignatureSignedTransaction[];
         maxFee: UInt64;
     }
-
-
-    let config: SymbolServiceConfig;
 
     // Local cache
     let network: {
@@ -84,10 +98,6 @@ export namespace SymbolService {
         partialTxPayloads: new Map<string, string>(),
     };
 
-
-    export const init = (cfg: SymbolServiceConfig) => {
-        config = { ...cfg };
-    };
 
     export const getNetwork = async (nodeUrl: string = config.node_url) => {
         if (!network || nodeUrl !== network.nodeUrl || moment(network.updated_at).add(5, "minutes").isSameOrBefore()) {
@@ -228,7 +238,7 @@ export namespace SymbolService {
 
         txs.push(
             MosaicDefinitionTransaction.create(
-                Deadline.create(epochAdjustment),
+                Deadline.create(epochAdjustment, config.deadline_hours),
                 nonce,
                 mosaicId,
                 MosaicFlags.create(isSupplyMutable, isTransferable, isRestrictable, isRevokable),
@@ -240,7 +250,7 @@ export namespace SymbolService {
 
         txs.push(
             MosaicSupplyChangeTransaction.create(
-                Deadline.create(epochAdjustment),
+                Deadline.create(epochAdjustment, config.deadline_hours),
                 mosaicId,
                 MosaicSupplyChangeAction.Increase,
                 UInt64.fromUint(supplyAmount * Math.pow(10, divisibility)),
@@ -264,7 +274,7 @@ export namespace SymbolService {
     ) => {
         const { epochAdjustment, networkType } = await getNetwork();
         return NamespaceRegistrationTransaction.createRootNamespace(
-            Deadline.create(epochAdjustment),
+            Deadline.create(epochAdjustment, config.deadline_hours),
             name,
             durationBlocks,
             networkType,
@@ -290,7 +300,7 @@ export namespace SymbolService {
         switch (type) {
             case MetadataType.Mosaic: {
                 return MosaicMetadataTransaction.create(
-                    Deadline.create(epochAdjustment),
+                    Deadline.create(epochAdjustment, config.deadline_hours),
                     targetAccount.address,
                     typeof(key) === "string" ? generateKey(key) : key,
                     typeof(targetId) === "string" ? new MosaicId(targetId) : targetId as MosaicId,
@@ -302,7 +312,7 @@ export namespace SymbolService {
 
             case MetadataType.Namespace: {
                 return NamespaceMetadataTransaction.create(
-                    Deadline.create(epochAdjustment),
+                    Deadline.create(epochAdjustment, config.deadline_hours),
                     targetAccount.address,
                     actualKey,
                     typeof(targetId) === "string" ? new NamespaceId(targetId) : targetId as NamespaceId,
@@ -314,7 +324,7 @@ export namespace SymbolService {
 
             default: {
                 return AccountMetadataTransaction.create(
-                    Deadline.create(epochAdjustment),
+                    Deadline.create(epochAdjustment, config.deadline_hours),
                     targetAccount.address,
                     actualKey,
                     actualSizeDelta,
@@ -332,7 +342,7 @@ export namespace SymbolService {
     ) => {
         const { epochAdjustment, networkType } = await getNetwork();
         return AggregateTransaction.createComplete(
-            Deadline.create(epochAdjustment),
+            Deadline.create(epochAdjustment, config.deadline_hours),
             txs,
             networkType,
             [])
@@ -347,7 +357,7 @@ export namespace SymbolService {
     ) => {
         const { epochAdjustment, networkType } = await getNetwork();
         return AggregateTransaction.createBonded(
-            Deadline.create(epochAdjustment),
+            Deadline.create(epochAdjustment, config.deadline_hours),
             txs,
             networkType,
             [])
@@ -359,7 +369,7 @@ export namespace SymbolService {
         const { epochAdjustment, networkCurrencyMosaicId, networkType } = await getNetwork();
 
         return HashLockTransaction.create(
-            Deadline.create(epochAdjustment),
+            Deadline.create(epochAdjustment, config.deadline_hours),
             new Mosaic(
                 networkCurrencyMosaicId,
                 UInt64.fromUint(10000000),
@@ -401,62 +411,61 @@ export namespace SymbolService {
             .catch((e) => undefined);
     };
 
-    // Wait till tx(s) has been confirmed.
-    // Returns:
-    //   - Array of results
-    export const waitTxsFor = async (
-        account: Account,
-        txHashes?: string | string[],
+    const listenTxs = async (
+        listener: IListener,
+        account: Account | PublicAccount,
+        txHashes: string[],
         group: "confirmed" | "partial" | "all" = "confirmed",
     ) => {
-        if (!config.emit_mode) {
-            return Promise.resolve([]);
-        }
-
         const { repositoryFactory } = await getNetwork();
-        const listener = repositoryFactory.createListener();
         const statusHttp = repositoryFactory.createTransactionStatusRepository();
+        const subscriptions = new Array<Subscription>();
 
-        // Wait for all txs in parallel
-        await listener.open();
-        const promises = (typeof(txHashes) === "string" ? [txHashes] : (txHashes || []))
-            .map((txHash) => new Promise<{ txHash: string, error?: string }>(async (resolve, reject) => {
-                listener.status(account.address, txHash)
-                    .subscribe({
-                        next: async (value) => {
-                            const error = `Received error status: ${value.code}`;
-                            logger.error(error);
-                            resolve({ txHash, error });
-                        },
-                        error: (e) => {
-                            reject(e);
-                        }
-                    });
-                if (["confirmed", "all"].includes(group)) {
-                    listener.confirmed(account.address, txHash)
+        const promises = txHashes.map((txHash) => new Promise<{ txHash: string, error?: string }>(
+            async (resolve, reject) => {
+                subscriptions.push(
+                    listener.status(account.address, txHash)
                         .subscribe({
-                            next: async (tx) => {
-                                resolve({ txHash, error: undefined });
+                            next: async (value) => {
+                                const error = `Received error status: ${value.code}`;
+                                logger.error(error);
+                                resolve({ txHash, error });
                             },
                             error: (e) => {
                                 reject(e);
                             }
-                        });
+                        })
+                );
+                if (["confirmed", "all"].includes(group)) {
+                    subscriptions.push(
+                        listener.confirmed(account.address, txHash)
+                            .subscribe({
+                                next: async (tx) => {
+                                    resolve({ txHash, error: undefined });
+                                },
+                                error: (e) => {
+                                    reject(e);
+                                }
+                            })
+                    );
                 }
                 if (["partial", "all"].includes(group)) {
-                    listener.aggregateBondedAdded(account.address, txHash, true)
-                        .subscribe({
-                            next: async (tx) => {
-                                resolve({ txHash, error: undefined });
-                            },
-                            error: (e) => {
-                                reject(e);
-                            }
-                        });
+                    subscriptions.push(
+                        listener.aggregateBondedAdded(account.address, txHash, true)
+                            .subscribe({
+                                next: async (tx) => {
+                                    resolve({ txHash, error: undefined });
+                                },
+                                error: (e) => {
+                                    reject(e);
+                                }
+                            })
+                    );
                 }
 
-                const status = await firstValueFrom(statusHttp.getTransactionStatus(txHash));
-                if (status.code?.startsWith("Failure")) {
+                const status = await firstValueFrom(statusHttp.getTransactionStatus(txHash))
+                    .catch((e) => undefined);
+                if (status?.code?.startsWith("Failure")) {
                     // Transaction Failed
                     const error = `Received error status: ${status.code}`;
                     logger.error(error);
@@ -467,9 +476,33 @@ export namespace SymbolService {
                     // Already confirmed
                     resolve({ txHash, error: undefined });
                 }
-            }));
+            })
+        );
 
         return Promise.all(promises)
+            .finally(() => {
+                subscriptions.forEach((subscription) => subscription.unsubscribe());
+            });
+    }
+
+    // Wait till tx(s) has been confirmed.
+    // Returns:
+    //   - Array of results
+    export const waitTxsFor = async (
+        account: Account | PublicAccount,
+        txHashes?: string | string[],
+        group: "confirmed" | "partial" | "all" = "confirmed",
+    ) => {
+        if (!config.emit_mode) {
+            return Promise.resolve([]);
+        }
+
+        const { repositoryFactory } = await getNetwork();
+        const listener = repositoryFactory.createListener();
+        await listener.open();
+
+        // Wait for all txs in parallel
+        return listenTxs(listener, account, (typeof(txHashes) === "string" ? [txHashes] : (txHashes || [])), group)
             .finally(() => {
                 listener.close();
             });
@@ -559,48 +592,50 @@ export namespace SymbolService {
     //   - Failed: errors
     export const executeBatches = async (
         batches: SignedAggregateTx[],
-        signer: Account,
+        signer: Account | PublicAccount,
         maxParallel: number = 10
     ) => {
-        let workers = new Array<Promise<string>>();
+        const txPool = [ ...batches ];
+        const workers = new Array<Promise<{txHash: string, error?: string}[] | undefined>>();
 
-        for (const batch of batches) {
-            // The worker will return tx hash
-            const worker = new Promise<string>(async (resolve) => {
-                await announceTxWithCosignatures(batch.signedTx, batch.cosignatures);
-                return resolve(batch.signedTx.hash);
-            });
-            workers.push(worker);
+        const { repositoryFactory } = await getNetwork();
+        const listener = repositoryFactory.createListener();
+        await listener.open();
 
-            if (workers.length === maxParallel) {
-                const txHashes = await Promise.all(workers);
-                workers = [];
-                const errors = (await waitTxsFor(signer, txHashes, "confirmed"))
-                    .filter((result) => result.error);
-                if (errors.length) {
-                    return errors;
+        for (let i = 0; i < maxParallel; i++) {
+            workers.push(new Promise(async (resolve) => {
+                const nextBatch = () => txPool.splice(0, 1).shift();
+                for (let batch = nextBatch(); batch; batch = nextBatch()) {
+                    await announceTxWithCosignatures(batch.signedTx, batch.cosignatures);
+                    const errors = (await listenTxs(listener, signer, [batch.signedTx.hash], "confirmed"))
+                        .filter((result) => result.error);
+                    if (errors.length) {
+                        resolve(errors);
+                    }
                 }
-            }
+                resolve(undefined);
+            }));
         }
 
-        if (workers.length) {
-            const txHashes = await Promise.all(workers);
-            const errors = (await waitTxsFor(signer, txHashes, "confirmed"))
-                .filter((result) => result.error);
-            if (errors.length) {
-                return errors;
-            }
-        }
-
-        return undefined;
+        return Promise.all(workers)
+            .then((workerErrors) => workerErrors
+                .filter((error) => error)
+                .reduce(
+                    (acc, curr) => [ ...(acc || []), ...(curr || []) ],
+                    undefined,
+                )
+            )
+            .finally(() => {
+                listener.close();
+            });
     };
 
     export const calculateMetadataHash = (
         type: MetadataType,
         sourceAddress: Address,
         targetAddress: Address,
+        targetId: undefined | MosaicId | NamespaceId,
         scopedMetadataKey: UInt64,
-        targetId?: MosaicId | NamespaceId
     ) => {
         const hasher = sha3_256.create()
         hasher.update(sourceAddress.encodeUnresolvedAddress());
