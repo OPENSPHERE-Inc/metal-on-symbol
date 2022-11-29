@@ -1,6 +1,6 @@
 {
   "name": "metal_poc",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Metal PoC",
   "main": "index.js",
   "author": "Shinichi Hanayama <hanatyan@opensphere.co.jp>",
@@ -56,6 +56,7 @@
     "forge": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/forge/main.js",
     "verify": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/verify/main.js",
     "scrap": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/scrap/main.js",
-    "fetch": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/fetch/main.js"
+    "fetch": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/fetch/main.js",
+    "reinforce": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/reinforce/main.js"
   }
 }
