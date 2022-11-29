@@ -1,4 +1,6 @@
 import dotenv from "dotenv";
+dotenv.config({ path: './.env.test' });
+
 import {initTestEnv, SymbolTest} from "./utils";
 import {MetalService} from "../services/metal";
 import fs from "fs";
@@ -19,12 +21,10 @@ import assert from "assert";
 import moment from "moment";
 import {v4 as uuidv4} from "uuid";
 
-dotenv.config({ path: './.env.test' });
-
 
 describe("MetalService", () => {
     let target: Account;
-    let metalKey: UInt64;
+    let metadataKey: UInt64;
     let metalAdditive: string;
     let testData: Buffer;
     let dataChunks: number;
@@ -33,6 +33,7 @@ describe("MetalService", () => {
     let metadataPool: Metadata[];
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
+    let metalId: string;
 
     beforeAll(async () => {
         initTestEnv();
@@ -109,8 +110,8 @@ describe("MetalService", () => {
             MetadataType.Mosaic,
             source.address,
             target.address,
-            MetalService.generateMetadataKey("test1keyhohohogehoge"),
             mosaicId,
+            MetalService.generateMetadataKey("test1keyhohohogehoge"),
         );
         console.log(`metadataHash=${metadataHash}`);
 
@@ -118,8 +119,8 @@ describe("MetalService", () => {
             MetadataType.Mosaic,
             source.address,
             target.address,
-            MetalService.generateMetadataKey("test1keyhohohogehoge"),
             mosaicId,
+            MetalService.generateMetadataKey("test1keyhohohogehoge"),
         );
         console.log(`metalId=${metalId}`);
 
@@ -142,10 +143,18 @@ describe("MetalService", () => {
         expect(key).toBeDefined();
         assert(key);
 
-        metalKey = key;
+        metadataKey = key;
         metalAdditive = additive;
+        metalId = MetalService.calculateMetalId(
+            MetadataType.Account,
+            source.address,
+            target.address,
+            undefined,
+            metadataKey,
+        );
         console.log(`key=${key?.toHex()}`);
         console.log(`additive=${additive}`);
+        console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
@@ -156,20 +165,21 @@ describe("MetalService", () => {
         expect(errors).toBeUndefined();
     }, 600000);
 
-    it("Decode account metal", async () => {
-        metadataPool = await SymbolService.searchMetadata(MetadataType.Account, { target });
-        console.log(`metadataPool.length=${metadataPool.length}`);
+    it("Fetch and decode account metal", async () => {
+        const { signer1: source } = await SymbolTest.getNamedAccounts();
+        const result = await MetalService.fetchByMetalId(metalId);
 
-        expect(metadataPool.length).toBeTruthy();
-
-        const payloadBase64 = MetalService.decodeAsBase64(metalKey, metadataPool);
-
-        expect(payloadBase64).toBeTruthy();
-        expect(payloadBase64).toBe(testData.toString("base64"));
+        expect(result).toBeDefined();
+        expect(result?.payload).toStrictEqual(testData);
+        expect(result?.type).toBe(MetadataType.Account);
+        expect(result?.sourceAddress).toStrictEqual(source.address);
+        expect(result?.targetAddress).toStrictEqual(target.address);
+        expect(result?.key).toStrictEqual(metadataKey);
+        expect(result?.targetId).toBeUndefined();
     }, 600000);
 
     it("Verify account metal", () => {
-        const result = MetalService.verifyMetadataKey(metalKey, testData, metalAdditive);
+        const result = MetalService.verifyMetadataKey(metadataKey, testData, metalAdditive);
 
         expect(result).toBeTruthy();
     });
@@ -180,7 +190,8 @@ describe("MetalService", () => {
             MetadataType.Account,
             source.publicAccount,
             target.publicAccount,
-            metalKey,
+            undefined,
+            metadataKey,
         );
 
         expect(txs).toBeDefined();
@@ -211,10 +222,18 @@ describe("MetalService", () => {
         expect(key).toBeDefined();
         assert(key);
 
-        metalKey = key;
+        metadataKey = key;
         metalAdditive = additive;
+        metalId = MetalService.calculateMetalId(
+            MetadataType.Mosaic,
+            target.address,
+            creator.address,
+            mosaicId,
+            metadataKey,
+        );
         console.log(`key=${key?.toHex()}`);
         console.log(`additive=${additive}`);
+        console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
@@ -225,20 +244,21 @@ describe("MetalService", () => {
         expect(errors).toBeUndefined();
     }, 600000);
 
-    it("Decode mosaic metal", async () => {
-        metadataPool = await SymbolService.searchMetadata(MetadataType.Mosaic, { targetId: mosaicId });
-        console.log(`metadataPool.length=${metadataPool.length}`);
+    it("Fetch and decode mosaic metal", async () => {
+        const { signer1: creator } = await SymbolTest.getNamedAccounts();
+        const result = await MetalService.fetchByMetalId(metalId);
 
-        expect(metadataPool.length).toBeTruthy();
-
-        const payloadBase64 = MetalService.decodeAsBase64(metalKey, metadataPool);
-
-        expect(payloadBase64).toBeTruthy();
-        expect(payloadBase64).toBe(testData.toString("base64"));
+        expect(result).toBeDefined();
+        expect(result?.payload).toStrictEqual(testData);
+        expect(result?.type).toBe(MetadataType.Mosaic);
+        expect(result?.sourceAddress).toStrictEqual(target.address);
+        expect(result?.targetAddress).toStrictEqual(creator.address);
+        expect(result?.key).toStrictEqual(metadataKey);
+        expect(result?.targetId?.toHex()).toBe(mosaicId.toHex());
     }, 600000);
 
     it("Verify mosaic metal", () => {
-        const result = MetalService.verifyMetadataKey(metalKey, testData, metalAdditive);
+        const result = MetalService.verifyMetadataKey(metadataKey, testData, metalAdditive);
 
         expect(result).toBeTruthy();
     });
@@ -249,8 +269,8 @@ describe("MetalService", () => {
             MetadataType.Mosaic,
             target.publicAccount,
             creator.publicAccount,
-            metalKey,
             mosaicId,
+            metadataKey,
         );
 
         expect(txs).toBeDefined();
@@ -281,10 +301,18 @@ describe("MetalService", () => {
         expect(key).toBeDefined();
         assert(key);
 
-        metalKey = key;
+        metadataKey = key;
         metalAdditive = additive;
+        metalId = MetalService.calculateMetalId(
+            MetadataType.Namespace,
+            target.address,
+            owner.address,
+            namespaceId,
+            metadataKey,
+        );
         console.log(`key=${key?.toHex()}`);
         console.log(`additive=${additive}`);
+        console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
@@ -295,16 +323,17 @@ describe("MetalService", () => {
         expect(errors).toBeUndefined();
     }, 600000);
 
-    it("Decode namespace metal", async () => {
-        metadataPool = await SymbolService.searchMetadata(MetadataType.Namespace, { targetId: namespaceId });
-        console.log(`metadataPool.length=${metadataPool.length}`);
+    it("Fetch and decode namespace metal", async () => {
+        const { signer1: owner } = await SymbolTest.getNamedAccounts();
+        const result = await MetalService.fetchByMetalId(metalId);
 
-        expect(metadataPool.length).toBeTruthy();
-
-        const payloadBase64 = MetalService.decodeAsBase64(metalKey, metadataPool);
-
-        expect(payloadBase64).toBeTruthy();
-        expect(payloadBase64).toBe(testData.toString("base64"));
+        expect(result).toBeDefined();
+        expect(result?.payload).toStrictEqual(testData);
+        expect(result?.type).toBe(MetadataType.Namespace);
+        expect(result?.sourceAddress).toStrictEqual(target.address);
+        expect(result?.targetAddress).toStrictEqual(owner.address);
+        expect(result?.key).toStrictEqual(metadataKey);
+        expect(result?.targetId?.toHex()).toBe(namespaceId.toHex());
     }, 600000);
 
     it("Scrap namespace metal", async () => {
@@ -313,8 +342,8 @@ describe("MetalService", () => {
             MetadataType.Namespace,
             target.publicAccount,
             owner.publicAccount,
-            metalKey,
             namespaceId,
+            metadataKey,
         );
 
         expect(txs).toBeDefined();
@@ -327,6 +356,35 @@ describe("MetalService", () => {
         expect(errors).toBeUndefined();
 
         metadataPool = await SymbolService.searchMetadata(MetadataType.Namespace, { targetId: namespaceId });
+        console.log(`metadataPool.length=${metadataPool.length}`);
+
+        expect(metadataPool.length).toBeFalsy();
+    }, 600000);
+
+    it("Destroy mosaic metal", async () => {
+        const { signer1: creator } = await SymbolTest.getNamedAccounts();
+        const { txs: forgeTxs, additive } = await MetalService.createForgeTxs(
+            MetadataType.Mosaic,
+            target.publicAccount,
+            creator.publicAccount,
+            mosaicId,
+            testData,
+        );
+        await doBatches(forgeTxs, creator, [ target ]);
+
+        const destroyTxs = await MetalService.createDestroyTxs(
+            MetadataType.Mosaic,
+            target.publicAccount,
+            creator.publicAccount,
+            mosaicId,
+            testData,
+            additive,
+        );
+        const errors = await doBatches(destroyTxs, creator, [ target ]);
+
+        expect(errors).toBeUndefined();
+
+        metadataPool = await SymbolService.searchMetadata(MetadataType.Mosaic, { targetId: mosaicId });
         console.log(`metadataPool.length=${metadataPool.length}`);
 
         expect(metadataPool.length).toBeFalsy();
