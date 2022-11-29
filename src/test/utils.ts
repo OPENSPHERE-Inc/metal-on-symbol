@@ -11,6 +11,7 @@ export const initTestEnv = () => {
         node_url: process.env.NODE_URL,
         fee_ratio: 0.35,
         logging: true,
+        deadline_hours: 6,
     });
 };
 
