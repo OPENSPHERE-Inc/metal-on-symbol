@@ -1,15 +1,22 @@
 import {
     Account,
-    AccountMetadataTransaction, Address, AggregateTransaction,
+    AccountMetadataTransaction,
+    Address,
+    AggregateTransaction,
     Convert,
     InnerTransaction,
     Metadata,
     MetadataEntry,
     MetadataType,
-    MosaicId, MosaicMetadataTransaction,
-    NamespaceId, NamespaceMetadataTransaction,
-    PublicAccount, TransactionMapping, TransactionType,
-    UInt64, UnresolvedAddress
+    MosaicId,
+    MosaicMetadataTransaction,
+    NamespaceId,
+    NamespaceMetadataTransaction,
+    PublicAccount,
+    TransactionMapping,
+    TransactionType,
+    UInt64,
+    UnresolvedAddress
 } from "symbol-sdk";
 import {SymbolService} from "./symbol";
 import assert from "assert";
@@ -18,8 +25,7 @@ import bs58 from "bs58";
 
 
 export namespace MetalService {
-    import SignedAggregateTx = SymbolService.SignedAggregateTx;
-    const DEFAULT_ADDITIVE = "0000";
+    const DEFAULT_ADDITIVE = Convert.utf8ToUint8("0000");
     const VERSION = "010";
     const HEADER_SIZE = 24;
     const CHUNK_PAYLOAD_MAX_SIZE = 1000;
@@ -43,7 +49,7 @@ export namespace MetalService {
     };
 
     // Use sha3_256 of first 64 bits
-    export const generateHash = (input: Buffer): UInt64 => {
+    export const generateChecksum = (input: Buffer): UInt64 => {
         if (input.length === 0) {
             throw Error("Input must not be empty");
         }
@@ -53,10 +59,12 @@ export namespace MetalService {
     };
 
     export const generateRandomAdditive = () => {
-        return Math.floor(Math.random() * 1679616).toString(36).toUpperCase();
+        return Convert.utf8ToUint8(
+            `000${Math.floor(Math.random() * 1679616).toString(36).toUpperCase()}`.slice(-4)
+        );
     };
 
-    // Return 44 bytes base58 string
+    // Return 46 bytes base58 string
     export const calculateMetalId = (
         type: MetadataType,
         sourceAddress: Address,
@@ -64,9 +72,15 @@ export namespace MetalService {
         targetId: undefined | MosaicId | NamespaceId,
         scopedMetadataKey: UInt64,
     ) => {
-        const hashBytes = Convert.hexToUint8(
-            METAL_ID_HEADER_HEX + SymbolService.calculateMetadataHash(type, sourceAddress, targetAddress, targetId, scopedMetadataKey)
+        const compositeHash = SymbolService.calculateMetadataHash(
+            type,
+            sourceAddress,
+            targetAddress,
+            targetId,
+            scopedMetadataKey
         );
+        console.log(compositeHash);
+        const hashBytes = Convert.hexToUint8(METAL_ID_HEADER_HEX + compositeHash);
         return bs58.encode(hashBytes);
     };
 
@@ -75,7 +89,7 @@ export namespace MetalService {
         metalId: string
     ) => {
         const hashHex = Convert.uint8ToHex(
-            bs58.decode(`${metalId}`)
+            bs58.decode(metalId)
         );
         if (!hashHex.startsWith(METAL_ID_HEADER_HEX)) {
             throw Error("Invalid metal ID.");
@@ -103,10 +117,11 @@ export namespace MetalService {
     const packChunkBytes = (
         magic: Magic,
         version: string,
-        additive: string,
+        additive: Uint8Array,
         nextKey: UInt64,
         chunkBytes: Uint8Array,
     ) => {
+        assert(additive.length >= 4);
         // Append next scoped key into chunk's tail (except end of line)
         const value = new Uint8Array(chunkBytes.length + 8 + (nextKey ? 16 : 0));
         assert(value.length <= 1024);
@@ -114,7 +129,7 @@ export namespace MetalService {
         // Header (24 bytes)
         value.set(Convert.utf8ToUint8(magic.substring(0, 1)));
         value.set(Convert.utf8ToUint8(version.substring(0, 3)), 1);
-        value.set(Convert.utf8ToUint8(additive.substring(0, 4)), 4);
+        value.set(additive.subarray(0, 4), 4);
         value.set(Convert.utf8ToUint8(nextKey.toHex()), 8);
 
         // Payload (max 1000 bytes)
@@ -136,16 +151,16 @@ export namespace MetalService {
         targetAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Buffer,
-        additive: string = DEFAULT_ADDITIVE,
+        additive: Uint8Array = DEFAULT_ADDITIVE,
         metadataPool?: Metadata[],
-    ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: string }> => {
+    ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: Uint8Array }> => {
         const lookupTable = createMetadataLookupTable(metadataPool);
         const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
         const txs = new Array<InnerTransaction>();
         const keys = new Array<string>();
 
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
-        let nextKey: UInt64 = generateHash(payload);
+        let nextKey: UInt64 = generateChecksum(payload);
         for (let i = chunks - 1; i >= 0; i--) {
             const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
             const chunkBytes = payloadBase64Bytes.subarray(
@@ -253,11 +268,11 @@ export namespace MetalService {
     };
 
     // Calculate metadata key from payload. "additive" must be specified when using non-default one.
-    export const calculateMetadataKey = (payload: Buffer, additive: string = DEFAULT_ADDITIVE) => {
+    export const calculateMetadataKey = (payload: Buffer, additive: Uint8Array = DEFAULT_ADDITIVE) => {
         const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
 
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
-        let nextKey: UInt64 = generateHash(payload);
+        let nextKey: UInt64 = generateChecksum(payload);
         for (let i = chunks - 1; i >= 0; i--) {
             const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
             const chunkBytes = payloadBase64Bytes.subarray(i * CHUNK_PAYLOAD_MAX_SIZE, (i + 1) * CHUNK_PAYLOAD_MAX_SIZE);
@@ -268,7 +283,7 @@ export namespace MetalService {
     };
     
     // Verify metadata key with calculated one. "additive" must be specified when using non-default one.
-    export const verifyMetadataKey = (key: UInt64, payload: Buffer, additive: string = DEFAULT_ADDITIVE) =>
+    export const verifyMetadataKey = (key: UInt64, payload: Buffer, additive: Uint8Array = DEFAULT_ADDITIVE) =>
         calculateMetadataKey(payload, additive).equals(key);
 
     // Scrap metal via removing metadata
@@ -338,7 +353,7 @@ export namespace MetalService {
         targetAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Buffer,
-        additive: string = DEFAULT_ADDITIVE,
+        additive: Uint8Array = DEFAULT_ADDITIVE,
         metadataPool?: Metadata[],
     ) => {
         const lookupTable = createMetadataLookupTable(
@@ -350,7 +365,7 @@ export namespace MetalService {
         const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
         const txs = new Array<InnerTransaction>();
-        let nextKey: UInt64 = generateHash(payload);
+        let nextKey: UInt64 = generateChecksum(payload);
 
         for (let i = chunks - 1; i >= 0; i--) {
             const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
@@ -499,7 +514,7 @@ export namespace MetalService {
     };
 
     export const validateBatch = (
-        batch: SignedAggregateTx,
+        batch: SymbolService.SignedAggregateTx,
         type: MetadataType,
         sourceAddress: Address,
         targetAddress: Address,
@@ -508,7 +523,6 @@ export namespace MetalService {
         metadataKeys: string[],
     ) => {
         const tx = TransactionMapping.createFromPayload(batch.signedTx.payload) as AggregateTransaction;
-
         if (tx.type !== TransactionType.AGGREGATE_COMPLETE) {
             console.error(`TX validation error: Wrong transaction type.`);
             return false;

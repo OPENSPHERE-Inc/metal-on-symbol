@@ -7,7 +7,8 @@ import {
     CosignatureSignedTransaction,
     CosignatureTransaction,
     Deadline,
-    HashLockTransaction, IListener,
+    HashLockTransaction,
+    IListener,
     InnerTransaction,
     KeyGenerator,
     Metadata,
@@ -29,11 +30,8 @@ import {
     PublicAccount,
     RepositoryFactoryHttp,
     SignedTransaction,
-    TransactionAnnounceResponse,
     TransactionFees,
     TransactionGroup,
-    TransactionMapping,
-    TransactionService,
     UInt64
 } from "symbol-sdk";
 import assert from "assert";
@@ -49,22 +47,24 @@ export namespace SymbolService {
         NamespaceMetadataTransaction;
 
     interface SymbolServiceConfig {
-        emit_mode?: boolean;
         logging?: boolean;
         node_url: string;
         fee_ratio: number;
         deadline_hours: number;
+        batch_size: number;
+        max_parallels: number;
     }
 
     let config: SymbolServiceConfig = {
-        emit_mode: true,
         logging: true,
         node_url: "",
         fee_ratio: 0.0,
         deadline_hours: 2,
+        batch_size: 100,
+        max_parallels: 10,
     };
 
-    export const init = (cfg: SymbolServiceConfig) => {
+    export const init = (cfg: Partial<SymbolServiceConfig>) => {
         config = { ...config, ...cfg };
     };
 
@@ -92,12 +92,6 @@ export namespace SymbolService {
         log: (message?: any, ...args: any[]) => config.logging && console.log(message, ...args),
         debug: (message?: any, ...args: any[]) => config.logging && console.debug(message, ...args),
     };
-
-    const test = {
-        confirmedTxPayloads: new Map<string, string>(),
-        partialTxPayloads: new Map<string, string>(),
-    };
-
 
     export const getNetwork = async (nodeUrl: string = config.node_url) => {
         if (!network || nodeUrl !== network.nodeUrl || moment(network.updated_at).add(5, "minutes").isSameOrBefore()) {
@@ -136,12 +130,6 @@ export namespace SymbolService {
     export const generateKey = (key: string) => KeyGenerator.generateUInt64Key(key);
 
     const announceTx = async (tx: SignedTransaction) => {
-        if (!config.emit_mode) {
-            logger.debug(`Emulate announcing tx: ${tx.hash}`);
-            test.confirmedTxPayloads.set(tx.hash, tx.payload);
-            return new TransactionAnnounceResponse();
-        }
-
         logger.debug(`Announcing tx: ${tx.hash}`);
         const { repositoryFactory } = await getNetwork();
         return firstValueFrom(repositoryFactory.createTransactionRepository()
@@ -149,16 +137,11 @@ export namespace SymbolService {
     };
 
     // Returning the promise that will wait for adding aggregate bonded transactions.
+    /*
     const announceTxWithHashLock = async (
         hashLockTx: SignedTransaction,
         tx: SignedTransaction,
     ) => {
-        if (!config.emit_mode) {
-            logger.debug(`Emulate announcing tx: ${tx.hash}`);
-            test.partialTxPayloads.set(tx.hash, tx.payload);
-            return AggregateTransaction.createFromPayload(tx.payload);
-        }
-
         const { repositoryFactory } = await getNetwork();
 
         const listener = repositoryFactory.createListener();
@@ -178,6 +161,7 @@ export namespace SymbolService {
                 listener.close()
             });
     };
+     */
 
     const createSignedTxWithCosignatures = async (
         signedTx: SignedTransaction,
@@ -383,32 +367,22 @@ export namespace SymbolService {
 
     // Returns undefined if tx not found.
     export const getConfirmedTx = async (txHash: string) => {
-        if (!config.emit_mode) {
-            const txPayload = test.confirmedTxPayloads.get(txHash);
-            return txPayload ? TransactionMapping.createFromPayload(txPayload) : undefined;
-        }
-
         const { repositoryFactory } = await getNetwork();
         const txHttp = repositoryFactory.createTransactionRepository();
 
         return firstValueFrom(txHttp.getTransaction(txHash, TransactionGroup.Confirmed))
             .then((tx) => tx.transactionInfo?.hash)
-            .catch((e) => undefined);
+            .catch(() => undefined);
     };
 
     // Returns undefined if tx not found.
     export const getPartialTx = async (txHash: string) => {
-        if (!config.emit_mode) {
-            const txPayload = test.partialTxPayloads.get(txHash);
-            return txPayload ? TransactionMapping.createFromPayload(txPayload) : undefined;
-        }
-
         const { repositoryFactory } = await getNetwork();
         const txHttp = repositoryFactory.createTransactionRepository();
 
         return firstValueFrom(txHttp.getTransaction(txHash, TransactionGroup.Partial))
             .then((tx) => tx.transactionInfo?.hash)
-            .catch((e) => undefined);
+            .catch(() => undefined);
     };
 
     const listenTxs = async (
@@ -440,7 +414,7 @@ export namespace SymbolService {
                     subscriptions.push(
                         listener.confirmed(account.address, txHash)
                             .subscribe({
-                                next: async (tx) => {
+                                next: async () => {
                                     resolve({ txHash, error: undefined });
                                 },
                                 error: (e) => {
@@ -453,7 +427,7 @@ export namespace SymbolService {
                     subscriptions.push(
                         listener.aggregateBondedAdded(account.address, txHash, true)
                             .subscribe({
-                                next: async (tx) => {
+                                next: async () => {
                                     resolve({ txHash, error: undefined });
                                 },
                                 error: (e) => {
@@ -464,7 +438,7 @@ export namespace SymbolService {
                 }
 
                 const status = await firstValueFrom(statusHttp.getTransactionStatus(txHash))
-                    .catch((e) => undefined);
+                    .catch(() => undefined);
                 if (status?.code?.startsWith("Failure")) {
                     // Transaction Failed
                     const error = `Received error status: ${status.code}`;
@@ -493,10 +467,6 @@ export namespace SymbolService {
         txHashes?: string | string[],
         group: "confirmed" | "partial" | "all" = "confirmed",
     ) => {
-        if (!config.emit_mode) {
-            return Promise.resolve([]);
-        }
-
         const { repositoryFactory } = await getNetwork();
         const listener = repositoryFactory.createListener();
         await listener.open();
@@ -550,13 +520,13 @@ export namespace SymbolService {
         return metadataPool;
     };
 
-    // Returns: Array of signed aggregate complete TX and cosignatures (when cosigners are specified)
+    // Return: Array of signed aggregate complete TX and cosignatures (when cosigners are specified)
     export const buildSignedAggregateCompleteTxBatches = async (
         txs: InnerTransaction[],
         signer: Account,
         cosigners?: Account[],
-        feeRatio: number = 0,
-        batchSize: number = 100,
+        feeRatio: number = config.fee_ratio,
+        batchSize: number = config.batch_size,
     ) => {
         const { networkGenerationHash } = await getNetwork();
         const feeMultiplier = await getFeeMultiplier(feeRatio);
@@ -593,7 +563,7 @@ export namespace SymbolService {
     export const executeBatches = async (
         batches: SignedAggregateTx[],
         signer: Account | PublicAccount,
-        maxParallel: number = 10
+        maxParallel: number = config.max_parallels,
     ) => {
         const txPool = [ ...batches ];
         const workers = new Array<Promise<{txHash: string, error?: string}[] | undefined>>();
@@ -654,4 +624,11 @@ export namespace SymbolService {
         return firstValueFrom(metadataHttp.getMetadata(compositeHash));
     };
 
+    export const createNamespaceId = (value: string) => {
+        if (value.match(/^[0-9A-F]{16}$/)) {
+            return new NamespaceId(UInt64.fromHex(value).toDTO());
+        } else {
+            return new NamespaceId(value);
+        }
+    };
 }
