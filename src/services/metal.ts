@@ -79,7 +79,6 @@ export namespace MetalService {
             targetId,
             scopedMetadataKey
         );
-        console.log(compositeHash);
         const hashBytes = Convert.hexToUint8(METAL_ID_HEADER_HEX + compositeHash);
         return bs58.encode(hashBytes);
     };

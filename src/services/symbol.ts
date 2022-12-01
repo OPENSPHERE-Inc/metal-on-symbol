@@ -94,8 +94,7 @@ export namespace SymbolService {
     };
 
     export const getNetwork = async (nodeUrl: string = config.node_url) => {
-        if (!network || nodeUrl !== network.nodeUrl || moment(network.updated_at).add(5, "minutes").isSameOrBefore()) {
-            logger.debug(`Retrieving network properties by node: ${nodeUrl}`);
+        if (!network || nodeUrl !== network.nodeUrl/* || moment(network.updated_at).add(5, "minutes").isSameOrBefore()*/) {
             const repositoryFactory = new RepositoryFactoryHttp(nodeUrl);
             const epochAdjustment = await firstValueFrom(repositoryFactory.getEpochAdjustment());
             const networkGenerationHash = await firstValueFrom(repositoryFactory.getGenerationHash());
@@ -130,7 +129,7 @@ export namespace SymbolService {
     export const generateKey = (key: string) => KeyGenerator.generateUInt64Key(key);
 
     const announceTx = async (tx: SignedTransaction) => {
-        logger.debug(`Announcing tx: ${tx.hash}`);
+        logger.debug(`Announcing TX: ${tx.hash}`);
         const { repositoryFactory } = await getNetwork();
         return firstValueFrom(repositoryFactory.createTransactionRepository()
             .announce(tx));

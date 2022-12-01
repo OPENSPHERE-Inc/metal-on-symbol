@@ -68,6 +68,7 @@ const scrapMetal = async (
         );
     }
 
+    console.log(`Scanning on-chain chunks of the metal ${metalId}`);
     const txs = (payload)
         ? await MetalService.createDestroyTxs(
             type,

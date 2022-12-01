@@ -128,7 +128,15 @@ set NODE_URL=https://hogehoge.co.jp:3001
 export NODE_URL=https://hogehoge.co.jp:3001
 ```
 
-### 2.2. Forge（アップロード）
+### 2.2. （だいたい）共通のオプション
+
+| オプション                 | 機能                                                                                                            |
+|-----------------------|---------------------------------------------------------------------------------------------------------------|
+| `--node-url node_url` | （全共通）Symbol ノードの URL を指定します。環境変数 `NODE_URL` より優先されます。                                                         |
+| `--parallels 10`      | （Forge/Scrap/Reinforce）トランザクションアナウンス（実行）の並列数。増やすとより効率よく処理されますが、ノードから弾かれる可能性が高まります。ノードから切られる場合は、逆に数値を減らしてください。 |
+| `--fee-ratio 0.0`     | （Forge/Scrap/Reinforce）0.0 から 1.0 の間の数値で手数料率を指定します。0.0 はウォレットでいうところの「最遅」1.0 は「早い」です。                          |
+
+### 2.3. Forge（アップロード）
 
 > `metal forge -h` で簡単なコマンドラインヘルプを参照できます。
 
@@ -186,9 +194,9 @@ metal forge  -n namespace.name  test_data/e92m3.jpg
 尚、表示される `Metal ID` は本番と同じものです。
 
 ```shell
-metal forge  -e  test_data/e92m3.jpg
-metal forge  -e  -m mosaic_id  test_data/e92m3.jpg
-metal forge  -e  -n namespace.name  test_data/e92m3.jpg
+metal forge  -e  test_data/e92m3.jpg                     # Account Metal
+metal forge  -e  -m mosaic_id  test_data/e92m3.jpg       # Mosaic Metal
+metal forge  -e  -n namespace.name  test_data/e92m3.jpg  # Namespace Metal
 ```
 
 ##### プロンプト無しでトランザクション実行
@@ -196,12 +204,22 @@ metal forge  -e  -n namespace.name  test_data/e92m3.jpg
 確認のプロンプトを表示させたくない場合は `-f` (Force) オプションを付けてください。
 
 ```shell
-metal forge  -f  test_data/e92m3.jpg
-metal forge  -f  -m mosaic_id  test_data/e92m3.jpg
-metal forge  -f  -n namespace.name  test_data/e92m3.jpg
+metal forge  -f  test_data/e92m3.jpg                     # Account Metal
+metal forge  -f  -m mosaic_id  test_data/e92m3.jpg       # Mosaic Metal
+metal forge  -f  -n namespace.name  test_data/e92m3.jpg  # Namespace Metal
 ```
 
-### 2.3. Fetch（ダウンロード）
+##### 差分だけ（途中で失敗した場合）
+
+`-r` (Recover) オプションを使うと、差分のチャンクだけアナウンスして Metal を補完することができます。
+
+```shell
+metal forge  -r  test_data/e92m3.jpg                     # Account Metal
+metal forge  -r  -m mosaic_id  test_data/e92m3.jpg       # Mosaic Metal
+metal forge  -r  -n namespace.name  test_data/e92m3.jpg  # Namespace Metal
+```
+
+### 2.4. Fetch（ダウンロード）
 
 > `metal fetch -h` で簡単なコマンドラインヘルプを参照できます。
 
@@ -221,7 +239,7 @@ metal fetch  -o output_file  metal_id
 
 上記の `output_file` に出力ファイルパスを入れてください。
 
-### 2.4. Verify（照合）
+### 2.5. Verify（照合）
 
 > `metal verify -h` で簡単なコマンドラインヘルプを参照できます。
 
@@ -233,7 +251,7 @@ metal verify [options] metal_id input_file
 
 エラーなく `Verify succeeded` と表示されれば成功です。
 
-### 2.5. Scrap（廃棄）
+### 2.6. Scrap（廃棄）
 
 > `metal scrap -h` で簡単なコマンドラインヘルプを参照できます。
 
@@ -254,7 +272,33 @@ metal scrap [options] metal_id
 
 同じ `metal_id` で Fetch して、取得できないことを確認してください。
 
-### 2.6. Reinforce（マルチシグの連署）
+#### その他のオプション例
+
+##### 中途半端に壊れた Metal を Scrap にする
+
+中途半端に壊れてチャンクが辿れなくなった Metal を完全に Scrap にしたい場合は、
+`-i input_path` オプションを使用して元ファイル指定してください。
+
+この場合、metal_id はファイルから計算できるので、指定する必要はありません。
+
+```shell
+metal scrap  -i test_data/e92m3.jpg                     # Account Metal
+metal scrap  -i test_data/e92m3.jpg  -m mosaic_id       # Mosaic Metal
+metal scrap  -i test_data/e92m3.jpg  -n namespace_name  # Namespace Metal
+```
+
+**Additiveが添加された Metal の場合**
+
+Forge する際、デフォルト（0000）とは異なる Additive が添加されている場合は、
+以下のように `--additive` オプションを指定してください。
+
+```shell
+metal scrap  -i test_data/e92m3.jpg  --additive ABCD                     # Account Metal
+metal scrap  -i test_data/e92m3.jpg  --additive ABCD  -m mosaic_id       # Mosaic Metal
+metal scrap  -i test_data/e92m3.jpg  --additive ABCD  -n namespace_name  # Namespace Metal
+```
+
+### 2.7. Reinforce（マルチシグの連署）
 
 Forge または Scrap する際に、マルチシグアカウントからの実行や、Metal の発行元（ソース）と作成先（ターゲット）が異なる場合、
 Reinforce を使って連署を行います。

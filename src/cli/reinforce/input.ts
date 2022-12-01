@@ -172,7 +172,7 @@ export namespace ReinforceInput {
             `  --node-url node_url    Specify network node_url\n` +
             `  -o output_file.json,\n` +
             `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
-            `  --parallels value      Max parallels announcing TXs (default:10)\n` +
+            `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify cosigner's private_key (Same as [--cosigner])\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
