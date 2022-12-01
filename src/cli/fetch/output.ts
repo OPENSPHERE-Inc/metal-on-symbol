@@ -24,9 +24,9 @@ export namespace FetchOutput {
             `  Source Account Address: ${output.sourceAddress.plain()}\n` +
             `  Target Account Address: ${output.targetAddress.plain()}\n` +
             (output.mosaicId ? `  Mosaic ID: ${output.mosaicId.toHex()}\n` : "") +
-            (output.namespaceId ? `  Namespace ID: ${output.namespaceId.fullName} (${output.namespaceId.toHex()})\n` : "") +
+            (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
-            `  Data size: ${output.payload.length} Bytes\n` +
+            `  Data size: ${output.payload.length} bytes\n` +
             `  Network Type: ${output.networkType}\n`
         );
     };

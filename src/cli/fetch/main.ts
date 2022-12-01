@@ -8,7 +8,7 @@ import {SymbolService} from "../../services/symbol";
 
 
 export const main = async (argv: string[]) => {
-    console.log(`Fetch Metal CLI version ${VERSION}\n`);
+    console.log(`Metal Fetch CLI version ${VERSION}\n`);
 
     let input: FetchInput.CommandlineInput;
     try {
@@ -52,7 +52,7 @@ export const main = async (argv: string[]) => {
             type === MetadataType.Mosaic
                 ? `mosaic:${targetId?.toHex()}`
                 : type === MetadataType.Namespace
-                    ? `namespace:${(targetId as NamespaceId)?.fullName}`
+                    ? `namespace:${targetId?.toHex()}`
                     : `account:${targetAddress.plain()}`
         }`);
         payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
@@ -71,12 +71,10 @@ export const main = async (argv: string[]) => {
         key,
         metalId,
     };
-    FetchOutput.writeOutputFile(output, input.outputPath || metalId);
+    if (!input.noSave) {
+        FetchOutput.writeOutputFile(output, input.outputPath || metalId);
+    }
     FetchOutput.printOutputSummary(output);
-};
 
-main(process.argv.slice(2))
-    .catch((e) => {
-        console.error(e.toString());
-        process.exit(1);
-    });
+    return output;
+};
