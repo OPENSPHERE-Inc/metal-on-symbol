@@ -5,7 +5,7 @@ import {
     InnerTransaction,
     MetadataType,
     MosaicId,
-    NamespaceId,
+    NamespaceId, PublicAccount,
     UInt64
 } from "symbol-sdk";
 import {toXYM} from "../libs/utils";
@@ -20,15 +20,46 @@ export const isValueOption = (token?: string) => !token?.startsWith("-");
 
 export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
     SymbolService.init({
-        emit_mode: true,
         node_url: nodeUrl,
         fee_ratio: feeRatio,
-        logging: false,
+        logging: true,
         deadline_hours: 6,
     });
 
     const { networkType } = await SymbolService.getNetwork();
     console.log(`Using node url: ${nodeUrl} (network_type:${networkType})`);
+};
+
+export const designateCosigners = (
+    signerAccount: PublicAccount,
+    sourceAccount: PublicAccount,
+    targetAccount: PublicAccount,
+    sourceSigner?: Account,
+    targetSigner?: Account,
+    cosigners?: Account[]
+) => {
+    const designatedCosigners = new Array<Account>(...(cosigners || []));
+    if (!signerAccount.equals(sourceAccount) && sourceSigner) {
+        designatedCosigners.push(sourceSigner);
+    }
+    if (!signerAccount.equals(targetAccount) && targetSigner) {
+        designatedCosigners.push(targetSigner);
+    }
+
+    const hasEnoughCosigners = (
+        signerAccount.equals(sourceAccount) ||
+        !!sourceSigner ||
+        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === sourceAccount.publicKey)
+    ) && (
+        signerAccount.equals(targetAccount) ||
+        !!targetSigner ||
+        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === targetAccount.publicKey)
+    );
+
+    return {
+        hasEnoughCosigners,
+        designatedCosigners,
+    };
 };
 
 export const buildAndExecuteBatches = async (
@@ -93,12 +124,12 @@ export const doVerify = async (
     key: UInt64,
     targetId?: MosaicId | NamespaceId,
 ) => {
-    console.log(`Verifying metal key:${key.toHex()},source:${sourceAddress.plain()},${
+    console.log(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
         type === MetadataType.Mosaic
-            ? `mosaic:${targetId?.toHex()}`
+            ? `Mosaic:${targetId?.toHex()}`
             : type === MetadataType.Namespace
-                ? `namespace:${(targetId as NamespaceId)?.fullName}`
-                : `account:${targetAddress.plain()}`
+                ? `Namespace:${targetId?.toHex()}`
+                : `Account:${targetAddress.plain()}`
     }`);
     const { mismatches, maxLength } = await MetalService.verify(
         payload,
