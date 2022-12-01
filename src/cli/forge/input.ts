@@ -282,6 +282,7 @@ export namespace ForgeInput {
             `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
             `  --parallels value      Max parallels announcing TXs (default:10)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
+            `  -r, --recovery         Forge only lost chunk for recovery\n` +
             `  -s public_key,\n` +
             `  --src-pub-key value    Specify source_account via public_key\n` +
             `  --src-priv-key value   Specify source_account via private_key\n` +
