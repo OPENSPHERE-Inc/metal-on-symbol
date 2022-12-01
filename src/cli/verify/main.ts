@@ -4,10 +4,13 @@ import fs from "fs";
 import {doVerify} from "../common";
 import {VERSION} from "./version";
 import {MetalService} from "../../services/metal";
+import {VerifyOutput} from "./output";
+import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
+import {SymbolService} from "../../services/symbol";
 
 
 export const main = async (argv: string[]) => {
-    console.log(`Verify Metal CLI version ${VERSION}\n`);
+    console.log(`Metal Verify CLI version ${VERSION}\n`);
 
     let input: VerifyInput.CommandlineInput;
     try {
@@ -32,13 +35,16 @@ export const main = async (argv: string[]) => {
     let targetAddress = input.targetAddress || input.signer?.address;
     let type = input.type;
     let key = input.key;
+    let targetId = [undefined, input.mosaicId, input.namespaceId][type];
 
     if (input.metalId) {
+        // Obtain type, sourceAddress, targetAddress, key and targetId here.
         const metadataEntry = (await MetalService.getFirstChunk(input.metalId)).metadataEntry;
         type = metadataEntry.metadataType
         sourceAddress = metadataEntry.sourceAddress;
         targetAddress = metadataEntry.targetAddress;
         key = metadataEntry.scopedMetadataKey;
+        targetId = metadataEntry.targetId;
     }
 
     assert(type !== undefined);
@@ -46,28 +52,30 @@ export const main = async (argv: string[]) => {
     assert(sourceAddress);
     assert(targetAddress);
 
-    if (input.metalId) {
-        console.log(`Verifying ${input.metalId} with ${input.filePath}`);
-    } else {
-        console.log(
-            `Verifying ${key} (source:${sourceAddress?.plain()}, target:${
-                [targetAddress?.plain(), input.mosaicId, input.namespaceId][type]
-            }) with ${input.filePath}`
-        );
-    }
-
     await doVerify(
         payload,
         type,
         sourceAddress,
         targetAddress,
         key,
-        [undefined, input.mosaicId, input.namespaceId][type],
+        targetId,
     );
-};
 
-main(process.argv.slice(2))
-    .catch((e) => {
-        console.error(e.toString());
-        process.exit(1);
-    });
+    const { networkType } = await SymbolService.getNetwork();
+    const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
+    const output: VerifyOutput.CommandlineOutput = {
+        type,
+        networkType,
+        payload,
+        sourceAddress,
+        targetAddress,
+        ...(type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
+        ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
+        key,
+        metalId,
+    };
+
+    VerifyOutput.printOutputSummary(output);
+
+    return output;
+};
