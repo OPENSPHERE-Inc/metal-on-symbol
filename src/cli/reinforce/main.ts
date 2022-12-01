@@ -33,13 +33,14 @@ const extractMetadataKeys = async (
     payload: Buffer,
     additive?: string
 ) => {
+    const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
     const { txs } = await MetalService.createForgeTxs(
         type,
         sourceAccount,
         targetAccount,
         targetId,
         payload,
-        additive,
+        additiveBytes,
     );
     return txs.map((tx) => (tx as SymbolService.MetadataTransaction).scopedMetadataKey.toHex());
 };
@@ -84,7 +85,7 @@ const reinforceMetal = async (
         throw Error(`Wrong network type ${intermediateTxs.networkType}`);
     }
 
-    const signers = [
+    const cosigners = [
         ...(input.signer ? [ input.signer ] : []),
         ...(input.cosigners || []),
     ];
@@ -95,7 +96,7 @@ const reinforceMetal = async (
     const targetId = type === MetadataType.Mosaic && intermediateTxs.mosaicId
         ? new MosaicId(intermediateTxs.mosaicId)
         : type === MetadataType.Namespace && intermediateTxs.namespaceId
-            ? new NamespaceId(intermediateTxs.namespaceId)
+            ? SymbolService.createNamespaceId(intermediateTxs.namespaceId)
             : undefined;
 
     // Construct reference txs and extract metadata keys.
@@ -129,15 +130,17 @@ const reinforceMetal = async (
 
     // Add cosignatures of new cosigners
     batches.forEach((batch) => {
-        signers.forEach((signer) => {
-            batch.cosignatures.push(CosignatureTransaction.signTransactionHash(signer, batch.signedTx.hash));
-        });
+        batch.cosignatures.push(
+            ...cosigners.map(
+                (cosigner) => CosignatureTransaction.signTransactionHash(cosigner, batch.signedTx.hash)
+            )
+        );
     });
 
     if (input.announce && !input.outputPath) {
         console.log(
             `Announcing ${batches.length} aggregate TXs. ` +
-            `TX fee ${toXYM(intermediateTxs.totalFee)} XYM will be paid by forge originator.`
+            `TX fee ${toXYM(intermediateTxs.totalFee)} XYM will be paid by ${intermediateTxs.command} originator.`
         );
         if (!input.force) {
             const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "Y");
@@ -175,11 +178,12 @@ const reinforceMetal = async (
         command: intermediateTxs.command,
         type,
         createdAt: new Date(intermediateTxs.createdAt),
+        payload,
     };
 };
 
 export const main = async (argv: string[]) => {
-    console.log(`Reinforce Metal CLI version ${VERSION}\n`);
+    console.log(`Metal Reinforce CLI version ${VERSION}\n`);
 
     let input: ReinforceInput.CommandlineInput;
     try {
@@ -209,10 +213,6 @@ export const main = async (argv: string[]) => {
         writeIntermediateFile(output, input.outputPath);
     }
     ReinforceOutput.printOutputSummary(output);
-};
 
-main(process.argv.slice(2))
-    .catch((e) => {
-        console.error(e.toString());
-        process.exit(1);
-    });
+    return output;
+};

@@ -8,6 +8,7 @@ export namespace ReinforceOutput {
 
     export interface CommandlineOutput extends IntermediateOutput {
         status: "reinforced" | "estimated";
+        payload: Buffer;
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
@@ -21,9 +22,10 @@ export namespace ReinforceOutput {
             `  Source Account Address: ${output.sourceAccount.address.plain()}\n` +
             `  Target Account Address: ${output.targetAccount.address.plain()}\n` +
             (output.mosaicId ? `  Mosaic ID: ${output.mosaicId.toHex()}\n` : "") +
-            (output.namespaceId ? `  Namespace ID: ${output.namespaceId.fullName} (${output.namespaceId.toHex()})\n` : "") +
+            (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
             `  Additive: ${output.additive}\n` +
+            `  Data size: ${output.payload.length}\n` +
             `  # of Aggregate TXs: ${output.batches.length}\n` +
             `  TX Fee: ${toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
             `  Signer Address: ${output.signerAccount.address.plain()}\n` +

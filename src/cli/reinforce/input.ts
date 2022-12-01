@@ -49,9 +49,9 @@ export namespace ReinforceInput {
                 case "--cosigner": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has cosigner's private key as a value.`);
+                        throw Error(`${token} must has cosigner's private_key as a value.`);
                     }
-                    input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), ...value ];
+                    input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), value ];
                     break;
                 }
 
@@ -69,7 +69,7 @@ export namespace ReinforceInput {
                 case "--node-url": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has node url as a value.`);
+                        throw Error(`${value} must has node_url as a value.`);
                     }
 
                     input.nodeUrl = value;
@@ -80,7 +80,7 @@ export namespace ReinforceInput {
                 case "--out": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has output file path as a value.`);
+                        throw Error(`${token} must has output_path as a value.`);
                     }
                     input.outputPath = value;
                     break;
@@ -98,7 +98,7 @@ export namespace ReinforceInput {
                 case "--priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has signer's private key as a value.`);
+                        throw Error(`${token} must has signer's private_key as a value.`);
                     }
                     input.signerPrivateKey = value;
                     break;
@@ -147,11 +147,11 @@ export namespace ReinforceInput {
 
         const { networkType } = await SymbolService.getNetwork();
 
-        if (!input.signerPrivateKey) {
+        if (!input.signerPrivateKey && !input.force) {
             input.signerPrivateKey = prompt("Cosigner Private Key [Enter:skip]? ");
-            if (input.signerPrivateKey) {
-                input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-            }
+        }
+        if (input.signerPrivateKey) {
+            input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
         }
 
         input.cosigners = input.cosignerPrivateKeys?.map(
@@ -166,18 +166,17 @@ export namespace ReinforceInput {
             `Usage: reinforce [options] intermediate_txs.json input_file\n` +
             `Options:\n` +
             `  -a, --announce         Announce completely signed TXs\n` +
-            `  --cosigner private_key Specify multisig cosigner's private key (You can set multiple)\n` +
-            `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
+            `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  -f, --force            Do not show prompt before announcing\n` +
             `  -h, --help             Show command line usage\n` +
-            `  --node-url node_url    Specify network node url\n` +
+            `  --node-url node_url    Specify network node_url\n` +
             `  -o output_file.json,\n` +
-            `  --out value            Specify output JSON file path that will contain serialized TXs\n` +
+            `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
             `  --parallels value      Max parallels announcing TXs (default:10)\n` +
-            `  --priv-key value       Specify signer's private key\n` +
+            `  --priv-key value       Specify cosigner's private_key (Same as [--cosigner])\n` +
             `Environment Variables:\n` +
-            `  NODE_URL               Specify network node url\n` +
-            `  SIGNER_PRIVATE_KEY     Specify signer's private key`
+            `  NODE_URL               Specify network node_url\n` +
+            `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
     };
 
