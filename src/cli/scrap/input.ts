@@ -1,8 +1,9 @@
-import {MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
+import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {initCliEnv, isValueOption} from "../common";
 import fs from "fs";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../account";
+import {SymbolService} from "../../services/symbol";
 
 
 export namespace ScrapInput {
@@ -22,6 +23,9 @@ export namespace ScrapInput {
         nodeUrl?: string,
         outputPath?: string;
         type?: MetadataType;
+
+        // Filled by validator
+        additiveBytes?: Uint8Array;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -42,7 +46,7 @@ export namespace ScrapInput {
                 case "--additive": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has additive code (4 digits) as a value.`);
+                        throw Error(`${token} must has additive (4 ascii chars) as a value.`);
                     }
                     input.additive = value;
                     break;
@@ -51,9 +55,9 @@ export namespace ScrapInput {
                 case "--cosigner": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has cosigner's private key as a value.`);
+                        throw Error(`${token} must has cosigner's private_key as a value.`);
                     }
-                    input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), ...value ];
+                    input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), value ];
                     break;
                 }
 
@@ -66,7 +70,7 @@ export namespace ScrapInput {
                 case "--fee-ratio": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has fee ratio (decimal) as a value.`);
+                        throw Error(`${token} must has fee_ratio (decimal) as a value.`);
                     }
                     input.feeRatio = Number(value);
                     break;
@@ -87,7 +91,7 @@ export namespace ScrapInput {
                 case "--in": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has input file path as a value.`);
+                        throw Error(`${token} must has input_path as a value.`);
                     }
                     input.filePath = value;
                     break;
@@ -97,7 +101,7 @@ export namespace ScrapInput {
                 case "--key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has metal key (HEX) as a value.`);
+                        throw Error(`${token} must has metadata_key (HEX) as a value.`);
                     }
                     input.key = UInt64.fromHex(value);
                     break;
@@ -107,7 +111,7 @@ export namespace ScrapInput {
                 case "--mosaic": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has mosaic id as a value.`);
+                        throw Error(`${value} must has mosaic_id as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
                         throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
@@ -122,14 +126,14 @@ export namespace ScrapInput {
                 case "--namespace": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has namespace name as a value.`);
+                        throw Error(`${token} must has namespace_name as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
                         throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Namespace;
-                    input.namespaceId = new NamespaceId(value);
+                    input.namespaceId = SymbolService.createNamespaceId(value);
                     break;
                 }
 
@@ -137,7 +141,7 @@ export namespace ScrapInput {
                 case "--out": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has output file path as a value.`);
+                        throw Error(`${token} must has output_path as a value.`);
                     }
                     input.outputPath = value;
                     break;
@@ -155,7 +159,7 @@ export namespace ScrapInput {
                 case "--priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has signer's private key as a value.`);
+                        throw Error(`${token} must has signer's private_key as a value.`);
                     }
                     input.signerPrivateKey = value;
                     break;
@@ -164,7 +168,7 @@ export namespace ScrapInput {
                 case "--src-priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has source's private key as a value.`);
+                        throw Error(`${token} must has source's private_key as a value.`);
                     }
                     input.sourcePrivateKey = value;
                     break;
@@ -174,7 +178,7 @@ export namespace ScrapInput {
                 case "--src-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public key as a value.`);
+                        throw Error(`${token} must has public_key as a value.`);
                     }
                     input.sourcePublicKey = value;
                     break;
@@ -183,7 +187,7 @@ export namespace ScrapInput {
                 case "--tgt-priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has target's private key as a value.`);
+                        throw Error(`${token} must has target's private_key as a value.`);
                     }
                     input.targetPrivateKey = value;
                     break;
@@ -193,7 +197,7 @@ export namespace ScrapInput {
                 case "--tgt-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public key as a value.`);
+                        throw Error(`${token} must has public_key as a value.`);
                     }
                     input.targetPublicKey = value;
                     break;
@@ -232,46 +236,54 @@ export namespace ScrapInput {
             throw Error(`[--key value] or [metal_id] is required.`)
         }
 
-        return validateAccountsInput(input);
+        if (input.additive) {
+            if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
+                throw Error("[--additive value] must be 4 ascii chars.");
+            }
+            input.additiveBytes = Convert.utf8ToUint8(input.additive);
+        }
+
+        return validateAccountsInput(input, input.force);
     };
 
     export const printUsage = () => {
         console.error(
             `Usages:\n` +
-            `  Specify via metal ID   $ scrap [options] metal_id\n` +
-            `  Account metal          $ scrap [options] -k metadata_key\n` +
-            `  Mosaic metal           $ scrap [options] -m mosaic_id -k metadata_key\n` +
-            `  Namespace metal        $ scrap [options] -n namespace_name -k metadata_key\n` +
+            `  With Metal ID          $ scrap [options] metal_id\n` +
+            `  Account Metal          $ scrap [options] -k metadata_key\n` +
+            `  Mosaic Metal           $ scrap [options] -m mosaic_id -k metadata_key\n` +
+            `  Namespace Metal        $ scrap [options] -n namespace_name -k metadata_key\n` +
             `Options:\n` +
             `  --additive value       Specify additive with 4 ascii characters (e.g. "A123")\n` +
-            `  --cosigner private_key Specify multisig cosigner's private key (You can set multiple)\n` +
+            `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
-            `  --fee-ratio value      Specify fee ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
+            `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
             `                         Higher ratio may get fast TX but higher cost\n` +
             `  -f, --force            Do not show prompt before announcing\n` +
             `  -h, --help             Show command line usage\n` +
             `  -i input_file,\n` +
-            `  --in value             Specify input file path\n` +
+            `  --in value             Specify input_path\n` +
             `  -k metadata_key,\n` +
-            `  --key value            Specify metadata key\n` +
+            `  --key value            Specify metadata_key\n` +
             `  -m mosaic_id,\n` +
-            `  --mosaic value         Enable mosaic metal mode and specify mosaic ID\n` +
+            `  --mosaic value         Specify mosaic_id and demand Mosaic Metal\n` +
             `  -n namespace_name,\n` +
-            `  --namespace value      Enable namespace metal mode and specify namespace name\n` +
-            `  --node-url node_url    Specify network node url\n` +
+            `  --namespace value      Specify namespace_name and demand Namespace Metal\n` +
+            `  --node-url node_url    Specify network node_url\n` +
             `  -o output_file.json,\n` +
-            `  --out value            Specify output JSON file path that will contain serialized TXs\n` +
-            `  --priv-key value       Specify signer's private key\n` +
+            `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
+            `  --parallels value      Max parallels announcing TXs (default:10)\n` +
+            `  --priv-key value       Specify signer's private_key\n` +
             `  -s public_key,\n` +
-            `  --src-pub-key value    Specify source account via public key\n` +
-            `  --src-priv-key value   Specify source account via private key\n` +
+            `  --src-pub-key value    Specify source_account via public_key\n` +
+            `  --src-priv-key value   Specify source_account via private_key\n` +
             `  -t public_key,\n` +
-            `  --tgt-pub-key value    Specify target account via public key\n` +
-            `  --tgt-priv-key value   Specify target account via private key\n` +
+            `  --tgt-pub-key value    Specify target_account via public_key\n` +
+            `  --tgt-priv-key value   Specify target_account via private_key\n` +
             `Environment Variables:\n` +
-            `  FEE_RATIO              Specify fee ratio with decimal (0.0 ~ 1.0)\n` +
-            `  NODE_URL               Specify network node url\n` +
-            `  SIGNER_PRIVATE_KEY     Specify signer's private key`
+            `  FEE_RATIO              Specify fee_ratio with decimal (0.0 ~ 1.0)\n` +
+            `  NODE_URL               Specify network node_url\n` +
+            `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
     };
 

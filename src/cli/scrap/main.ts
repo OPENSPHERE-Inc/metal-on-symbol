@@ -6,7 +6,7 @@ import {ScrapOutput} from "./output";
 import {MetalService} from "../../services/metal";
 import {VERSION} from "./version";
 import {SymbolService} from "../../services/symbol";
-import {buildAndExecuteBatches} from "../common";
+import {buildAndExecuteBatches, designateCosigners} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 
 
@@ -51,7 +51,7 @@ const scrapMetal = async (
     } else {
         if (!key && payload) {
             // Obtain metadata key here
-            key = MetalService.calculateMetadataKey(payload, input.additive);
+            key = MetalService.calculateMetadataKey(payload, input.additiveBytes);
         }
 
         assert(type !== undefined);
@@ -75,7 +75,7 @@ const scrapMetal = async (
             targetAccount,
             targetId,
             payload,
-            input.additive,
+            input.additiveBytes,
         )
         : await MetalService.createScrapTxs(
             type,
@@ -88,22 +88,21 @@ const scrapMetal = async (
         throw Error(`Scrap metal TXs creation failed.`);
     }
 
-    // Not estimate mode. Cosigns are unnecessary: Announce TXs
-    const canAnnounce = !input.estimate && !input.outputPath && (
-        signerAccount.equals(sourceAccount) || !!input.sourceSigner
-    ) && (
-        signerAccount.equals(targetAccount) || !!input.targetSigner
+    const { designatedCosigners, hasEnoughCosigners } = designateCosigners(
+        signerAccount,
+        sourceAccount,
+        targetAccount,
+        input.sourceSigner,
+        input.targetSigner,
+        input.cosigners,
     );
+    const canAnnounce = hasEnoughCosigners && !input.estimate && !input.outputPath;
 
     const { batches, totalFee } = txs.length
         ? await buildAndExecuteBatches(
             txs,
             input.signer,
-            [
-                ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
-                ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
-                ...(input.cosigners || []),
-            ],
+            designatedCosigners,
             input.feeRatio,
             input.maxParallels,
             canAnnounce,
@@ -131,7 +130,7 @@ const scrapMetal = async (
 };
 
 export const main = async (argv: string[]) => {
-    console.log(`Scrap Metal CLI version ${VERSION}\n`);
+    console.log(`Metal Scrap CLI version ${VERSION}\n`);
 
     let input: ScrapInput.CommandlineInput;
     try {
@@ -149,10 +148,6 @@ export const main = async (argv: string[]) => {
         writeIntermediateFile(output, input.outputPath);
     }
     ScrapOutput.printOutputSummary(output);
-};
 
-main(process.argv.slice(2))
-    .catch((e) => {
-        console.error(e.toString());
-        process.exit(1);
-    });
+    return output;
+};

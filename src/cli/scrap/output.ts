@@ -20,7 +20,7 @@ export namespace ScrapOutput {
             `  Source Account Address: ${output.sourceAccount.address.plain()}\n` +
             `  Target Account Address: ${output.targetAccount.address.plain()}\n` +
             (output.mosaicId ? `  Mosaic ID: ${output.mosaicId.toHex()}\n` : "") +
-            (output.namespaceId ? `  Namespace ID: ${output.namespaceId.fullName} (${output.namespaceId.toHex()})\n` : "") +
+            (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
             `  # of Aggregate TXs: ${output.batches.length}\n` +
             `  TX Fee: ${toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
