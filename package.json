@@ -1,11 +1,19 @@
 {
-  "name": "metal_poc",
-  "version": "0.0.2",
-  "description": "Metal PoC",
-  "main": "index.js",
+  "name": "metal-on-symbol",
+  "version": "0.1.0",
+  "description": "Metal on Symbol PoC",
+  "main": "dist/index.js",
   "author": "Shinichi Hanayama <hanatyan@opensphere.co.jp>",
   "license": "MIT",
-  "private": true,
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OPENSPHERE-Inc/metal-on-symbol.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OPENSPHERE-Inc/metal-on-symbol/issues"
+  },
+  "homepage": "https://github.com/OPENSPHERE-Inc/metal-on-symbol/issues#readme",
   "engines": {
     "node": "16"
   },
@@ -53,10 +61,13 @@
     "clean": "rimraf dist",
     "build": "yarn clean && tsc",
     "test": "jest",
-    "forge": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/forge/main.js",
-    "verify": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/verify/main.js",
-    "scrap": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/scrap/main.js",
-    "fetch": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/fetch/main.js",
-    "reinforce": "cross-env NODE_URL=https://001-sai-dual.symboltest.net:3001 node dist/cli/reinforce/main.js"
+    "forge": "node dist/cli/index.js forge",
+    "verify": "node dist/cli/index.js verify",
+    "scrap": "node dist/cli/index.js scrap",
+    "fetch": "node dist/cli/index.js fetch",
+    "reinforce": "node dist/cli/index.js reinforce"
+  },
+  "bin": {
+    "metal": "dist/cli/index.js"
   }
 }
