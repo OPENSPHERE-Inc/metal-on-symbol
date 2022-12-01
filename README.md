@@ -15,13 +15,16 @@ Metal を削除すると、単に `Metal ID` でのデータ取り出しがで�
 
 > 正確にはトランザクションをスキャンすればデータを取り出せるかもしれませんが、いずれにせよ直感的にはできなくなります。
 
-要するに、Metal は Symbol ブロックチェーンの「メタデータ」に任意のデータを書き込むためのシンプルなプロトコルです。
+大事なことなので最初に書いておきますが、データを書き込んだり **削除したり** する際はデータ容量に応じた **トランザクション手数料** が掛かります。
+これは Metal の基盤となる Symbol ブロックチェーンネットワークを維持するインセンティブとなります。
 
-> トークンは発行しないので NFT とは直接関係ありませんが、NFT のコンテンツストレージとしても使えます。
+要するに、Metal は Symbol ブロックチェーンの「メタデータ」に任意のデータを書き込むためのシンプルなプロトコルです。
 
 ### 1.2. 開発の動機
 
-アプリの要求により、単にブロックチェーンで任意サイズのデータを入れたり取り出したりしたかったので開発しました。
+NFTと関係なく、アプリの要求により、単純にブロックチェーンで任意サイズのデータを入れたり取り出したりしたかったので開発しました。
+
+> Metal ではトークンを発行しないので NFT とは直接関係ありませんが、NFT のコンテンツストレージとしても使えます。
 
 ### 1.3. Symbol のメタデータとは
 
@@ -83,6 +86,18 @@ Metal はこれら全てにおいて使用可能です。
 - アカウント作成や、モザイク作成、ネームスペース作成はプロトコルに含まれません。
 - 空データは Forge できません。
 
+### 1.6. Metal の手数料
+
+Metal はオープンプロトコルなので Metal 自体の利用料はないですが、
+ネットワークに対して支払われる、データ容量に応じたトランザクション手数料がかかります。
+
+料率の設定（トランザクション実行者が設定できる）にもよりますが、大体数百 K bytes つき、数十 XYM のオーダーでかかります。
+
+トランザクションは Forge の時はもちろんの事、**削除する Scrap 時も Forge と同じボリュームのトランザクションが発生するため、
+ほぼ同じ額のトランザクション手数料がかかります。**
+
+本番 Forge 前に手数料額の見積が出来ますので、`-e` (Estimate) オプションを利用してください。
+
 ## 2. CLI の使い方
 
 本 CLI は Metal プロトコルのリファレンス実装となるものです。
@@ -106,6 +121,8 @@ npm install -g metal-on-symbol
 #### 環境変数でノードを設定
 
 予め環境変数 `NODE_URL` に使用するノードURLを設定してください（`--node-url` オプションでも指定できます）
+
+メインネットはもちろん、テストネットのノードも指定可能です。
 
 **Windows**
 
@@ -270,7 +287,7 @@ metal forge  -o intermediate.json  -t someones_public_key  test_data/e92m3.jpg
 
 #### 手順2: reinforce で連署
 
-元のファイル `test_data/e92m3.jpg` と、中間トランザクションファイルを相手に送付し、
+元のファイル `test_data/e92m3.jpg` と、中間トランザクションファイル `intermediate.json` を相手に送付し、
 相手側で以下のように Reinforce を実行します。
 
 ```shell
@@ -400,7 +417,7 @@ yarn test
 ```typescript
 const METAL_ID_HEADER_HEX = "0B2A";
 
-export const calculateMetalId = (
+const calculateMetalId = (
     type: MetadataType,
     sourceAddress: Address,
     targetAddress: Address,
@@ -418,7 +435,7 @@ export const calculateMetalId = (
     return bs58.encode(hashBytes);
 };
 
-export const restoreMetadataHash = (
+const restoreMetadataHash = (
     metalId: string
 ) => {
     const hashHex = Convert.uint8ToHex(
@@ -493,7 +510,12 @@ E01000009AF02A462D4D71B7vLqzjbWktysErRgxMke5MAj5T3HQ151Sbbvr956NH3Vojv8AwV+zzoPj
 
 Forge の際に追加できる 4 文字の「添加物」です。
 `Additive` を加えると、同じデータあっても `Metal ID` 及びチャンクの `Key` が変化します。
-レアケースで予想される Key 衝突対策です。
+レアケースで予想される `Key` 衝突対策です。
+
+`Additive` はデコードの際は不要な物ですが、
+元データと照合するときに必要になります（`Additive` が一致しないと `Metal ID` 及びチャンクの `Key` が一致しない）
+
+ただし、`Additive` は全チャンクの `Value` 上で見えるので、いちいち控えておかなくても問題ないかもしれません。
 
 **・次チャンクの Key (HEX, 16 bytes)**
 
