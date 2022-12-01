@@ -1,0 +1,5 @@
+.env*
+node_modules
+.yarnignore
+test_data
+/metal-on-symbol-*.tgz

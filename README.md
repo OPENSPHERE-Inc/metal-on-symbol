@@ -106,14 +106,6 @@ Metal はオープンプロトコルなので Metal 自体の利用料はない�
 
 #### インストール
 
-**yarn の場合**
-
-```shell
-yarn global add metal-on-symbol
-```
-
-**npm の場合**
-
 ```shell
 npm install -g metal-on-symbol
 ```

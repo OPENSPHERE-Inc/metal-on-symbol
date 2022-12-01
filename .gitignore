@@ -5,3 +5,4 @@ yarn-error.log
 node_modules
 test_data
 dist
+/metal-on-symbol-*.tgz
