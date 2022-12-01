@@ -1,18 +1,37 @@
 import assert from "assert";
 import {SymbolService} from "../services/symbol";
-import {Account, CosignatureTransaction, InnerTransaction, UInt64} from "symbol-sdk";
+import {
+    Account,
+    Convert,
+    CosignatureTransaction,
+    InnerTransaction,
+    MetadataType,
+    MosaicId,
+    NamespaceId,
+    PublicAccount,
+    UInt64
+} from "symbol-sdk";
+import {v4 as uuidv4} from "uuid";
+import {MetalService} from "../services/metal";
 
 
 export const initTestEnv = () => {
     assert(process.env.NODE_URL);
+    assert(process.env.FEE_RATIO);
+    assert(process.env.BATCH_SIZE);
+    assert(process.env.MAX_PARALLELS);
 
-    SymbolService.init({
-        emit_mode: true,
+    const config = {
         node_url: process.env.NODE_URL,
-        fee_ratio: 0.35,
+        fee_ratio: Number(process.env.FEE_RATIO),
         logging: true,
         deadline_hours: 6,
-    });
+        batch_size: Number(process.env.BATCH_SIZE),
+        max_parallels: Number(process.env.MAX_PARALLELS),
+    };
+    SymbolService.init(config);
+
+    return config;
 };
 
 
@@ -48,16 +67,12 @@ export namespace SymbolTest {
         txs: InnerTransaction[],
         signer: Account,
         cosigners: Account[],
-        batchSize: number,
-        maxParallels: number,
         batchesCreatedCallback?: (batches: SymbolService.SignedAggregateTx[], totalFee: UInt64) => void,
     ) => {
         const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
             txs,
             signer,
             cosigners,
-            0,
-            batchSize,
         );
         const totalFee = batches.reduce(
             (acc, curr) => acc.add(curr.maxFee), UInt64.fromUint(0)
@@ -65,6 +80,144 @@ export namespace SymbolTest {
 
         batchesCreatedCallback?.(batches, totalFee);
 
-        return SymbolService.executeBatches(batches, signer, maxParallels);
+        return SymbolService.executeBatches(batches, signer);
     };
+}
+
+export namespace MetalTest {
+
+    export const generateAssets = async () => {
+        // Generate account
+        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { networkType } = await SymbolService.getNetwork();
+        const account = Account.generateNewAccount(networkType);
+        console.log(
+            `account.address=${account.address.plain()}\n` +
+            `  .publicKey=${account.publicKey}\n` +
+            `  .privateKey=${account.privateKey}\n`
+        );
+
+        // Define new mosaic
+        const mosaicDefinition = await SymbolService.createMosaicDefinitionTx(
+            signer1.publicAccount,
+            UInt64.fromUint(20),
+            0,
+            1,
+        );
+        await SymbolTest.doAggregateTx(mosaicDefinition.txs, signer1, [])
+            .then((result) => {
+                expect(result?.error).toBeUndefined();
+            });
+        const mosaicId = mosaicDefinition.mosaicId;
+        console.log(`mosaicId=${mosaicId.toHex()}`);
+
+        // Register new namespace
+        const namespaceName = uuidv4();
+        const namespaceTx = await SymbolService.createNamespaceRegistrationTx(
+            signer1.publicAccount,
+            namespaceName,
+            UInt64.fromUint(86400),
+        );
+        await SymbolTest.doAggregateTx([ namespaceTx ], signer1, [])
+            .then((result) => {
+                expect(result?.error).toBeUndefined();
+            });
+        const namespaceId = new NamespaceId(namespaceName);
+        console.log(`namespaceId=${namespaceId.toHex()}`);
+
+        return {
+            account,
+            mosaicId,
+            namespaceId,
+        };
+    };
+
+    export const announceAll = async (
+        txs: InnerTransaction[],
+        signer: Account,
+        cosigners: Account[]
+    ) => {
+        const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+            txs,
+            signer,
+            cosigners,
+        );
+        assert(batches.length);
+        console.log(`batches.length=${batches.length}`);
+
+        const totalFee = batches.reduce(
+            (acc, curr) => acc.add(curr.maxFee), UInt64.fromUint(0)
+        );
+        console.log(`totalFee=${totalFee.toString()}`);
+
+        const errors = await SymbolService.executeBatches(batches, signer);
+        errors?.forEach(({txHash, error}) => {
+            console.error(`${txHash}: ${error}`);
+        });
+        assert(!errors?.length);
+    }
+
+    export const forgeMetal = async (
+        type: MetadataType,
+        sourceAccount: PublicAccount,
+        targetAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
+        payload: Buffer,
+        signer: Account,
+        cosigners: Account[],
+        additive?: Uint8Array,
+    ) => {
+        const { key, txs, additive: additiveBytes } = await MetalService.createForgeTxs(
+            type,
+            sourceAccount,
+            targetAccount,
+            targetId,
+            payload,
+            additive,
+        );
+        assert(txs.length);
+        console.log(`key=${key.toHex()}`);
+        console.log(`txs.length=${txs.length}`);
+        console.log(`additive=${Convert.uint8ToUtf8(additiveBytes)}`)
+
+        await announceAll(txs, signer, cosigners);
+
+        const metalId = MetalService.calculateMetalId(
+            type,
+            sourceAccount.address,
+            targetAccount.address,
+            targetId,
+            key,
+        );
+        console.log(`Computed Metal ID is ${metalId}`);
+
+        return {
+            metalId,
+            key,
+            additiveBytes,
+        };
+    };
+
+    export const scrapMetal = async (
+        metalId: string,
+        sourceAccount: PublicAccount,
+        targetAccount: PublicAccount,
+        signer: Account,
+        cosigners: Account[]
+    ) => {
+        const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
+
+        const txs = await MetalService.createScrapTxs(
+            metadataEntry.metadataType,
+            sourceAccount,
+            targetAccount,
+            metadataEntry.targetId,
+            metadataEntry.scopedMetadataKey,
+        );
+        assert(txs);
+        console.log(`txs.length=${txs.length}`);
+
+        await announceAll(txs, signer, cosigners);
+    };
+
 }

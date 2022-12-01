@@ -1,12 +1,12 @@
 import dotenv from "dotenv";
 dotenv.config({ path: './.env.test' });
 
-import {initTestEnv, SymbolTest} from "./utils";
+import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import {MetalService} from "../services/metal";
 import fs from "fs";
 import {
     Account,
-    AccountMetadataTransaction,
+    AccountMetadataTransaction, Convert,
     InnerTransaction,
     Metadata,
     MetadataType,
@@ -19,67 +19,32 @@ import {toXYM} from "../libs/utils";
 import Long from "long";
 import assert from "assert";
 import moment from "moment";
-import {v4 as uuidv4} from "uuid";
 
 
 describe("MetalService", () => {
     let target: Account;
     let metadataKey: UInt64;
-    let metalAdditive: string;
+    let metalAdditive: Uint8Array;
     let testData: Buffer;
     let dataChunks: number;
-    let batchSize: number;
-    let maxParallels: number;
     let metadataPool: Metadata[];
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
     let metalId: string;
+    let batchSize: number;
 
     beforeAll(async () => {
-        initTestEnv();
+        const config = initTestEnv();
+        batchSize = config.batch_size;
 
-        assert(process.env.BATCH_SIZE);
-        assert(process.env.MAX_PARALLELS);
-        batchSize = Number(process.env.BATCH_SIZE);
-        maxParallels = Number(process.env.MAX_PARALLELS);
-
-        assert(process.env.TEST_PNG_FILE);
-        testData = fs.readFileSync(process.env.TEST_PNG_FILE);
+        assert(process.env.TEST_INPUT_FILE);
+        testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
         dataChunks = Math.ceil(testData.toString("base64").length / 1000);
 
-        // Generate account
-        const { signer1 } = await SymbolTest.getNamedAccounts();
-        const { networkType } = await SymbolService.getNetwork();
-        target = Account.generateNewAccount(networkType);
-        console.log(`target.address=${target.address.plain()}`);
-
-        // Define new mosaic
-        const mosaicDefinition = await SymbolService.createMosaicDefinitionTx(
-            signer1.publicAccount,
-            UInt64.fromUint(20),
-            0,
-            1,
-        );
-        await SymbolTest.doAggregateTx(mosaicDefinition.txs, signer1, [])
-            .then((result) => {
-                expect(result?.error).toBeUndefined();
-            });
-        mosaicId = mosaicDefinition.mosaicId;
-        console.log(`mosaicId=${mosaicId.toHex()}`);
-
-        // Register new namespace
-        const namespaceName = uuidv4();
-        const namespaceTx = await SymbolService.createNamespaceRegistrationTx(
-            signer1.publicAccount,
-            namespaceName,
-            UInt64.fromUint(86400),
-        );
-        await SymbolTest.doAggregateTx([ namespaceTx ], signer1, [])
-            .then((result) => {
-                expect(result?.error).toBeUndefined();
-            });
-        namespaceId = new NamespaceId(namespaceName);
-        console.log(`namespaceId=${namespaceId.toHex()}`);
+        const assets = await MetalTest.generateAssets();
+        target = assets.account;
+        mosaicId = assets.mosaicId;
+        namespaceId = assets.namespaceId;
     }, 600000);
 
     const doBatches = async (
@@ -87,13 +52,12 @@ describe("MetalService", () => {
         signer: Account,
         cosigners: Account[],
     ) => {
+        assert(process.env.BATCH_SIZE);
         const start = moment.now();
         const errors = await SymbolTest.doAggregateTxBatches(
             txs,
             signer,
             cosigners,
-            batchSize,
-            maxParallels,
             (batches, totalFee) => {
                 console.log(`totalFee=${toXYM(Long.fromString(totalFee.toString()))}`);
                 console.log(`batches.length=${batches.length}`);
@@ -153,7 +117,7 @@ describe("MetalService", () => {
             metadataKey,
         );
         console.log(`key=${key?.toHex()}`);
-        console.log(`additive=${additive}`);
+        console.log(`additive=${Convert.uint8ToUtf8(additive)}`);
         console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
@@ -232,7 +196,7 @@ describe("MetalService", () => {
             metadataKey,
         );
         console.log(`key=${key?.toHex()}`);
-        console.log(`additive=${additive}`);
+        console.log(`additive=${Convert.uint8ToUtf8(additive)}`);
         console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
@@ -311,7 +275,7 @@ describe("MetalService", () => {
             metadataKey,
         );
         console.log(`key=${key?.toHex()}`);
-        console.log(`additive=${additive}`);
+        console.log(`additive=${Convert.uint8ToUtf8(additive)}`);
         console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
