@@ -1,4 +1,4 @@
-import {MetadataType, UInt64} from "symbol-sdk";
+import {Convert, MetadataType, UInt64} from "symbol-sdk";
 import fs from "fs";
 import assert from "assert";
 import {ForgeInput} from "./input";
@@ -6,11 +6,11 @@ import {ForgeOutput} from "./output";
 import {VERSION} from "./version";
 import {SymbolService} from "../../services/symbol";
 import {MetalService} from "../../services/metal";
-import {buildAndExecuteBatches, doVerify} from "../common";
+import {buildAndExecuteBatches, designateCosigners, doVerify} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 
 
-export const forgeMetal = async (
+const forgeMetal = async (
     payload: Buffer,
     input: ForgeInput.CommandlineInput,
 ): Promise<ForgeOutput.CommandlineOutput> => {
@@ -29,13 +29,13 @@ export const forgeMetal = async (
         })
         : undefined;
 
-    const { key, txs, additive } = await MetalService.createForgeTxs(
+    const { key, txs, additive: additiveBytes } = await MetalService.createForgeTxs(
         input.type,
         sourceAccount,
         targetAccount,
         targetId,
         payload,
-        input.additive,
+        input.additiveBytes,
         metadataPool,
     );
 
@@ -64,22 +64,21 @@ export const forgeMetal = async (
         }
     }
 
-    // Not estimate mode. Cosigns are unnecessary: Announce TXs
-    const canAnnounce = !input.estimate && !input.outputPath && (
-        signerAccount.equals(sourceAccount) || !!input.sourceSigner
-    ) && (
-        signerAccount.equals(targetAccount) || !!input.targetSigner
+    const { designatedCosigners, hasEnoughCosigners } = designateCosigners(
+        signerAccount,
+        sourceAccount,
+        targetAccount,
+        input.sourceSigner,
+        input.targetSigner,
+        input.cosigners,
     );
+    const canAnnounce = hasEnoughCosigners && !input.estimate && !input.outputPath;
 
     const { batches, totalFee } = txs.length
         ? await buildAndExecuteBatches(
             txs,
             input.signer,
-            [
-                ...(!signerAccount.equals(sourceAccount) && input.sourceSigner ? [ input.sourceSigner ] : []),
-                ...(!signerAccount.equals(targetAccount) && input.targetSigner ? [ input.targetSigner ] : []),
-                ...(input.cosigners || []),
-            ],
+            designatedCosigners,
             input.feeRatio,
             input.maxParallels,
             canAnnounce,
@@ -87,7 +86,7 @@ export const forgeMetal = async (
         )
         : { batches: [], totalFee: UInt64.fromUint(0) };
 
-    if (key && input.verify) {
+    if (input.verify && key && canAnnounce) {
         await doVerify(
             payload,
             input.type,
@@ -104,7 +103,7 @@ export const forgeMetal = async (
         batches,
         key,
         totalFee,
-        additive,
+        additive: Convert.uint8ToUtf8(additiveBytes),
         sourceAccount: sourceAccount,
         targetAccount: targetAccount,
         ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),
@@ -114,11 +113,12 @@ export const forgeMetal = async (
         signerAccount,
         type: input.type,
         createdAt: new Date(),
+        payload,
     };
 };
 
 export const main = async (argv: string[]) => {
-    console.log(`Forge Metal CLI version ${VERSION}\n`);
+    console.log(`Metal Forge CLI version ${VERSION}\n`);
 
     let input: ForgeInput.CommandlineInput;
     try {
@@ -144,13 +144,9 @@ export const main = async (argv: string[]) => {
         writeIntermediateFile(output, input.outputPath);
     }
     ForgeOutput.printOutputSummary(output);
-};
 
-main(process.argv.slice(2))
-    .catch((e) => {
-        console.error(e.toString());
-        process.exit(1);
-    });
+    return output;
+};
 
 
 
