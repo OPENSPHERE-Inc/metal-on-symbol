@@ -8,6 +8,7 @@ import {SymbolService} from "../../services/symbol";
 import {MetalService} from "../../services/metal";
 import {buildAndExecuteBatches, designateCosigners, doVerify} from "../common";
 import {writeIntermediateFile} from "../intermediate";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 const forgeMetal = async (
@@ -72,7 +73,7 @@ const forgeMetal = async (
         input.targetSigner,
         input.cosigners,
     );
-    const canAnnounce = hasEnoughCosigners && !input.estimate && !input.outputPath;
+    const canAnnounce = hasEnoughCosigners && !input.estimate;
 
     const { batches, totalFee } = txs.length
         ? await buildAndExecuteBatches(
@@ -118,7 +119,7 @@ const forgeMetal = async (
 };
 
 export const main = async (argv: string[]) => {
-    console.log(`Metal Forge CLI version ${VERSION}\n`);
+    console.log(`Metal Forge CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
     let input: ForgeInput.CommandlineInput;
     try {

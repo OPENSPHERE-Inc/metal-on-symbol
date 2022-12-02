@@ -7,10 +7,11 @@ import {MetalService} from "../../services/metal";
 import {VerifyOutput} from "./output";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {SymbolService} from "../../services/symbol";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export const main = async (argv: string[]) => {
-    console.log(`Metal Verify CLI version ${VERSION}\n`);
+    console.log(`Metal Verify CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
     let input: VerifyInput.CommandlineInput;
     try {

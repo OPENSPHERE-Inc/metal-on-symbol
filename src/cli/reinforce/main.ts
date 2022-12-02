@@ -21,6 +21,7 @@ import {toXYM} from "../../libs/utils";
 import moment from "moment/moment";
 import {MetalService} from "../../services/metal";
 import PromptSync from "prompt-sync";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 const prompt = PromptSync();
@@ -137,14 +138,14 @@ const reinforceMetal = async (
         );
     });
 
-    if (input.announce && !input.outputPath) {
+    if (input.announce) {
         console.log(
             `Announcing ${batches.length} aggregate TXs. ` +
             `TX fee ${toXYM(intermediateTxs.totalFee)} XYM will be paid by ${intermediateTxs.command} originator.`
         );
         if (!input.force) {
-            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "Y");
-            if (decision !== "Y" && decision !== "y") {
+            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
+            if (decision.toLowerCase() !== "y") {
                 throw new Error("Canceled by user.");
             }
         }
@@ -183,7 +184,7 @@ const reinforceMetal = async (
 };
 
 export const main = async (argv: string[]) => {
-    console.log(`Metal Reinforce CLI version ${VERSION}\n`);
+    console.log(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
     let input: ReinforceInput.CommandlineInput;
     try {

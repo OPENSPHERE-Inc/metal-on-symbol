@@ -56,6 +56,10 @@ export const designateCosigners = (
         !!designatedCosigners.filter((cosigner) => cosigner.publicKey === targetAccount.publicKey)
     );
 
+    if (!hasEnoughCosigners) {
+        console.warn("You need more cosigner(s) to announce TXs.");
+    }
+
     return {
         hasEnoughCosigners,
         designatedCosigners,

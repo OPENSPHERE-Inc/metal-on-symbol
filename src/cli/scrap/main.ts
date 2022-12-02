@@ -8,6 +8,7 @@ import {VERSION} from "./version";
 import {SymbolService} from "../../services/symbol";
 import {buildAndExecuteBatches, designateCosigners} from "../common";
 import {writeIntermediateFile} from "../intermediate";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 const scrapMetal = async (
@@ -97,7 +98,7 @@ const scrapMetal = async (
         input.targetSigner,
         input.cosigners,
     );
-    const canAnnounce = hasEnoughCosigners && !input.estimate && !input.outputPath;
+    const canAnnounce = hasEnoughCosigners && !input.estimate;
 
     const { batches, totalFee } = txs.length
         ? await buildAndExecuteBatches(
@@ -131,7 +132,7 @@ const scrapMetal = async (
 };
 
 export const main = async (argv: string[]) => {
-    console.log(`Metal Scrap CLI version ${VERSION}\n`);
+    console.log(`Metal Scrap CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
     let input: ScrapInput.CommandlineInput;
     try {

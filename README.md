@@ -332,8 +332,10 @@ Reinforce を使って連署を行います。
 自分とは違うアカウントに Metal を Forge する場合を例に挙げます。
 
 ```shell
-metal forge  -o intermediate.json  -t someones_public_key  test_data/e92m3.jpg
+metal forge  -e  -o intermediate.json  -t someones_public_key  test_data/e92m3.jpg
 ```
+
+> `-e` オプションでアナウンスしないように明示していますが、オプションが無くても連署が足りない場合はアナウンスできません。
 
 自分から、`someones_public_key` で指定される別のアカウントに Forge します。この場合、相手方の連署が必要になります。
 
@@ -348,7 +350,7 @@ metal forge  -o intermediate.json  -t someones_public_key  test_data/e92m3.jpg
 metal reinforce  -a  intermediate.json  test_data/e92m3.jpg
 ```
 
-ここでは `-a` (Announce) オプションを付けないとトランザクションが実行されません（サマリー表示だけ行われます）
+> ここでは `-a` (Announce) オプションを付けないとトランザクションが実行されません。
 
 元のファイルを指定するのは、`intermediate.json` に悪意のある破壊的なトランザクションが混在されている可能性があり、
 実行前に必ず `intermediate.json` の内容と元ファイルの内容を照合するためです。

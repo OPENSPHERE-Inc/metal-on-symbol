@@ -5,10 +5,11 @@ import {MetalService} from "../../services/metal";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {FetchOutput} from "./output";
 import {SymbolService} from "../../services/symbol";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export const main = async (argv: string[]) => {
-    console.log(`Metal Fetch CLI version ${VERSION}\n`);
+    console.log(`Metal Fetch CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
     let input: FetchInput.CommandlineInput;
     try {

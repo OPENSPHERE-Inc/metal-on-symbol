@@ -91,6 +91,7 @@ export namespace SymbolService {
         error: (message?: any, ...args: any[]) => config.logging && console.error(message, ...args),
         log: (message?: any, ...args: any[]) => config.logging && console.log(message, ...args),
         debug: (message?: any, ...args: any[]) => config.logging && console.debug(message, ...args),
+        warn: (message?: any, ...args: any[]) => config.logging && console.error(message, ...args),
     };
 
     export const getNetwork = async (nodeUrl: string = config.node_url) => {
