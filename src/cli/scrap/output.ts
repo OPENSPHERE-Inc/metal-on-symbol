@@ -22,6 +22,7 @@ export namespace ScrapOutput {
             (output.mosaicId ? `  Mosaic ID: ${output.mosaicId.toHex()}\n` : "") +
             (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
+            `  Additive: ${output.additive}\n` +
             `  # of Aggregate TXs: ${output.batches.length}\n` +
             `  TX Fee: ${toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
             `  Signer Address: ${output.signerAccount.address.plain()}\n` +

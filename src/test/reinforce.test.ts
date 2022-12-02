@@ -1,13 +1,14 @@
 import dotenv from "dotenv";
 dotenv.config({ path: './.env.test' });
 
-import {Account, MosaicId, NamespaceId} from "symbol-sdk";
+import {Account, Convert, MosaicId, NamespaceId} from "symbol-sdk";
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import assert from "assert";
 import {main as forgeMain} from "../cli/forge/main";
 import {main as reinforceMain} from "../cli/reinforce/main";
 import {main as scrapMain} from "../cli/scrap/main";
 import fs from "fs";
+import {MetalService} from "../services/metal";
 
 
 describe("Reinforce CLI", () => {
@@ -45,6 +46,7 @@ describe("Reinforce CLI", () => {
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
             "-c",
+            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
             "-o", outputFile,
             inputFile,
         ]);

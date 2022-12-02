@@ -18,7 +18,7 @@ export interface IntermediateTxs {
     mosaicId?: string;
     namespaceId?: string;
     totalFee: string;
-    additive?: string;
+    additive: string;
     signerPublicKey: string;
     txs: {
         hash: string;
@@ -46,7 +46,7 @@ export interface IntermediateOutput {
     batches: SymbolService.SignedAggregateTx[];
     signerAccount: PublicAccount;
     totalFee: UInt64;
-    additive?: string;
+    additive: string;
     metalId: string;
     createdAt: Date;
 }

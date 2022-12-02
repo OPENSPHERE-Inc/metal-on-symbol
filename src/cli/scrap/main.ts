@@ -1,7 +1,7 @@
 import {ScrapInput} from "./input";
 import assert from "assert";
 import fs from "fs";
-import {MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
+import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {ScrapOutput} from "./output";
 import {MetalService} from "../../services/metal";
 import {VERSION} from "./version";
@@ -25,6 +25,7 @@ const scrapMetal = async (
     let metalId = input.metalId;
     let targetId: undefined | MosaicId | NamespaceId = undefined;
     let payload: undefined | Buffer;
+    let additiveBytes = input.additiveBytes;
 
     if (input.filePath) {
         // Read input file contents here.
@@ -41,13 +42,17 @@ const scrapMetal = async (
         type = metadataEntry.metadataType
         key = metadataEntry.scopedMetadataKey;
         targetId = metadataEntry.targetId;
+        additiveBytes = MetalService.extractChunk(metadataEntry)?.additive;
+        if (!additiveBytes) {
+            throw Error(`The chunk is broken.`);
+        }
 
         // We cannot retrieve publicKey at this time. Only can do address check.
         if (!sourceAccount.address.equals(metadataEntry?.sourceAddress)) {
-            throw new Error(`Source address mismatched.`);
+            throw Error(`Source address mismatched.`);
         }
         if (!targetAccount.address.equals(metadataEntry?.targetAddress)) {
-            throw new Error(`Target address mismatched.`);
+            throw Error(`Target address mismatched.`);
         }
     } else {
         if (!key && payload) {
@@ -77,7 +82,7 @@ const scrapMetal = async (
             targetAccount,
             targetId,
             payload,
-            input.additiveBytes,
+            additiveBytes,
         )
         : await MetalService.createScrapTxs(
             type,
@@ -125,7 +130,7 @@ const scrapMetal = async (
         status: canAnnounce ? "scrapped" : "estimated",
         metalId,
         signerAccount,
-        additive: input.additive,
+        additive: Convert.uint8ToUtf8(additiveBytes || MetalService.DEFAULT_ADDITIVE),
         type,
         createdAt: new Date(),
     };

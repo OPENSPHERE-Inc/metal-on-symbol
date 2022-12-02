@@ -49,11 +49,11 @@ export const designateCosigners = (
     const hasEnoughCosigners = (
         signerAccount.equals(sourceAccount) ||
         !!sourceSigner ||
-        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === sourceAccount.publicKey)
+        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === sourceAccount.publicKey).shift()
     ) && (
         signerAccount.equals(targetAccount) ||
         !!targetSigner ||
-        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === targetAccount.publicKey)
+        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === targetAccount.publicKey).shift()
     );
 
     if (!hasEnoughCosigners) {

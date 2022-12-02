@@ -25,7 +25,7 @@ import bs58 from "bs58";
 
 
 export namespace MetalService {
-    const DEFAULT_ADDITIVE = Convert.utf8ToUint8("0000");
+    export const DEFAULT_ADDITIVE = Convert.utf8ToUint8("0000");
     const VERSION = "010";
     const HEADER_SIZE = 24;
     const CHUNK_PAYLOAD_MAX_SIZE = 1000;
@@ -203,7 +203,7 @@ export namespace MetalService {
         };
     };
 
-    const extractChunk = (chunk: MetadataEntry) => {
+    export const extractChunk = (chunk: MetadataEntry) => {
         const magic = chunk.value.substring(0, 1);
         if (!isMagic(magic)) {
             console.error(`Error: Malformed header magic ${magic}`);
@@ -226,6 +226,7 @@ export namespace MetalService {
             return undefined;
         }
 
+        const additive = Convert.utf8ToUint8(metadataValue.substring(4, 8));
         const nextKey = metadataValue.substring(8, HEADER_SIZE);
         const chunkPayload = metadataValue.substring(HEADER_SIZE, HEADER_SIZE + CHUNK_PAYLOAD_MAX_SIZE);
 
@@ -235,6 +236,7 @@ export namespace MetalService {
             checksum,
             nextKey,
             chunkPayload,
+            additive,
         };
     };
 
@@ -317,19 +319,12 @@ export namespace MetalService {
             }
             lookupTable.delete(currentKeyHex);  // Prevent loop
 
-            magic = extractChunk(metadata)?.magic;
-            if (!magic) {
+            const chunk = extractChunk(metadata);
+            if (!chunk) {
                 break;
             }
 
-            const value = metadata.value;
-            magic = value.substring(0, 1) as Magic;
-            if (!isMagic(magic)) {
-                console.error(`Error: Malformed header magic ${magic}`);
-                break;
-            }
-
-            const valueBytes = Convert.utf8ToUint8(value);
+            const valueBytes = Convert.utf8ToUint8(metadata.value);
             txs.push(await SymbolService.createMetadataTx(
                 type,
                 sourceAccount,
@@ -340,7 +335,8 @@ export namespace MetalService {
                 scrappedValueBytes.length - valueBytes.length,
             ));
 
-            currentKeyHex = value.substring(8, HEADER_SIZE);
+            magic = chunk.magic;
+            currentKeyHex = chunk.nextKey;
         } while (magic !== Magic.END_CHUNK);
 
         return txs;
