@@ -162,7 +162,7 @@ export NODE_URL=https://hogehoge.co.jp:3001
 
 #### ・`-f` または `--force`
 
-（Forge / Scrap / Reinforce）確認や入力のプロンプトを表示しない。
+（Fetch / Forge / Scrap / Reinforce）確認や入力のプロンプトを表示しない。
 
 ### 2.3. Forge（アップロード）
 
