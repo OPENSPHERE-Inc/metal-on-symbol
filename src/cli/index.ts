@@ -7,9 +7,8 @@ import { main as forgeMain } from "./forge/main";
 import { main as reinforceMain } from "./reinforce/main";
 import { main as scrapMain } from "./scrap/main";
 import { main as verifyMain } from "./verify/main";
+import {VERSION} from "./version";
 
-
-const VERSION = "1.0";
 
 const printUsage = () => {
     console.log(

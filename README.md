@@ -128,13 +128,41 @@ set NODE_URL=https://hogehoge.co.jp:3001
 export NODE_URL=https://hogehoge.co.jp:3001
 ```
 
-### 2.2. （だいたい）共通のオプション
+### 2.2. （大体）共通のオプション
 
-| オプション                 | 機能                                                                                                            |
-|-----------------------|---------------------------------------------------------------------------------------------------------------|
-| `--node-url node_url` | （全共通）Symbol ノードの URL を指定します。環境変数 `NODE_URL` より優先されます。                                                         |
-| `--parallels 10`      | （Forge/Scrap/Reinforce）トランザクションアナウンス（実行）の並列数。増やすとより効率よく処理されますが、ノードから弾かれる可能性が高まります。ノードから切られる場合は、逆に数値を減らしてください。 |
-| `--fee-ratio 0.0`     | （Forge/Scrap/Reinforce）0.0 から 1.0 の間の数値で手数料率を指定します。0.0 はウォレットでいうところの「最遅」1.0 は「早い」です。                          |
+#### ・`--node-url node_url`
+
+（全共通）Symbol ノードの URL を指定します。
+
+同様の設定を行う環境変数 `NODE_URL` より優先されます。
+
+#### ・`--priv-key private_key`
+
+（全共通）アカウントのプライベートキーを指定します。
+
+同様の設定を行う環境変数 `SIGNER_PRIVATE_KEY` より優先されます。
+
+> トランザクションに署名するアカウントは常にこちらになります。
+
+#### ・`--parallels 整数(1～)`
+
+（Forge / Scrap / Reinforce）トランザクションアナウンス（実行）の並列数。
+増やすとより効率よく処理されますが、ノードから弾かれる可能性が高まります。
+デフォルトは `10` です。
+
+ノードから切られる場合は、逆に数値を減らしてください。
+
+#### ・`--fee-ratio 数値(0.0～1.0)`
+
+（Forge / Scrap / Reinforce）0.0 から 1.0 の間の数値で手数料率を指定します。
+0.0 はウォレットでいうところの「最遅」1.0 は「早い」です。
+デフォルトは `0.0` です。
+
+同様の設定を行う環境変数 `FEE_RATIO` より優先されます。
+
+#### ・`-f` または `--force`
+
+（Forge / Scrap / Reinforce）確認や入力のプロンプトを表示しない。
 
 ### 2.3. Forge（アップロード）
 
@@ -197,16 +225,6 @@ metal forge  -n namespace.name  test_data/e92m3.jpg
 metal forge  -e  test_data/e92m3.jpg                     # Account Metal
 metal forge  -e  -m mosaic_id  test_data/e92m3.jpg       # Mosaic Metal
 metal forge  -e  -n namespace.name  test_data/e92m3.jpg  # Namespace Metal
-```
-
-##### プロンプト無しでトランザクション実行
-
-確認のプロンプトを表示させたくない場合は `-f` (Force) オプションを付けてください。
-
-```shell
-metal forge  -f  test_data/e92m3.jpg                     # Account Metal
-metal forge  -f  -m mosaic_id  test_data/e92m3.jpg       # Mosaic Metal
-metal forge  -f  -n namespace.name  test_data/e92m3.jpg  # Namespace Metal
 ```
 
 ##### 差分だけ（途中で失敗した場合）
@@ -351,7 +369,7 @@ metal reinforce  -a  intermediate.json  test_data/e92m3.jpg
 
 > #### 中間トランザクションファイルの有効期限
 > 
-> 中間トランザクションファイルは Forge の開始から `6 時間` の有効期限が存在します。
+> 中間トランザクションファイルは Forge の開始から `5 時間` の有効期限が存在します。
 > この期限内に全ての連署を集める必要があります。
 > 有効期限を過ぎると実行してもエラーとなります。
 

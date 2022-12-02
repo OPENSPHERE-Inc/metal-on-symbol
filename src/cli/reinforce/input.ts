@@ -145,17 +145,28 @@ export namespace ReinforceInput {
             throw Error(`${input.filePath}: File not found.`);
         }
 
+        if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
+            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
+                throw new Error(`Canceled by user.`);
+            }
+        }
+
         const { networkType } = await SymbolService.getNetwork();
 
         if (!input.signerPrivateKey && !input.force) {
-            input.signerPrivateKey = prompt("Cosigner Private Key [Enter:skip]? ");
+            input.signerPrivateKey = prompt("Cosigner Private Key [Enter:skip]? ", "", { echo: "*" });
         }
         if (input.signerPrivateKey) {
             input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
+            console.log(`Signer Address is ${input.signer.address.plain()}`);
         }
 
         input.cosigners = input.cosignerPrivateKeys?.map(
-            (privateKey) => Account.createFromPrivateKey(privateKey, networkType)
+            (privateKey) => {
+                const cosigner = Account.createFromPrivateKey(privateKey, networkType)
+                console.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+                return cosigner;
+            }
         );
 
         return input;
@@ -167,7 +178,7 @@ export namespace ReinforceInput {
             `Options:\n` +
             `  -a, --announce         Announce completely signed TXs\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
-            `  -f, --force            Do not show prompt before announcing\n` +
+            `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +
             `  --node-url node_url    Specify network node_url\n` +
             `  -o output_file.json,\n` +

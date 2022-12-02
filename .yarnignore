@@ -2,4 +2,5 @@
 node_modules
 .yarnignore
 test_data
+.test.json
 /metal-on-symbol-*.tgz

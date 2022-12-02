@@ -25,7 +25,7 @@ export const initTestEnv = () => {
         node_url: process.env.NODE_URL,
         fee_ratio: Number(process.env.FEE_RATIO),
         logging: true,
-        deadline_hours: 6,
+        deadline_hours: 5,
         batch_size: Number(process.env.BATCH_SIZE),
         max_parallels: Number(process.env.MAX_PARALLELS),
     };

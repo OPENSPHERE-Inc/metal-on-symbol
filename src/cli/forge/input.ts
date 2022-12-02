@@ -4,7 +4,10 @@ import {initCliEnv, isValueOption} from "../common";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../account";
 import {SymbolService} from "../../services/symbol";
+import PromptSync from "prompt-sync";
 
+
+const prompt = PromptSync();
 
 export namespace ForgeInput {
 
@@ -251,6 +254,12 @@ export namespace ForgeInput {
             throw Error(`${input.filePath}: File not found.`);
         }
 
+        if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
+            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
+                throw new Error(`Canceled by user.`);
+            }
+        }
+
         if (input.additive) {
             if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
                 throw Error("[--additive value] must be 4 ascii chars.");
@@ -271,7 +280,7 @@ export namespace ForgeInput {
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
             `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
             `                         Higher ratio may get fast TX but higher cost\n` +
-            `  -f, --force            Do not show prompt before announcing\n` +
+            `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +
             `  -m mosaic_id,\n` +
             `  --mosaic value         Specify mosaic_id and demand Mosaic Metal\n` +

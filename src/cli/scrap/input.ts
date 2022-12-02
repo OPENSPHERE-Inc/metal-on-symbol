@@ -4,7 +4,10 @@ import fs from "fs";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../account";
 import {SymbolService} from "../../services/symbol";
+import PromptSync from "prompt-sync";
 
+
+const prompt = PromptSync();
 
 export namespace ScrapInput {
 
@@ -220,7 +223,7 @@ export namespace ScrapInput {
         return input;
     };
 
-// Initializing CLI environment
+    // Initializing CLI environment
     export const validateInput = async (input: CommandlineInput) => {
         if (!input.nodeUrl) {
             throw Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
@@ -234,6 +237,12 @@ export namespace ScrapInput {
             }
         } else if(!input.key && !input.metalId) {
             throw Error(`[--key value] or [metal_id] is required.`)
+        }
+
+        if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
+            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
+                throw new Error(`Canceled by user.`);
+            }
         }
 
         if (input.additive) {
@@ -259,7 +268,7 @@ export namespace ScrapInput {
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
             `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
             `                         Higher ratio may get fast TX but higher cost\n` +
-            `  -f, --force            Do not show prompt before announcing\n` +
+            `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +
             `  -i input_file,\n` +
             `  --in value             Specify input_path\n` +

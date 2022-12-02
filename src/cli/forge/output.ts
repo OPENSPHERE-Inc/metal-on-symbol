@@ -14,7 +14,7 @@ export namespace ForgeOutput {
         console.log(
             `\n  --- Summary of Forging ${
                 output.status === "estimated" ? "(Estimate)" : "(Receipt)"
-            } Summary ---\n` +
+            } ---\n` +
             `  Metal ID: ${output.metalId}\n` +
             `  Type: ${output.mosaicId ? "Mosaic" : output.namespaceId ? "Namespace" : "Account" }\n` +
             `  Source Account Address: ${output.sourceAccount.address.plain()}\n` +

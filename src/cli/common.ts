@@ -23,11 +23,11 @@ export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
         node_url: nodeUrl,
         fee_ratio: feeRatio,
         logging: true,
-        deadline_hours: 6,
+        deadline_hours: 5,
     });
 
     const { networkType } = await SymbolService.getNetwork();
-    console.log(`Using node url: ${nodeUrl} (network_type:${networkType})`);
+    console.log(`Using Node URL: ${nodeUrl} (network_type:${networkType})`);
 };
 
 export const designateCosigners = (
@@ -91,8 +91,8 @@ export const buildAndExecuteBatches = async (
             `with fee ${toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
         if (usePrompt) {
-            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "Y");
-            if (decision !== "Y" && decision !== "y") {
+            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
+            if (decision.toLowerCase() !== "y") {
                 throw Error("Canceled by user.");
             }
         }

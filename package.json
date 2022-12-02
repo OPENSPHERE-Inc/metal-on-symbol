@@ -1,8 +1,8 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Metal on Symbol PoC",
-  "main": "dist/index.js",
+  "main": "dist/cli/index.js",
   "author": "Shinichi Hanayama <hanatyan@opensphere.co.jp>",
   "license": "MIT",
   "private": false,
@@ -59,7 +59,8 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "yarn clean && tsc",
+    "write-version": "node echo_version.js src/package_version.ts",
+    "build": "yarn clean && yarn write-version && tsc",
     "test": "jest",
     "forge": "node dist/cli/index.js forge",
     "verify": "node dist/cli/index.js verify",

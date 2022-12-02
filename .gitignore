@@ -6,3 +6,4 @@ node_modules
 test_data
 dist
 /metal-on-symbol-*.tgz
+.test.json

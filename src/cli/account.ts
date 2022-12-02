@@ -27,7 +27,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     const { networkType } = await SymbolService.getNetwork();
 
     if (!input.signerPrivateKey && !noPrompt) {
-        input.signerPrivateKey = prompt("Signer Private Key? ");
+        input.signerPrivateKey = prompt("Signer Private Key? ", "", { echo: "*" });
     }
     if (!input.signerPrivateKey) {
         throw Error(
@@ -35,6 +35,8 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         );
     }
     input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
+    console.log(`Signer Address is ${input.signer.address.plain()}`);
+
 
     if (input.sourcePublicKey) {
         input.sourceAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);
@@ -48,6 +50,10 @@ export const validateAccountsInput = async <T extends AccountsInput>(
                 "(You don't need to specify public key)"
             );
         }
+    }
+
+    if (input.sourceAccount || input.sourceSigner) {
+        console.log(`Source Address is ${(input.sourceAccount || input.sourceSigner)?.address.plain()}`)
     }
 
     if (input.targetPublicKey) {
@@ -64,8 +70,16 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         }
     }
 
+    if (input.targetAccount || input.targetSigner) {
+        console.log(`Target Address is ${(input.targetAccount || input.targetSigner)?.address.plain()}`)
+    }
+
     input.cosigners = input.cosignerPrivateKeys?.map(
-        (privateKey) => Account.createFromPrivateKey(privateKey, networkType)
+        (privateKey) => {
+            const cosigner = Account.createFromPrivateKey(privateKey, networkType)
+            console.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+            return cosigner;
+        }
     );
 
     return input;

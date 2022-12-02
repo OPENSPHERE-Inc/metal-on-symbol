@@ -1,26 +1,17 @@
-import {Account, Address, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
+import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
 import {initCliEnv, isValueOption} from "../common";
 import {SymbolService} from "../../services/symbol";
 import fs from "fs";
 import {VERSION} from "./version";
-import {AddressesInput, validateAddressesInput} from "../account";
+import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
 
 
 export namespace VerifyInput {
 
-    export interface CommandlineInput extends AddressesInput {
+    export interface CommandlineInput extends MetalIdentifyInput {
         version: string;
         filePath?: string;
-        key?: UInt64;
-        metalId?: string;
-        mosaicId?: MosaicId;
-        namespaceId?: NamespaceId;
         nodeUrl?: string,
-        signerPrivateKey?: string;
-        type: MetadataType;
-
-        // Filled by validateInput
-        signer?: Account;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -147,7 +138,7 @@ export namespace VerifyInput {
         return input;
     };
 
-// Initializing CLI environment
+    // Initializing CLI environment
     export const validateInput = async (input: CommandlineInput) => {
         if (!input.nodeUrl) {
             throw Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
@@ -156,28 +147,14 @@ export namespace VerifyInput {
         // We'll not announce any TXs this command.
         await initCliEnv(input.nodeUrl, 0);
 
-        const { networkType } = await SymbolService.getNetwork();
-
         if (!input.filePath) {
             throw Error("[input_file] wasn't specified.")
         }
         if (!fs.existsSync(input.filePath)) {
             throw Error(`${input.filePath}: File not found.`);
         }
-        if (input.signerPrivateKey) {
-            input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-        }
-        if (!input.metalId && !input.signer && !input.sourceAddress && !input.sourcePublicKey) {
-            throw Error("[source_account] must be specified via [--src-pub-key value], [--src-addr value] or [--priv-key value]");
-        }
-        if (!input.metalId && !input.signer && !input.targetAddress && !input.targetPublicKey) {
-            throw Error("[target_account] must be specified via [--tgt-pub-key value], [--tgt-addr value] or [--priv-key value]");
-        }
-        if (!input.metalId && !input.key) {
-            throw Error("[metadata_key] must be specified via [--key value]");
-        }
 
-        return validateAddressesInput(input);
+        return validateMetalIdentifyInput(input);
     };
 
     export const printUsage = () => {

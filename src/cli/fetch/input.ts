@@ -1,26 +1,22 @@
-import {Account, Address, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
+import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
 import {initCliEnv, isValueOption} from "../common";
 import {SymbolService} from "../../services/symbol";
 import {VERSION} from "./version";
-import {AddressesInput, validateAddressesInput} from "../account";
+import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
+import PromptSync from "prompt-sync";
+import fs from "fs";
 
+
+const prompt = PromptSync();
 
 export namespace FetchInput {
 
-    export interface CommandlineInput extends AddressesInput {
+    export interface CommandlineInput extends MetalIdentifyInput {
         version: string;
-        key?: UInt64;
-        metalId?: string;
-        mosaicId?: MosaicId;
-        namespaceId?: NamespaceId;
         nodeUrl?: string;
         noSave: boolean;
         outputPath?: string;
-        signerPrivateKey?: string;
-        type?: MetadataType;
-
-        // Filled by validateInput
-        signer?: Account;
+        force: boolean;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -30,11 +26,18 @@ export namespace FetchInput {
             signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
             type: MetadataType.Account,
             noSave: false,
+            force: false,
         };
 
         for (let i = 0; i < argv.length; i++) {
             const token = argv[i];
             switch (token) {
+                case "-f":
+                case "--force": {
+                    input.force = true;
+                    break;
+                }
+
                 case "-h":
                 case "--help": {
                     throw "help";
@@ -178,22 +181,13 @@ export namespace FetchInput {
         // We'll not announce any TXs this command.
         await initCliEnv(input.nodeUrl, 0);
 
-        const { networkType } = await SymbolService.getNetwork();
-
-        if (input.signerPrivateKey) {
-            input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-        }
-        if (!input.metalId && !input.signer && !input.sourceAddress && !input.sourcePublicKey) {
-            throw Error("[source_account] must be specified via [--src-pub-key value], [--src-addr value] or [--priv-key value]");
-        }
-        if (!input.metalId && !input.signer && !input.targetAddress && !input.targetPublicKey) {
-            throw Error("[target_account] must be specified via [--tgt-pub-key value], [--tgt-addr value] or [--priv-key value]");
-        }
-        if (!input.metalId && !input.key) {
-            throw Error("[metadata_key] must be specified via [--key value]");
+        if (input.outputPath && !input.noSave && !input.force && fs.existsSync(input.outputPath)) {
+            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
+                throw new Error(`Canceled by user.`);
+            }
         }
 
-        return validateAddressesInput(input);
+        return validateMetalIdentifyInput(input);
     };
 
     export const printUsage = () => {
@@ -204,6 +198,7 @@ export namespace FetchInput {
             `  Mosaic Metal           $ fetch [options] -m mosaic_id -k metadata_key\n` +
             `  Namespace Metal        $ fetch [options] -n namespace_name -k metadata_key\n` +
             `Options:\n` +
+            `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +
             `  -k metadata_key,\n` +
             `  --key value            Specify metadata_key\n` +
