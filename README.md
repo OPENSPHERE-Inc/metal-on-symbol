@@ -885,7 +885,7 @@ const forgeMetal = async (
     cosigners: Account[],
     additive?: Uint8Array,
 ) => {
-    const { key, txs, additive } = await MetalService.createForgeTxs(
+    const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
         type,
         sourceAccount,
         targetAccount,
@@ -913,7 +913,7 @@ const forgeMetal = async (
     return {
         metalId,
         key,
-        additive,
+        additive: newAdditive,
     };
 };
 ```
@@ -969,7 +969,7 @@ const forgeMetal = async (
             target: targetAccount,
             targetId
         });
-    const { key, txs, additive } = await MetalService.createForgeTxs(
+    const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
         type,
         sourceAccount,
         targetAccount,
@@ -1162,6 +1162,7 @@ const destroyMetal = async (
     type: MetadataType,
     sourceAccount: PublicAccount,
     targetAccount: PublicAccount,
+    targetId: undefined | MosaicId | NamespaceId,
     payload: Buffer,
     additive: Uint8Array,
     signer: Account,
@@ -1241,7 +1242,7 @@ const verifyMetal = async (
         targetAddress,
         targetId, 
         scopedMetadataKey: key,
-    } = await MetalService.getFirstChunk(metalId);
+    } = (await MetalService.getFirstChunk(metalId)).metadataEntry;
     const { mismatches, maxLength } = await MetalService.verify(
         payload,
         type,
@@ -1249,9 +1250,8 @@ const verifyMetal = async (
         targetAddress,
         key,
         targetId,
-        metadataPool,
     );
-    return mismatches.length === 0;
+    return mismatches === 0;
 };
 ```
 
