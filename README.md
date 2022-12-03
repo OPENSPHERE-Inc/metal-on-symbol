@@ -1255,12 +1255,38 @@ const verifyMetal = async (
 };
 ```
 
-### 6.7. ユーティリティ
+### 6.7. デコードだけ
+
+自前のコードでオンチェーンのメタデータを取得した場合は、デコードだけ行うことも可能です。
+
+```typescript
+const payloadBase64 = MetalService.decode(key, metadataPool);
+```
+
+**引数**
+
+- `key: UInt64` - 先頭チャンクメタデータの `Key`
+- `metadataPool: Metadata[]` - Metal の全チャンクを含むメタデータのプール
+
+> metadataPool は、メタデータの `type`, `sourceAccount`, `targetAccount`, `targetId` が同一である事を前提にしています。
+
+**戻り値**
+
+- `string` - base64 文字列。チャンクが壊れていても途中までの文字列が返ります。
+
+サンプルコード
+
+```typescript
+const payloadBase64 = MetalService.decode(key, metadataPool);
+const payload = Buffer.from(payloadBase64, "base64");
+```
+
+### 6.8. ユーティリティ
 
 #### ・チャンクメタデータ Key の生成
 
 ```typescript
-const key = MetalgenerateMetadataKey(input);
+const key = MetalService.generateMetadataKey(input);
 ```
 
 **引数**
