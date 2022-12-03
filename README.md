@@ -575,15 +575,14 @@ Forge の際に追加できる 4 文字の「添加物」です。
 
 **・次チャンクの Key (HEX, 16 bytes)**
 
-マジック `C` のチャンクは、次チャンクの Key (HEX) が入りますが、`E` のチャンクは次がない代わりに、
+マジック `C` のチャンクは、次チャンクの Key (HEX) が入ります。
+
+`E` のチャンクは次がない代わりに、
 データ全体のチェックサム（sha3_256 ハッシュ値下位 64 bits unsigned int の HEX 表現）が入ります。
 
-**・チャンクデータ (base64 の断片)**
+> **チェックサム対象は base64 表現ではなくバイナリ生データです**
 
-base64 エンコードしたデータを 1000 byte 以下の断片に分けて一つずつチャンクに格納します。
-`C` チャンクであっても、1 byte 以上 1000 byte 以下であればどの様な長さでも良いです。 
-
-サンプルコード
+チェックサムサンプルコード
 
 ```typescript
 const generateChecksum = (input: Buffer): UInt64 => {
@@ -595,6 +594,11 @@ const generateChecksum = (input: Buffer): UInt64 => {
     return new UInt64([result[0], result[1]]);
 };
 ```
+
+**・チャンクデータ (base64 の断片)**
+
+base64 エンコードしたデータを 1000 byte 以下の断片に分けて一つずつチャンクに格納します。
+`C` チャンクであっても、1 byte 以上 1000 byte 以下であればどの様な長さでも良いです。 
 
 > `E` チャンクにデータ全体のチェックサムが入るので、同じ内容のチャンクが現れても `Key` が衝突することがありません。
 
@@ -688,4 +692,615 @@ Symbol SDK の場合は [Metadata Http / search](https://symbol.github.io/symbol
 として、Metal に連なる全てのチャンクメタデータに対して実行します。
 
 > XOR をとる事はつまりビット毎の差分をとる事を意味します。
+
+
+## 6. SDK (TypeScript / ECMAScript)
+
+### 6.1. 使用前準備
+
+パッケージへのインストールは以下のようにしてください。
+
+```shell
+yarn add metal-on-symbol
+```
+
+Symbol SDK も必要になるので、併せてインストールしましょう。
+
+```shell
+yarn add symbol-sdk
+```
+
+ネットワークプロパティを取得したりするため、Symbol ノードにアクセスする前提となります。
+使用する際は、最初に必ず SymbolService の初期化をしてください。
+
+```typescript
+import {SymbolService} from "metal-on-symbol";
+
+SymbolService.init(config);
+```
+
+**引数**
+
+- `config: SymbolServiceConfig` - コンフィグを指定
+  - `node_url: string` - (Required) ノードURL
+  - `logging: boolean` - **(Optional)** ログ出力（デフォルト true）
+  - `fee_ratio: number` - **(Optional)** トランザクション手数料率 (0.0 ～ 1.0, デフォルト 0.0）
+  - `deadline_hours: number` - **(Optional)** トランザクション有効期限（デフォルト 5 時間）
+  - `batch_size: number` - **(Optional)** Aggregate インナートランザクション最大数（デフォルト 100）
+  - `max_parallels: number` - **(Optional)** トランザクションアナウンス並列数（デフォルト 10）
+
+サンプルコード
+
+```typescript
+SymbolService.init({ node_url: "https://example.jp:3001" });
+```
+
+### 6.2. Forge
+
+まず Forge するためのトランザクション群を生成します。
+
+```typescript
+import {MetalService} from "metal-on-symbol";
+
+const { txs, key, additive } = await MetalService.createForgeTxs(
+    type, 
+    sourceAddress,
+    sourceAccount,
+    targetId,
+    payaload,
+    additive,
+    metadataPool
+); 
+```
+
+**引数**
+
+- `type: MetadataType` - メタデータタイプの一つを指定する（Account, Mosaic, Namespace）
+- `sourceAccount: PublicAccount` - メタデータ付与元となるアカウント
+- `targetAccount: PublicAccount` - メタデータ付与先となるアカウント
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先となるモザイク／ネームスペースのID。アカウントの場合は `undefined`
+- `payload: Buffer` - Forge したいデータ（バイナリ可）
+- `additive: Uint8Arra` - **(Optional)** 添加したい Additive で、省略すると `0000`（必ず 4 bytes の ascii 文字列であること）
+- `metadataPool?: Metadata[]` - **(Optional)** オンチェーンに既にあるチャンクメタデータのプールで、あるものは生成トランザクションに含まれません。
+  設定がなければ全てのトランザクションを生成します。
+
+**戻り値**
+
+- `txs: InnerTransaction[]` - メタデータタイプによって `AccountMetadataTransaction`、`MosaicMetadataTransaction`、
+  `NamespaceMetadataTransaction` の何れかのトランザクションが含まれます。
+- `key: UInt64` - 先頭のチャンクメタデータの `Key`
+- `additive: Uint8Array` - 実際に添加された Additive が返ります。衝突が発生して引数に指定したもの以外の、
+  ランダム生成されたものが返る可能性があります。
+
+次に `txs` に署名してブロックチェーンにアナウンスします。
+パブリックチェーンの場合、一つのバッチは最大 100 件のトランザクションまでとされるので、
+複数のバッチ（アグリゲートトランザクション）に分け、その全てに署名を行います。
+
+```typescript
+const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+    txs,
+    signer,
+    cosigners,
+    feeRatio,
+    batchSize,
+);
+```
+
+**引数**
+
+- `txs: InnerTransaction[]` - `MetalService.createForgeTxs` で生成したトランザクションの配列
+- `signer: Account` - 署名するアカウント
+- `cosigners: Account[]` - 連署するアカウントの配列（`signer` および `sourceAccount`、`targetAccount`、`targetId` 
+  の作成者・所有者が一致しない場合は、 登場人物全員の署名が必要です）
+- `feeRatio: number` - **(Optional)** トランザクション手数料率を上書き（0.0～1.0。省略すると初期化時の値）
+- `batchSize: number` - **(Optional)** インナートランザクション最大数を上書き（1～。省略すると初期化時の値）
+
+**戻り値**
+
+- `SymbolService.SignedAggregateTx[]` - 署名済みバッチ配列
+  - `signedTx: SignedTransaction` - 署名済みのアグリゲートトランザクション（ただし、連署は含まれない）
+  - `cosignatures: CosignaturesSignedTransaction[]` - 連署シグネチャーの配列
+  - `maxFee: UInt64` - 計算されたトランザクション手数料。配列の全てを合計すると全体でかかる手数料になります。
+
+バッチのリストを実際にブロックチェーンへアナウンスします。
+以下の関数では、全てのトランザクションが承認されるか、最初にエラーが発生するまでウェイトします。
+
+```typescript
+const errors = await SymbolService.executeBatches(batches, signer, maxParallels);
+```
+
+**引数**
+
+- `batches: SymbolService.SignedAggregateTx[]` - 署名済みバッチ配列
+- `signer: Account | PublicAccount` - 署名したアカウント。トランザクションを監視する為に指定します。従って `PublicAccount` でも可です。
+- `maxParallels: number` - **(Optional)** トランザクションアナウンス並列数を上書き（1～。省略すると初期化時の値）
+
+**戻り値**
+
+- 成功の場合
+  - `undefined`
+- エラーがある場合は、以下のエラーオブジェクトの配列が返る
+  - `txHash: string` - トランザクションハッシュ（HEX）
+  - `error: string` - エラーメッセージ
+
+> #### バッチ（SymbolService.SignedAggregateTx）を独自にアナウンスしたい
+>
+> 組み込みの `SymbolService.executeBatches` を使わずに、
+> `SymbolService.buildSignedAggregateCompleteTxBatches` で署名したトランザクション `SymbolService.SignedAggregateTx` を、
+> 独自のアナウンススタックで処理したい場合は以下のように統合できます。
+>
+> ```typescript
+> const { signedTx, cosignatures } = batch;  // SymbolService.SignedAggregateTx
+> const completeSignedTx = await SymbolService.createSignedTxWithCosignatures(
+>     batch.signedTx,
+>     batch.cosignatures
+> );
+> ```
+>
+> **引数**
+>
+> - `signedTx: SignedTransaction` - 署名済みのトランザクション（連署無し）
+> - `cosignatures: CosignatureSignedTransaction[]` - 連署したシグネチャの配列
+>
+> **戻り値**
+>
+> - `SignedTransaction` - アナウンス可能な署名済みトランザクション
+> 
+> 以下、独自のアナウンススタックで `completeSignedTx` をアナウンスしてください。
+
+以上で Forge は完了です。
+最後に `Metal ID` を以下のように計算してください。
+
+```typescript
+const metalId = MetalService.calculateMetalId(
+    type,
+    sourceAddress,
+    targetAddress,
+    targetId,
+    key,
+);
+```
+**引数**
+
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `sourceAddress: Address` - メタデータ付与元のアカウントのアドレス
+- `targetAddress: Address` - メタデータ付与先のアカウントのアドレス
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+- `key: UInt64` - 先頭チャンクメタデータの `Key`
+
+**戻り値**
+
+- `string` - 計算された `Metal ID`
+
+サンプルコード
+
+```typescript
+const forgeMetal = async (
+    type: MetadataType,
+    sourceAccount: PublicAccount,
+    targetAccount: PublicAccount,
+    targetId: undefined | MosaicId | NamespaceId,
+    payload: Buffer,
+    signer: Account,
+    cosigners: Account[],
+    additive?: Uint8Array,
+) => {
+    const { key, txs, additive } = await MetalService.createForgeTxs(
+        type,
+        sourceAccount,
+        targetAccount,
+        targetId,
+        payload,
+        additive,
+    );
+    const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+        txs,
+        signer,
+        cosigners,
+    );
+    const errors = await SymbolService.executeBatches(batches, signer);
+    if (errors) {
+        throw Error("Transaction error.");
+    }
+    const metalId = MetalService.calculateMetalId(
+        type,
+        sourceAccount.address,
+        targetAccount.address,
+        targetId,
+        key,
+    );
+
+    return {
+        metalId,
+        key,
+        additive,
+    };
+};
+```
+
+### 6.3. Forge（リカバリ）
+
+何らかの理由（アカウントの残高不足等）で途中のトランザクションが失敗した場合、以下の手順でリカバリが可能です。
+
+まず既に上がったメタデータを収集します。
+
+```typescript
+const metadataPool = await SymbolService.searchMetadata(
+    type, 
+    {
+        source: sourceAccount,
+        target: targetAccount,
+        targetId
+    });
+```
+
+**引数**
+
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `criteria`
+  - `source: Account | PublicAccount | Address` - メタデータ付与元のアカウント
+  - `target: Account | PublicAccount | Address` - メタデータ付与先のアカウント
+  - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+
+**戻り値**
+
+- `Metadata[]` - メタデータリスト
+
+得られたメタデータリストを `MetalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
+あとは同じようにトランザクションへ署名してアナウンスしてください。
+
+サンプルコード
+
+```typescript
+const forgeMetal = async (
+    type: MetadataType,
+    sourceAccount: PublicAccount,
+    targetAccount: PublicAccount,
+    targetId: undefined | MosaicId | NamespaceId,
+    payload: Buffer,
+    signer: Account,
+    cosigners: Account[],
+    additive?: Uint8Array,
+) => {
+    const metadataPool = await SymbolService.searchMetadata(
+        type, 
+        {
+            source: sourceAccount,
+            target: targetAccount,
+            targetId
+        });
+    const { key, txs, additive } = await MetalService.createForgeTxs(
+        type,
+        sourceAccount,
+        targetAccount,
+        targetId,
+        payload,
+        additive,
+        metadataPool,
+    );
+    // ...以下略...
+};
+```
+
+### 6.4. Fetch
+
+#### Metal ID で Fetch
+
+`Metal ID` が分かっている場合は、以下のようにメタルを取得します。
+
+```typescript
+const result = await MetalService.fetchByMetalId(metalId);
+```
+
+**引数**
+
+- `metalId: string` - Metal ID
+
+**戻り値**
+
+- `payload: Buffer` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `sourceAddress: Address` - メタデータ付与元のアカウントアドレス
+- `targetAddress: Address` - メタデータ付与先のアカウント
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+- `key: UInt64` - 先頭チャンクメタデータの `Key`
+
+`Metal ID` が見つからない場合は例外をスローします。
+
+#### 先頭チャンクメタデータで Fetch
+
+`Metal ID` が分からなくても、先頭チャンクのメタデータを特定できれば Metal を取得できます。
+
+```typescript
+const payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+```
+
+**引数**
+
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `sourceAddress: Address` - メタデータ付与元のアカウントアドレス
+- `targetAddress: Address` - メタデータ付与先のアカウントアドレス
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+- `key: UInt64` - 先頭チャンクメタデータの `Key`
+
+**戻り値**
+
+- `Buffer` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+
+### 6.5. Scrap
+
+#### Metal ID で Scrap 
+
+まず、先頭チャンクメタデータを取得します。
+
+```typescript
+const metadata = await MetalService.getFirstChunk(metalId);
+const { metadataType: type, targetId, scopedMetadataKey: key } = metadata;
+```
+
+**引数**
+
+- `metalId: string` - Metal ID
+
+**戻り値**
+
+- `Metadata` - 先頭チャンクメタデータ
+
+`Metal ID` が見つからない場合は例外をスローします。
+
+次に、Scrap トランザクション群を生成します。
+
+```typescript
+const txs = await MetalService.createScrapTxs(
+    type,
+    sourceAccount,
+    targetAccount,
+    targetId,
+    key,
+    metadataPool,
+);
+```
+
+**引数**
+
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `sourceAccount: PublicAccount` - メタデータ付与元のアカウント
+- `targetAccount: PublicAccount` - メタデータ付与先のアカウント
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+- `key: UInt64` - 先頭チャンクメタデータの `Key`
+- `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+ 
+> メタデータからはトランザクション生成に必要なパブリックキーが取得できないので、別途入手してsourceAccount と targetAccount を渡す必要がある仕様です。
+
+**戻り値**
+
+- 成功の場合
+  - `InnerTransaction[]` - メタデータタイプによって `AccountMetadataTransaction`、`MosaicMetadataTransaction`、
+    `NamespaceMetadataTransaction` の何れかのトランザクションが含まれます。
+- 失敗の場合
+  - `undefined`
+
+後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
+
+サンプルコード
+
+```typescript
+const scrapMetal = async (
+    metalId: string,
+    sourceAccount: PublicAccount,
+    targetAccount: PublicAccount,
+    signer: Account,
+    cosigners: Account[]
+) => {
+    const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
+    const txs = await MetalService.createScrapTxs(
+        metadataEntry.metadataType,
+        sourceAccount,
+        targetAccount,
+        metadataEntry.targetId,
+        metadataEntry.scopedMetadataKey,
+    );
+    if (!txs) {
+        throw Error("Transaction creation error.");
+    }
+    const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+        txs,
+        signer,
+        cosigners,
+    );
+    const errors = await SymbolService.executeBatches(batches, signer);
+    if (errors) {
+        throw Error("Transaction error.");
+    }
+};
+```
+
+#### 元ファイルを参照して Scrap
+
+`Metal ID` が分からなくても元ファイルを指定して Scrap することができます。
+元ファイル（と Forge で添加された `Additive`）があれば `Metal ID` を再計算可能だからです。
+
+> メタデータ特定情報の一部も必要です。
+
+また、この方法では先頭チャンクや途中チャンクが壊れた Metal でも Scrap することができます。
+
+この場合、以下のように、Scrap トランザクション群を生成します。
+
+```typescript
+const txs = await MetalService.createDestroyTxs(
+    type,
+    sourceAccount,
+    targetAccount,
+    targetId,
+    payload,
+    additiveBytes,
+    metadataPool,
+);
+```
+
+**引数**
+
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `sourceAccount: PublicAccount` - メタデータ付与元のアカウント
+- `targetAccount: PublicAccount` - メタデータ付与先のアカウント
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+- `payload: Buffer` - 元ファイルのデータ（バイナリ可）
+- `additiveBytes: Uint8Buffer` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
+- `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+
+**戻り値**
+
+- `InnerTransaction[]` - メタデータタイプによって `AccountMetadataTransaction`、`MosaicMetadataTransaction`、
+  `NamespaceMetadataTransaction` の何れかのトランザクションが含まれます。
+
+後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
+
+サンプルコード
+
+```typescript
+const destroyMetal = async (
+    type: MetadataType,
+    sourceAccount: PublicAccount,
+    targetAccount: PublicAccount,
+    payload: Buffer,
+    additive: Uint8Array,
+    signer: Account,
+    cosigners: Account[]
+) => {
+    const txs = await MetalService.createDestroyTxs(
+        type,
+        sourceAccount,
+        targetAccount,
+        targetId,
+        payload,
+        additive,
+    );
+    if (!txs) {
+        throw Error("Transaction creation error.");
+    }
+    // ...以下略...
+};
+```
+
+### 6.6. Verify
+
+手元のファイルとオンチェーンの Metal を照合します。
+
+まず、`Metal ID` で先頭チャンクメタデータを取得してください。
+
+```typescript
+const metadata = await MetalService.getFirstChunk(metalId);
+const {
+    metadataType: type,
+    sourceAddress,
+    targetAddress,
+    targetId, 
+    scopedMetadataKey: key
+} = metadata;
+```
+
+次に、先頭チャンクメタデータから得られた情報と、手元ファイルのデータを照合します。
+
+```typescript
+const { mismatches, maxLength } = await MetalService.verify(
+    payload,
+    type,
+    sourceAddress,
+    targetAddress,
+    key,
+    targetId,
+    metadataPool,
+);
+```
+
+**引数**
+
+- `payload: Buffer` - 元ファイルのデータ（バイナリ可）
+- `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
+- `sourceAddress: Address` - メタデータ付与元のアドレス
+- `targetAddress: Address` - メタデータ付与先のアドレス
+- `key: UInt64` - 先頭チャンクメタデータの `Key`
+- `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
+- `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+
+**戻り値**
+
+- `mismatches: number` - ミスマッチしたバイト数。ゼロならデータ完全一致
+- `maxLength: number` - 元ファイル、オンチェーンの何れか、サイズが大きい方のバイト数
+
+サンプルコード
+
+```typescript
+const verifyMetal = async (
+    metalId: string,
+    payload: Buffer,
+) => {
+    const {
+        metadataType: type,
+        sourceAddress,
+        targetAddress,
+        targetId, 
+        scopedMetadataKey: key,
+    } = await MetalService.getFirstChunk(metalId);
+    const { mismatches, maxLength } = await MetalService.verify(
+        payload,
+        type,
+        sourceAddress,
+        targetAddress,
+        key,
+        targetId,
+        metadataPool,
+    );
+    return mismatches.length === 0;
+};
+```
+
+### 6.7. ユーティリティ
+
+#### ・チャンクメタデータ Key の生成
+
+```typescript
+const key = MetalgenerateMetadataKey(input);
+```
+
+**引数**
+
+- `input: string` - 入力文字列（多くは base64 文字列）
+
+**戻り値**
+
+- `UInt64` - メタデータ `Key`
+
+#### ・チェックサムの計算
+
+```typescript
+const checksum = MetalService.generateChecksum(input);
+```
+
+**引数**
+
+- `input: Buffer` - 入力生データ（バイナリ）
+
+**戻り値**
+
+- `UInt64` - 64 bits チェックサム値
+
+> base64 ではない生データを使用することに注意
+
+#### ・Metal ID から Composite Hash の復元
+
+```typescript
+const compositeHash = MetalService.restoreMetadataHash(metalId);
+```
+
+**引数**
+
+- `metalId: string` - Metal ID
+
+**戻り値**
+
+- `string` - `Composite Hash` 値の64文字 HEX
+
+
+
 
