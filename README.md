@@ -119,13 +119,13 @@ npm install -g metal-on-symbol
 **Windows**
 
 ```shell
-set NODE_URL=https://hogehoge.co.jp:3001
+set NODE_URL=https://example.jp:3001
 ```
 
 **Unix-like**
 
 ```shell
-export NODE_URL=https://hogehoge.co.jp:3001
+export NODE_URL=https://example.jp:3001
 ```
 
 ### 2.2. （大体）共通のオプション
