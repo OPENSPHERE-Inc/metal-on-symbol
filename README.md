@@ -1133,7 +1133,7 @@ const txs = await MetalService.createDestroyTxs(
     targetAccount,
     targetId,
     payload,
-    additiveBytes,
+    additive,
     metadataPool,
 );
 ```
@@ -1145,7 +1145,7 @@ const txs = await MetalService.createDestroyTxs(
 - `targetAccount: PublicAccount` - メタデータ付与先のアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
 - `payload: Buffer` - 元ファイルのデータ（バイナリ可）
-- `additiveBytes: Uint8Buffer` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
+- `additive: Uint8Buffer` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
 - `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
 
 **戻り値**
