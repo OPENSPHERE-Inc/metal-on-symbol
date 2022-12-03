@@ -1,11 +1,11 @@
 import dotenv from "dotenv";
 dotenv.config({ path: './.env.test' });
 
-import { main as forgeMain } from "../cli/forge/main";
+import { ForgeCLI } from "../cli";
 import assert from "assert";
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import {Account, Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {MetalService} from "../services/metal";
+import {MetalService} from "../services";
 
 
 describe("Forge CLI", () => {
@@ -28,7 +28,7 @@ describe("Forge CLI", () => {
 
     it("Estimation of Forge Metal", async () => {
         const { signer1 } = await SymbolTest.getNamedAccounts();
-        const output = await forgeMain([
+        const output = await ForgeCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "-s", signer1.publicKey,
@@ -45,7 +45,7 @@ describe("Forge CLI", () => {
 
     it("Forge Metal into Account", async () => {
         const { signer1 } = await SymbolTest.getNamedAccounts();
-        const output = await forgeMain([
+        const output = await ForgeCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "-s", signer1.publicKey,
@@ -66,7 +66,7 @@ describe("Forge CLI", () => {
 
     it("Forge Metal into Mosaic", async () => {
         const { signer1 } = await SymbolTest.getNamedAccounts();
-        const output = await forgeMain([
+        const output = await ForgeCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "-s", target.publicKey,
@@ -90,7 +90,7 @@ describe("Forge CLI", () => {
         assert(namespaceId.fullName);
 
         const { signer1 } = await SymbolTest.getNamedAccounts();
-        const output = await forgeMain([
+        const output = await ForgeCLI.main([
             "--force",
             "--priv-key", signer1.privateKey,
             "--src-pub-key", target.publicKey,
@@ -114,7 +114,7 @@ describe("Forge CLI", () => {
     it("Forge Metal into Account with Alt additive", async () => {
         const { signer1 } = await SymbolTest.getNamedAccounts();
         // Estimate metal ID without no additive
-        const outputNoAdditive = await forgeMain([
+        const outputNoAdditive = await ForgeCLI.main([
             "--estimate",
             "--priv-key", signer1.privateKey,
             "-s", signer1.publicKey,
@@ -130,7 +130,7 @@ describe("Forge CLI", () => {
 
         // Forge metal with alt additive
         const additive = Convert.uint8ToUtf8(MetalService.generateRandomAdditive());
-        const outputWithAdditive = await forgeMain([
+        const outputWithAdditive = await ForgeCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "-s", signer1.publicKey,

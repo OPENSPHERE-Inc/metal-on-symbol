@@ -1,4 +1,4 @@
-import {toXYM} from "../../libs/utils";
+import {Utils} from "../../libs";
 import Long from "long";
 
 import {IntermediateOutput} from "../intermediate";
@@ -24,7 +24,7 @@ export namespace ScrapOutput {
             `  Metadata Key: ${output.key?.toHex()}\n` +
             `  Additive: ${output.additive}\n` +
             `  # of Aggregate TXs: ${output.batches.length}\n` +
-            `  TX Fee: ${toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
+            `  TX Fee: ${Utils.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
             `  Signer Address: ${output.signerAccount.address.plain()}\n` +
             `  Network Type: ${output.networkType}\n`
         );

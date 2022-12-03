@@ -7,14 +7,12 @@ import {
     CosignatureSignedTransaction,
     CosignatureTransaction,
     Deadline,
-    HashLockTransaction,
     IListener,
     InnerTransaction,
     KeyGenerator,
     Metadata,
     MetadataSearchCriteria,
     MetadataType,
-    Mosaic,
     MosaicDefinitionTransaction,
     MosaicFlags,
     MosaicId,
@@ -48,6 +46,7 @@ export namespace SymbolService {
 
     interface SymbolServiceConfig {
         logging?: boolean;
+        // Required to set up Node URL
         node_url: string;
         fee_ratio: number;
         deadline_hours: number;
@@ -64,6 +63,7 @@ export namespace SymbolService {
         max_parallels: 10,
     };
 
+    // You MUST call once this function and setup Node URL before access the node.
     export const init = (cfg: Partial<SymbolServiceConfig>) => {
         config = { ...config, ...cfg };
     };
@@ -187,7 +187,6 @@ export namespace SymbolService {
         return new SignedTransaction(payload, signedTx.hash, signedTx.signerPublicKey, signedTx.type, signedTx.networkType);
     };
 
-    // The transaction MUST NOT be aggregate complete
     export const announceTxWithCosignatures = async (
         signedTx: SignedTransaction,
         cosignatures: CosignatureSignedTransaction[],
@@ -334,6 +333,7 @@ export namespace SymbolService {
             .setMaxFeeForAggregate(feeMultiplier, numCosigner);
     };
 
+    /*
     export const composeAggregateBondedTx = async (
         feeMultiplier: number,
         numCosigner: number,
@@ -364,6 +364,7 @@ export namespace SymbolService {
             // Use network transaction fee
             .setMaxFee(feeMultiplier);
     };
+     */
 
     // Returns undefined if tx not found.
     export const getConfirmedTx = async (txHash: string) => {

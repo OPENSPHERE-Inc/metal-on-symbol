@@ -1,4 +1,4 @@
-import {SymbolService} from "../services/symbol";
+import {SymbolService} from "../services";
 import {
     Account,
     Address,
@@ -8,10 +8,10 @@ import {
     NamespaceId, PublicAccount,
     UInt64
 } from "symbol-sdk";
-import {toXYM} from "../libs/utils";
+import {Utils} from "../libs";
 import Long from "long";
 import moment from "moment";
-import {MetalService} from "../services/metal";
+import {MetalService} from "../services";
 import PromptSync from "prompt-sync";
 
 
@@ -92,7 +92,7 @@ export const buildAndExecuteBatches = async (
     if (canAnnounce) {
         console.log(
             `Announcing ${batches.length} aggregate TXs ` +
-            `with fee ${toXYM(Long.fromString(totalFee.toString()))} XYM total.`
+            `with fee ${Utils.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
         if (usePrompt) {
             const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");

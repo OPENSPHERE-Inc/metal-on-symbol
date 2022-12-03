@@ -5,7 +5,7 @@ import {Account, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import assert from "assert";
 import fs from "fs";
-import { main as verifyMain } from "../cli/verify/main";
+import {VerifyCLI} from "../cli";
 
 
 describe("Verify CLI", () => {
@@ -40,7 +40,7 @@ describe("Verify CLI", () => {
             [ target ],
         );
 
-        const output = await verifyMain([
+        const output = await VerifyCLI.main([
             metalId,
             inputFile,
         ]);
@@ -68,7 +68,7 @@ describe("Verify CLI", () => {
             [ target ],
         );
 
-        const output = await verifyMain([
+        const output = await VerifyCLI.main([
             metalId,
             inputFile,
         ]);
@@ -96,7 +96,7 @@ describe("Verify CLI", () => {
             [ target ],
         );
 
-        const output = await verifyMain([
+        const output = await VerifyCLI.main([
             metalId,
             inputFile,
         ]);
@@ -124,7 +124,7 @@ describe("Verify CLI", () => {
             [ target ],
         );
 
-        const output = await verifyMain([
+        const output = await VerifyCLI.main([
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
             "-k", key.toHex(),
@@ -154,7 +154,7 @@ describe("Verify CLI", () => {
             [ target ],
         );
 
-        const output = await verifyMain([
+        const output = await VerifyCLI.main([
             "--priv-key", signer1.privateKey,
             "-s", target.publicKey,
             "-m", mosaicId.toHex(),
@@ -186,7 +186,7 @@ describe("Verify CLI", () => {
         );
 
         assert(namespaceId.fullName);
-        const output = await verifyMain([
+        const output = await VerifyCLI.main([
             "--src-addr", target.address.plain(),
             "--tgt-addr", signer1.address.plain(),
             "-n", namespaceId.fullName,

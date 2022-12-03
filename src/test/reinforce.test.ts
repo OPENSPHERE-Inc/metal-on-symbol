@@ -4,11 +4,11 @@ dotenv.config({ path: './.env.test' });
 import {Account, Convert, MosaicId, NamespaceId} from "symbol-sdk";
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import assert from "assert";
-import {main as forgeMain} from "../cli/forge/main";
-import {main as reinforceMain} from "../cli/reinforce/main";
-import {main as scrapMain} from "../cli/scrap/main";
+import {ForgeCLI} from "../cli";
+import {ReinforceCLI} from "../cli";
+import {ScrapCLI} from "../cli";
 import fs from "fs";
-import {MetalService} from "../services/metal";
+import {MetalService} from "../services";
 
 
 describe("Reinforce CLI", () => {
@@ -41,7 +41,7 @@ describe("Reinforce CLI", () => {
 
     it("Forge Account Metal", async() => {
         const { signer1 } = await SymbolTest.getNamedAccounts();
-        const forgeOutput = await forgeMain([
+        const forgeOutput = await ForgeCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
@@ -58,7 +58,7 @@ describe("Reinforce CLI", () => {
         metalId = forgeOutput?.metalId;
 
         // Overwrite outputFile
-        const estimateOutput = await reinforceMain([
+        const estimateOutput = await ReinforceCLI.main([
             "-f",
             "--out", outputFile,
             outputFile,
@@ -80,7 +80,7 @@ describe("Reinforce CLI", () => {
         expect(estimateOutput?.additive).toBe(forgeOutput?.additive);
         expect(estimateOutput?.signerAccount).toStrictEqual(forgeOutput?.signerAccount);
 
-        const reinforceOutput = await reinforceMain([
+        const reinforceOutput = await ReinforceCLI.main([
             "-a",
             "-f",
             "--cosigner", target.privateKey,
@@ -95,7 +95,7 @@ describe("Reinforce CLI", () => {
 
     it("Scrap Account Metal", async() => {
         const { signer1 } = await SymbolTest.getNamedAccounts();
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
@@ -106,7 +106,7 @@ describe("Reinforce CLI", () => {
         expect(fs.existsSync(outputFile)).toBeTruthy();
 
         // Overwrite outputFile
-        const estimateOutput = await reinforceMain([
+        const estimateOutput = await ReinforceCLI.main([
             "-f",
             "--out", outputFile,
             outputFile,
@@ -127,7 +127,7 @@ describe("Reinforce CLI", () => {
         expect(estimateOutput?.additive).toBe(scrapOutput?.additive);
         expect(estimateOutput?.signerAccount).toStrictEqual(scrapOutput?.signerAccount);
 
-        const reinforceOutput = await reinforceMain([
+        const reinforceOutput = await ReinforceCLI.main([
             "-a",
             "-f",
             "--priv-key", target.privateKey,

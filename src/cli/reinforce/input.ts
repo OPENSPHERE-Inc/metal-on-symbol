@@ -3,7 +3,7 @@ import fs from "fs";
 import {initCliEnv, isValueOption} from "../common";
 import {VERSION} from "./version";
 import PromptSync from "prompt-sync";
-import {SymbolService} from "../../services/symbol";
+import {SymbolService} from "../../services";
 
 
 export namespace ReinforceInput {

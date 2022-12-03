@@ -1,5 +1,5 @@
 import {Convert, MetadataType, MosaicId, NamespaceId, NetworkType, PublicAccount, UInt64} from "symbol-sdk";
-import {SymbolService} from "../services/symbol";
+import {SymbolService} from "../services";
 import fs from "fs";
 import SignedAggregateTx = SymbolService.SignedAggregateTx;
 

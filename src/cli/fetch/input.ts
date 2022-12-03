@@ -1,6 +1,6 @@
 import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
 import {initCliEnv, isValueOption} from "../common";
-import {SymbolService} from "../../services/symbol";
+import {SymbolService} from "../../services";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
 import PromptSync from "prompt-sync";

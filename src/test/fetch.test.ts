@@ -5,7 +5,7 @@ import {Account, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import assert from "assert";
 import fs from "fs";
-import {main as fetchMain} from "../cli/fetch/main";
+import {FetchCLI} from "../cli";
 
 
 describe("Fetch CLI", () => {
@@ -40,7 +40,7 @@ describe("Fetch CLI", () => {
             [ target ],
         );
 
-        const output = await fetchMain([
+        const output = await FetchCLI.main([
             "--no-save",
             metalId,
         ]);
@@ -69,7 +69,7 @@ describe("Fetch CLI", () => {
             [ target ],
         );
 
-        const output = await fetchMain([
+        const output = await FetchCLI.main([
             "--no-save",
             metalId,
         ]);
@@ -98,7 +98,7 @@ describe("Fetch CLI", () => {
             [ target ],
         );
 
-        const output = await fetchMain([
+        const output = await FetchCLI.main([
             "--no-save",
             metalId,
         ]);
@@ -127,7 +127,7 @@ describe("Fetch CLI", () => {
             [ target ],
         );
 
-        const output = await fetchMain([
+        const output = await FetchCLI.main([
             "--no-save",
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
@@ -157,7 +157,7 @@ describe("Fetch CLI", () => {
             [ target ],
         );
 
-        const output = await fetchMain([
+        const output = await FetchCLI.main([
             "--no-save",
             "--src-pub-key", target.publicKey,
             "--tgt-pub-key", signer1.publicKey,
@@ -189,7 +189,7 @@ describe("Fetch CLI", () => {
         );
 
         assert(namespaceId.fullName);
-        const output = await fetchMain([
+        const output = await FetchCLI.main([
             "--no-save",
             "--src-addr", target.address.plain(),
             "--tgt-addr", signer1.address.plain(),

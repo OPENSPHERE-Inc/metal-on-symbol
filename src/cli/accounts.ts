@@ -1,5 +1,5 @@
 import {Account, Address, PublicAccount} from "symbol-sdk";
-import {SymbolService} from "../services/symbol";
+import {SymbolService} from "../services";
 import PromptSync from "prompt-sync";
 
 

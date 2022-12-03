@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: './.env.test' });
 
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
-import {MetalService} from "../services/metal";
+import {MetalService} from "../services";
 import fs from "fs";
 import {
     Account,
@@ -14,8 +14,8 @@ import {
     NamespaceId,
     UInt64
 } from "symbol-sdk";
-import {SymbolService} from "../services/symbol";
-import {toXYM} from "../libs/utils";
+import {SymbolService} from "../services";
+import {Utils} from "../libs";
 import Long from "long";
 import assert from "assert";
 import moment from "moment";
@@ -59,7 +59,7 @@ describe("MetalService", () => {
             signer,
             cosigners,
             (batches, totalFee) => {
-                console.log(`totalFee=${toXYM(Long.fromString(totalFee.toString()))}`);
+                console.log(`totalFee=${Utils.toXYM(Long.fromString(totalFee.toString()))}`);
                 console.log(`batches.length=${batches.length}`);
 
                 expect(batches.length).toBe(Math.ceil(dataChunks / batchSize));

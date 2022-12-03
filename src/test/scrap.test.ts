@@ -5,8 +5,8 @@ import {Account, Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk"
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import assert from "assert";
 import fs from "fs";
-import { main as scrapMain } from "../cli/scrap/main";
-import {MetalService} from "../services/metal";
+import {ScrapCLI } from "../cli";
+import {MetalService} from "../services";
 
 
 describe("Scrap CLI", () => {
@@ -41,7 +41,7 @@ describe("Scrap CLI", () => {
             [ target ],
         );
 
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
@@ -57,7 +57,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "--tgt-priv-key", target.privateKey,
@@ -81,7 +81,7 @@ describe("Scrap CLI", () => {
             [ target ],
         );
 
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "-s", target.publicKey,
@@ -97,7 +97,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "--src-priv-key", target.privateKey,
@@ -121,7 +121,7 @@ describe("Scrap CLI", () => {
             [ target ],
         );
 
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "-s", target.publicKey,
@@ -137,7 +137,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "--src-priv-key", target.privateKey,
@@ -161,7 +161,7 @@ describe("Scrap CLI", () => {
             [ target ],
         );
 
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "-t", target.publicKey,
@@ -177,7 +177,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "--tgt-priv-key", target.privateKey,
@@ -201,7 +201,7 @@ describe("Scrap CLI", () => {
             [ target ],
         );
 
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "--src-pub-key", target.publicKey,
@@ -218,7 +218,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "--src-priv-key", target.privateKey,
@@ -244,7 +244,7 @@ describe("Scrap CLI", () => {
         );
 
         assert(namespaceId.fullName);
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "-s", target.publicKey,
@@ -261,7 +261,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "-f",
             "--priv-key", signer1.privateKey,
             "--src-priv-key", target.privateKey,
@@ -288,7 +288,7 @@ describe("Scrap CLI", () => {
             generatedAdditiveBytes,
         );
 
-        const estimateOutput = await scrapMain([
+        const estimateOutput = await ScrapCLI.main([
             "-e",
             "--priv-key", signer1.privateKey,
             "--tgt-pub-key", target.publicKey,
@@ -306,7 +306,7 @@ describe("Scrap CLI", () => {
         expect(additiveBytes).toStrictEqual(generatedAdditiveBytes);
         expect(estimateOutput?.status).toBe("estimated");
 
-        const scrapOutput = await scrapMain([
+        const scrapOutput = await ScrapCLI.main([
             "--force",
             "--priv-key", signer1.privateKey,
             "--tgt-priv-key", target.privateKey,

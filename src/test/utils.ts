@@ -1,5 +1,5 @@
 import assert from "assert";
-import {SymbolService} from "../services/symbol";
+import {SymbolService} from "../services";
 import {
     Account,
     Convert,
@@ -12,7 +12,7 @@ import {
     UInt64
 } from "symbol-sdk";
 import {v4 as uuidv4} from "uuid";
-import {MetalService} from "../services/metal";
+import {MetalService} from "../services";
 
 
 export const initTestEnv = () => {
@@ -155,7 +155,7 @@ export namespace MetalTest {
             console.error(`${txHash}: ${error}`);
         });
         assert(!errors?.length);
-    }
+    };
 
     export const forgeMetal = async (
         type: MetadataType,

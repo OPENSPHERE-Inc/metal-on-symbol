@@ -2,14 +2,14 @@ import {Convert, MetadataType, MosaicId, NamespaceId,} from "symbol-sdk";
 import fs from "fs";
 import {initCliEnv, isValueOption} from "../common";
 import {VERSION} from "./version";
-import {AccountsInput, validateAccountsInput} from "../account";
-import {SymbolService} from "../../services/symbol";
+import {AccountsInput, validateAccountsInput} from "../accounts";
+import {SymbolService} from "../../services";
 import PromptSync from "prompt-sync";
 
 
-const prompt = PromptSync();
-
 export namespace ForgeInput {
+
+    const prompt = PromptSync();
 
     export interface CommandlineInput extends AccountsInput {
         version: string;

@@ -1,6 +1,6 @@
 import {Account, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
-import {AddressesInput, validateAddressesInput} from "./account";
-import {SymbolService} from "../services/symbol";
+import {AddressesInput, validateAddressesInput} from "./accounts";
+import {SymbolService} from "../services";
 
 
 export interface MetalIdentifyInput extends AddressesInput {
