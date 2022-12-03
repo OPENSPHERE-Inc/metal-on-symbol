@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -16,7 +16,7 @@
   },
   "homepage": "https://github.com/OPENSPHERE-Inc/metal-on-symbol/issues#readme",
   "engines": {
-    "node": "16"
+    "node": ">=12.22.1"
   },
   "devDependencies": {
     "@types/jest": "^29.2.3",
