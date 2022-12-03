@@ -872,7 +872,7 @@ const metalId = MetalService.calculateMetalId(
 
 - `string` - 計算された `Metal ID`
 
-サンプルコード
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/forge.ts)
 
 ```typescript
 const forgeMetal = async (
@@ -949,7 +949,7 @@ const metadataPool = await SymbolService.searchMetadata(
 得られたメタデータリストを `MetalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
 あとは同じようにトランザクションへ署名してアナウンスしてください。
 
-サンプルコード
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/forge_recover.ts)
 
 ```typescript
 const forgeMetal = async (
@@ -1007,6 +1007,8 @@ const result = await MetalService.fetchByMetalId(metalId);
 
 `Metal ID` が見つからない場合は例外をスローします。
 
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/fetch.ts)
+
 #### 先頭チャンクメタデータで Fetch
 
 `Metal ID` が分からなくても、先頭チャンクのメタデータを特定できれば Metal を取得できます。
@@ -1026,6 +1028,8 @@ const payload = await MetalService.fetch(type, sourceAddress, targetAddress, tar
 **戻り値**
 
 - `Buffer` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/fetch_by_key.ts)
 
 ### 6.5. Scrap
 
@@ -1082,7 +1086,7 @@ const txs = await MetalService.createScrapTxs(
 
 後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
 
-サンプルコード
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/scrap.ts)
 
 ```typescript
 const scrapMetal = async (
@@ -1155,7 +1159,7 @@ const txs = await MetalService.createDestroyTxs(
 
 後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
 
-サンプルコード
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/scrap_by_payload.ts)
 
 ```typescript
 const destroyMetal = async (
@@ -1229,7 +1233,7 @@ const { mismatches, maxLength } = await MetalService.verify(
 - `mismatches: number` - ミスマッチしたバイト数。ゼロならデータ完全一致
 - `maxLength: number` - 元ファイル、オンチェーンの何れか、サイズが大きい方のバイト数
 
-サンプルコード
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/verify.ts)
 
 ```typescript
 const verifyMetal = async (
@@ -1274,7 +1278,7 @@ const payloadBase64 = MetalService.decode(key, metadataPool);
 
 - `string` - base64 文字列。チャンクが壊れていても途中までの文字列が返ります。
 
-サンプルコード
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/decode.ts)
 
 ```typescript
 const payloadBase64 = MetalService.decode(key, metadataPool);
