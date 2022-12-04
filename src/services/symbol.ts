@@ -97,7 +97,6 @@ export namespace SymbolService {
 
     export const getNetwork = async () => {
         if (!network /* || moment(network.updated_at).add(5, "minutes").isSameOrBefore()*/) {
-            console.log("init getNetwork");
             const repositoryFactory = new RepositoryFactoryHttp(config.node_url, config.repo_factory_config);
             const epochAdjustment = await firstValueFrom(repositoryFactory.getEpochAdjustment());
             const networkGenerationHash = await firstValueFrom(repositoryFactory.getGenerationHash());
