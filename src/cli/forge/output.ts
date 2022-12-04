@@ -7,7 +7,7 @@ export namespace ForgeOutput {
 
     export interface CommandlineOutput extends IntermediateOutput {
         status: "forged" | "estimated";
-        payload: Buffer;
+        payload: Uint8Array;
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {

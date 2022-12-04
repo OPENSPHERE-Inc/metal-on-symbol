@@ -29,13 +29,13 @@ export namespace FetchCLI {
         let type = input.type;
         let key = input.key;
         let targetId: undefined | MosaicId | NamespaceId;
-        let payload: Buffer;
+        let payload: Uint8Array;
 
         if (input.metalId) {
             console.log(`Fetching metal ${input.metalId}`);
             const result = await MetalService.fetchByMetalId(input.metalId);
             if (!result) {
-                throw Error(`The metal fetch failed.`);
+                throw new Error(`The metal fetch failed.`);
             }
             type = result.type
             sourceAddress = result.sourceAddress;

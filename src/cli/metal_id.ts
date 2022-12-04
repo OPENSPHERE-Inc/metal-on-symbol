@@ -25,13 +25,19 @@ export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(i
         console.log(`Singer Address is ${addressesInput.signer.address.plain()}`);
     }
     if (!addressesInput.metalId && !addressesInput.signer && !addressesInput.sourceAddress) {
-        throw Error("[source_account] must be specified via [--src-pub-key value], [--src-addr value] or [--priv-key value]");
+        throw new Error(
+            "[source_account] must be specified via [--src-pub-key value], " +
+            "[--src-addr value] or [--priv-key value]"
+        );
     }
     if (!addressesInput.metalId && !addressesInput.signer && !addressesInput.targetAddress) {
-        throw Error("[target_account] must be specified via [--tgt-pub-key value], [--tgt-addr value] or [--priv-key value]");
+        throw new Error(
+            "[target_account] must be specified via [--tgt-pub-key value], " +
+            "[--tgt-addr value] or [--priv-key value]"
+        );
     }
     if (!addressesInput.metalId && !addressesInput.key) {
-        throw Error("[metadata_key] must be specified via [--key value]");
+        throw new Error("[metadata_key] must be specified via [--key value]");
     }
 
     return addressesInput;

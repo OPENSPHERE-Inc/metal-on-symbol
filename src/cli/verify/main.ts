@@ -31,7 +31,7 @@ export namespace VerifyCLI {
         console.log(`${input.filePath}: Reading...`);
         const payload = fs.readFileSync(input.filePath);
         if (!payload.length) {
-            throw Error(`${input.filePath}: The file is empty.`);
+            throw new Error(`${input.filePath}: The file is empty.`);
         }
 
         let sourceAddress = input.sourceAddress || input.signer?.address;

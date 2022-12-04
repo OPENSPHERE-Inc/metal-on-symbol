@@ -585,7 +585,7 @@ Forge の際に追加できる 4 文字の「添加物」です。
 チェックサムサンプルコード
 
 ```typescript
-const generateChecksum = (input: Buffer): UInt64 => {
+const generateChecksum = (input: Uint8Array): UInt64 => {
     if (input.length === 0) {
         throw Error("Input must not be empty");
     }
@@ -759,7 +759,7 @@ const { txs, key, additive } = await MetalService.createForgeTxs(
 - `sourceAccount: PublicAccount` - メタデータ付与元となるアカウント
 - `targetAccount: PublicAccount` - メタデータ付与先となるアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先となるモザイク／ネームスペースのID。アカウントの場合は `undefined`
-- `payload: Buffer` - Forge したいデータ（バイナリ可）
+- `payload: Uint8Array` - Forge したいデータ（バイナリ可）
 - `additive: Uint8Arra` - **(Optional)** 添加したい Additive で、省略すると `0000`（必ず 4 bytes の ascii 文字列であること）
 - `metadataPool?: Metadata[]` - **(Optional)** オンチェーンに既にあるチャンクメタデータのプールで、あるものは生成トランザクションに含まれません。
   設定がなければ全てのトランザクションを生成します。
@@ -880,7 +880,7 @@ const forgeMetal = async (
     sourceAccount: PublicAccount,
     targetAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
-    payload: Buffer,
+    payload: Uint8Array,
     signer: Account,
     cosigners: Account[],
     additive?: Uint8Array,
@@ -957,7 +957,7 @@ const forgeMetal = async (
     sourceAccount: PublicAccount,
     targetAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
-    payload: Buffer,
+    payload: Uint8Array,
     signer: Account,
     cosigners: Account[],
     additive?: Uint8Array,
@@ -998,7 +998,7 @@ const result = await MetalService.fetchByMetalId(metalId);
 
 **戻り値**
 
-- `payload: Buffer` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+- `payload: Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
 - `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
 - `sourceAddress: Address` - メタデータ付与元のアカウントアドレス
 - `targetAddress: Address` - メタデータ付与先のアカウント
@@ -1027,7 +1027,7 @@ const payload = await MetalService.fetch(type, sourceAddress, targetAddress, tar
 
 **戻り値**
 
-- `Buffer` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+- `Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
 
 [サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/fetch_by_key.ts)
 
@@ -1148,8 +1148,8 @@ const txs = await MetalService.createDestroyTxs(
 - `sourceAccount: PublicAccount` - メタデータ付与元のアカウント
 - `targetAccount: PublicAccount` - メタデータ付与先のアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
-- `payload: Buffer` - 元ファイルのデータ（バイナリ可）
-- `additive: Uint8Buffer` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
+- `payload: Uint8Array` - 元ファイルのデータ（バイナリ可）
+- `additive: Uint8Array` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
 - `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
 
 **戻り値**
@@ -1167,7 +1167,7 @@ const destroyMetal = async (
     sourceAccount: PublicAccount,
     targetAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
-    payload: Buffer,
+    payload: Uint8Array,
     additive: Uint8Array,
     signer: Account,
     cosigners: Account[]
@@ -1220,7 +1220,7 @@ const { mismatches, maxLength } = await MetalService.verify(
 
 **引数**
 
-- `payload: Buffer` - 元ファイルのデータ（バイナリ可）
+- `payload: Uint8Array` - 元ファイルのデータ（バイナリ可）
 - `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
 - `sourceAddress: Address` - メタデータ付与元のアドレス
 - `targetAddress: Address` - メタデータ付与先のアドレス
@@ -1238,7 +1238,7 @@ const { mismatches, maxLength } = await MetalService.verify(
 ```typescript
 const verifyMetal = async (
     metalId: string,
-    payload: Buffer,
+    payload: Uint8Array,
 ) => {
     const {
         metadataType: type,
@@ -1282,7 +1282,7 @@ const payloadBase64 = MetalService.decode(key, metadataPool);
 
 ```typescript
 const payloadBase64 = MetalService.decode(key, metadataPool);
-const payload = Buffer.from(payloadBase64, "base64");
+const payload = Base64.toUint8Array(payloadBase64);
 ```
 
 ### 6.8. ユーティリティ
@@ -1309,7 +1309,7 @@ const checksum = MetalService.generateChecksum(input);
 
 **引数**
 
-- `input: Buffer` - 入力生データ（バイナリ）
+- `input: Uint8Array` - 入力生データ（バイナリ）
 
 **戻り値**
 

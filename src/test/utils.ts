@@ -162,7 +162,7 @@ export namespace MetalTest {
         sourceAccount: PublicAccount,
         targetAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
-        payload: Buffer,
+        payload: Uint8Array,
         signer: Account,
         cosigners: Account[],
         additive?: Uint8Array,

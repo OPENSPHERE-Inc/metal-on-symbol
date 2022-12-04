@@ -15,7 +15,7 @@ export namespace ScrapCLI {
 
     const scrapMetal = async (
         input: ScrapInput.CommandlineInput,
-        payload?: Buffer,
+        payload?: Uint8Array,
     ): Promise<ScrapOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
         assert(input.signer);
@@ -37,15 +37,15 @@ export namespace ScrapCLI {
             targetId = metadataEntry.targetId;
             additiveBytes = MetalService.extractChunk(metadataEntry)?.additive;
             if (!additiveBytes) {
-                throw Error(`The chunk is broken.`);
+                throw new Error(`The chunk is broken.`);
             }
 
             // We cannot retrieve publicKey at this time. Only can do address check.
             if (!sourceAccount.address.equals(metadataEntry?.sourceAddress)) {
-                throw Error(`Source address mismatched.`);
+                throw new Error(`Source address mismatched.`);
             }
             if (!targetAccount.address.equals(metadataEntry?.targetAddress)) {
-                throw Error(`Target address mismatched.`);
+                throw new Error(`Target address mismatched.`);
             }
         } else {
             if (!key && payload) {
@@ -85,7 +85,7 @@ export namespace ScrapCLI {
                 key,
             );
         if (!txs) {
-            throw Error(`Scrap metal TXs creation failed.`);
+            throw new Error(`Scrap metal TXs creation failed.`);
         }
 
         const { designatedCosigners, hasEnoughCosigners } = designateCosigners(
@@ -143,13 +143,13 @@ export namespace ScrapCLI {
             throw e;
         }
 
-        let payload: Buffer | undefined;
+        let payload: Uint8Array | undefined;
         if (input.filePath) {
             // Read input file contents here.
             console.log(`${input.filePath}: Reading...`);
             payload = fs.readFileSync(input.filePath);
             if (!payload.length) {
-                throw Error(`${input.filePath}: The file is empty.`);
+                throw new Error(`${input.filePath}: The file is empty.`);
             }
         }
 

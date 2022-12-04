@@ -19,13 +19,14 @@ import {Utils} from "../libs";
 import Long from "long";
 import assert from "assert";
 import moment from "moment";
+import { Base64 } from "js-base64";
 
 
 describe("MetalService", () => {
     let target: Account;
     let metadataKey: UInt64;
     let metalAdditive: Uint8Array;
-    let testData: Buffer;
+    let testData: Uint8Array;
     let dataChunks: number;
     let metadataPool: Metadata[];
     let mosaicId: MosaicId;
@@ -39,7 +40,7 @@ describe("MetalService", () => {
 
         assert(process.env.TEST_INPUT_FILE);
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
-        dataChunks = Math.ceil(testData.toString("base64").length / 1000);
+        dataChunks = Math.ceil(Base64.fromUint8Array(testData).length / 1000);
 
         const assets = await MetalTest.generateAssets();
         target = assets.account;
@@ -134,7 +135,7 @@ describe("MetalService", () => {
         const result = await MetalService.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
-        expect(result?.payload).toStrictEqual(testData);
+        expect(result?.payload.buffer).toStrictEqual(testData.buffer);
         expect(result?.type).toBe(MetadataType.Account);
         expect(result?.sourceAddress).toStrictEqual(source.address);
         expect(result?.targetAddress).toStrictEqual(target.address);
@@ -213,7 +214,7 @@ describe("MetalService", () => {
         const result = await MetalService.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
-        expect(result?.payload).toStrictEqual(testData);
+        expect(result?.payload.buffer).toStrictEqual(testData.buffer);
         expect(result?.type).toBe(MetadataType.Mosaic);
         expect(result?.sourceAddress).toStrictEqual(target.address);
         expect(result?.targetAddress).toStrictEqual(creator.address);
@@ -292,7 +293,7 @@ describe("MetalService", () => {
         const result = await MetalService.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
-        expect(result?.payload).toStrictEqual(testData);
+        expect(result?.payload.buffer).toStrictEqual(testData.buffer);
         expect(result?.type).toBe(MetadataType.Namespace);
         expect(result?.sourceAddress).toStrictEqual(target.address);
         expect(result?.targetAddress).toStrictEqual(owner.address);

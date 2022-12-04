@@ -22,6 +22,7 @@ import {SymbolService} from "./symbol";
 import assert from "assert";
 import {sha3_256} from "js-sha3";
 import bs58 from "bs58";
+import { Base64 } from "js-base64";
 
 
 export namespace MetalService {
@@ -41,7 +42,7 @@ export namespace MetalService {
     // Use sha3_256 of first 64 bits, MSB should be 0
     export const generateMetadataKey = (input: string): UInt64 => {
         if (input.length === 0) {
-            throw Error("Input must not be empty");
+            throw new Error("Input must not be empty");
         }
         const buf = sha3_256.arrayBuffer(input);
         const result = new Uint32Array(buf);
@@ -49,9 +50,9 @@ export namespace MetalService {
     };
 
     // Use sha3_256 of first 64 bits
-    export const generateChecksum = (input: Buffer): UInt64 => {
+    export const generateChecksum = (input: Uint8Array): UInt64 => {
         if (input.length === 0) {
-            throw Error("Input must not be empty");
+            throw new Error("Input must not be empty");
         }
         const buf = sha3_256.arrayBuffer(input);
         const result = new Uint32Array(buf);
@@ -91,7 +92,7 @@ export namespace MetalService {
             bs58.decode(metalId)
         );
         if (!hashHex.startsWith(METAL_ID_HEADER_HEX)) {
-            throw Error("Invalid metal ID.");
+            throw new Error("Invalid metal ID.");
         }
         return hashHex.slice(METAL_ID_HEADER_HEX.length);
     };
@@ -149,12 +150,12 @@ export namespace MetalService {
         sourceAccount: PublicAccount,
         targetAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
-        payload: Buffer,
+        payload: Uint8Array,
         additive: Uint8Array = DEFAULT_ADDITIVE,
         metadataPool?: Metadata[],
     ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: Uint8Array }> => {
         const lookupTable = createMetadataLookupTable(metadataPool);
-        const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
+        const payloadBase64Bytes = Convert.utf8ToUint8(Base64.fromUint8Array(payload));
         const txs = new Array<InnerTransaction>();
         const keys = new Array<string>();
 
@@ -269,8 +270,8 @@ export namespace MetalService {
     };
 
     // Calculate metadata key from payload. "additive" must be specified when using non-default one.
-    export const calculateMetadataKey = (payload: Buffer, additive: Uint8Array = DEFAULT_ADDITIVE) => {
-        const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
+    export const calculateMetadataKey = (payload: Uint8Array, additive: Uint8Array = DEFAULT_ADDITIVE) => {
+        const payloadBase64Bytes = Convert.utf8ToUint8(Base64.fromUint8Array(payload));
 
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
         let nextKey: UInt64 = generateChecksum(payload);
@@ -284,7 +285,7 @@ export namespace MetalService {
     };
     
     // Verify metadata key with calculated one. "additive" must be specified when using non-default one.
-    export const verifyMetadataKey = (key: UInt64, payload: Buffer, additive: Uint8Array = DEFAULT_ADDITIVE) =>
+    export const verifyMetadataKey = (key: UInt64, payload: Uint8Array, additive: Uint8Array = DEFAULT_ADDITIVE) =>
         calculateMetadataKey(payload, additive).equals(key);
 
     // Scrap metal via removing metadata
@@ -347,7 +348,7 @@ export namespace MetalService {
         sourceAccount: PublicAccount,
         targetAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
-        payload: Buffer,
+        payload: Uint8Array,
         additive: Uint8Array = DEFAULT_ADDITIVE,
         metadataPool?: Metadata[],
     ) => {
@@ -357,7 +358,7 @@ export namespace MetalService {
             await SymbolService.searchMetadata(type,  { source: sourceAccount, target: targetAccount, targetId })
         );
         const scrappedValueBytes = Convert.utf8ToUint8("");
-        const payloadBase64Bytes = Convert.utf8ToUint8(payload.toString("base64"));
+        const payloadBase64Bytes = Convert.utf8ToUint8(Base64.fromUint8Array(payload));
         const chunks = Math.ceil(payloadBase64Bytes.length / CHUNK_PAYLOAD_MAX_SIZE);
         const txs = new Array<InnerTransaction>();
         let nextKey: UInt64 = generateChecksum(payload);
@@ -423,7 +424,7 @@ export namespace MetalService {
                 let  metadataTx = tx as MetadataTransaction;
                 const keyHex = metadataTx.scopedMetadataKey.toHex();
                 if (lookupTable.has(keyHex)) {
-                    console.log(`${keyHex}: Already exists on the chain.`);
+                    console.warn(`${keyHex}: Already exists on the chain.`);
                     collisions.push(metadataTx.scopedMetadataKey);
                 }
             }
@@ -433,7 +434,7 @@ export namespace MetalService {
     };
 
     export const verify = async (
-        payload: Buffer,
+        payload: Uint8Array,
         type: MetadataType,
         sourceAddress: Address,
         targetAddress: Address,
@@ -441,7 +442,7 @@ export namespace MetalService {
         targetId?: MosaicId | NamespaceId,
         metadataPool?: Metadata[],
     ) => {
-        const payloadBase64 = payload.toString("base64");
+        const payloadBase64 = Base64.fromUint8Array(payload)
         const decodedBase64 = decode(
             key,
             metadataPool ||
@@ -474,7 +475,7 @@ export namespace MetalService {
         key: UInt64,
     ) => {
         const metadataPool = await SymbolService.searchMetadata(type, { source, target, targetId });
-        return Buffer.from(decode(key, metadataPool), "base64");
+        return Base64.toUint8Array(decode(key, metadataPool));
     };
 
     // Returns:
@@ -519,12 +520,12 @@ export namespace MetalService {
     ) => {
         const tx = TransactionMapping.createFromPayload(batch.signedTx.payload) as AggregateTransaction;
         if (tx.type !== TransactionType.AGGREGATE_COMPLETE) {
-            console.error(`TX validation error: Wrong transaction type.`);
+            console.error(`${batch.signedTx.hash}: TX validation error: Wrong transaction type ${tx.type}`);
             return false;
         }
 
         if (!tx.signer?.address.equals(signerAddress)) {
-            console.error(`TX validation error: Wrong signer.`);
+            console.error(`${batch.signedTx.hash}: TX validation error: Wrong signer ${tx.signer?.address.plain()}`);
             return false;
         }
 
@@ -534,12 +535,13 @@ export namespace MetalService {
                 targetAddress: UnresolvedAddress;
                 targetId?: MosaicId | NamespaceId;
                 key: UInt64;
+                value: Uint8Array;
             };
 
             switch (innerTx.type) {
                 case TransactionType.ACCOUNT_METADATA: {
                     if (type !== MetadataType.Account) {
-                        console.error(`TX validation error: Invalid transaction type.`);
+                        console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                         return false;
                     }
                     const metadataTx = innerTx as AccountMetadataTransaction;
@@ -547,13 +549,14 @@ export namespace MetalService {
                         sourceAddress: metadataTx.signer?.address,
                         targetAddress: metadataTx.targetAddress,
                         key: metadataTx.scopedMetadataKey,
+                        value: metadataTx.value,
                     };
                     break;
                 }
 
                 case TransactionType.MOSAIC_METADATA: {
                     if (type !== MetadataType.Mosaic) {
-                        console.error(`TX validation error: Invalid transaction type.`);
+                        console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                         return false;
                     }
                     const metadataTx = innerTx as MosaicMetadataTransaction;
@@ -562,13 +565,14 @@ export namespace MetalService {
                         targetAddress: metadataTx.targetAddress,
                         targetId: metadataTx.targetMosaicId,
                         key: metadataTx.scopedMetadataKey,
+                        value: metadataTx.value,
                     };
                     break;
                 }
 
                 case TransactionType.NAMESPACE_METADATA: {
                     if (type !== MetadataType.Namespace) {
-                        console.error(`TX validation error: Invalid transaction type.`);
+                        console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                         return false;
                     }
                     const metadataTx = innerTx as NamespaceMetadataTransaction;
@@ -577,12 +581,13 @@ export namespace MetalService {
                         targetAddress: metadataTx.targetAddress,
                         targetId: metadataTx.targetNamespaceId,
                         key: metadataTx.scopedMetadataKey,
+                        value: metadataTx.value,
                     };
                     break;
                 }
 
                 default:
-                    console.error(`TX validation error: Invalid transaction type.`);
+                    console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                     return false;
             }
 
@@ -590,13 +595,21 @@ export namespace MetalService {
                 !metadata.targetAddress?.equals(targetAddress) ||
                 (!metadata.targetId !== !targetId || (metadata.targetId && !metadata.targetId.equals(targetId)))
             ) {
-                console.error(`TX validation error: Malformed transaction.`);
+                console.error(`${batch.signedTx.hash}: TX validation error: Malformed transaction.`);
                 return false;
             }
 
             // The chunk must be existing on the contents.
             if (!metadataKeys.includes(metadata.key.toHex())) {
-                console.error(`TX validation error: Unknown chunk contains.`);
+                console.error(`${batch.signedTx.hash}: TX validation error: Unknown chunk ${metadata.key.toHex()} contains.`);
+                return false;
+            }
+
+            // Check chunk value condition
+            const calculatedKey = generateMetadataKey(Convert.uint8ToUtf8(metadata.value));
+            if (!metadata.key.equals(calculatedKey)) {
+                console.error(`${batch.signedTx.hash}: TX validation error: The chunk ${metadata.key.toHex()} is broken.`);
+                return false;
             }
         }
 

@@ -1,7 +1,7 @@
 import {Convert, MetadataType, MosaicId, NamespaceId, NetworkType, PublicAccount, UInt64} from "symbol-sdk";
 import {SymbolService} from "../services";
 import fs from "fs";
-import SignedAggregateTx = SymbolService.SignedAggregateTx;
+import { Base64 } from "js-base64";
 
 
 export const VERSION = "1.0";
@@ -51,7 +51,7 @@ export interface IntermediateOutput {
     createdAt: Date;
 }
 
-const batchToIntermediateTx = (batch: SignedAggregateTx) => ({
+const batchToIntermediateTx = (batch: SymbolService.SignedAggregateTx) => ({
     hash: batch.signedTx.hash,
     maxFee: batch.maxFee.toString(),
     cosignatures: batch.cosignatures.map((cosignature) => ({
@@ -60,7 +60,7 @@ const batchToIntermediateTx = (batch: SignedAggregateTx) => ({
         signerPublicKey: cosignature.signerPublicKey,
     })),
     // Convert HEX to base64
-    payload: Buffer.from(Convert.hexToUint8(batch.signedTx.payload)).toString("base64"),
+    payload: Base64.fromUint8Array(Convert.hexToUint8(batch.signedTx.payload)),
 });
 
 export const writeIntermediateFile = (output: IntermediateOutput, filePath: string) => {
@@ -90,12 +90,12 @@ export const readIntermediateFile = (filePath: string) => {
     console.log(`${filePath}: Reading...`);
     const intermediateJson = fs.readFileSync(filePath, "utf-8");
     if (!intermediateJson.length) {
-        throw Error(`${filePath}: The file is empty.`);
+        throw new Error(`${filePath}: The file is empty.`);
     }
 
     const intermediateTxs = JSON.parse(intermediateJson) as IntermediateTxs;
     if (intermediateTxs.version !== VERSION) {
-        throw Error(`${filePath}: Unsupported version ${intermediateTxs.version}`);
+        throw new Error(`${filePath}: Unsupported version ${intermediateTxs.version}`);
     }
 
     return intermediateTxs;
