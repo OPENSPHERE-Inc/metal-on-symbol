@@ -7,9 +7,9 @@ import PromptSync from "prompt-sync";
 import fs from "fs";
 
 
-const prompt = PromptSync();
-
 export namespace FetchInput {
+
+    const prompt = PromptSync();
 
     export interface CommandlineInput extends MetalIdentifyInput {
         version: string;
@@ -47,7 +47,7 @@ export namespace FetchInput {
                 case "--key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has metadata_key (HEX) as a value.`);
+                        throw new Error(`${token} must has metadata_key (HEX) as a value.`);
                     }
                     input.key = UInt64.fromHex(value);
                     break;
@@ -57,10 +57,10 @@ export namespace FetchInput {
                 case "--mosaic": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has mosaic_id as a value.`);
+                        throw new Error(`${value} must has mosaic_id as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
-                        throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
+                        throw new Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Mosaic;
@@ -72,10 +72,10 @@ export namespace FetchInput {
                 case "--namespace": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has namespace_name as a value.`);
+                        throw new Error(`${token} must has namespace_name as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
-                        throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
+                        throw new Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Namespace;
@@ -86,7 +86,7 @@ export namespace FetchInput {
                 case "--priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has signer's private_key as a value.`);
+                        throw new Error(`${token} must has signer's private_key as a value.`);
                     }
                     input.signerPrivateKey = value;
                     break;
@@ -95,7 +95,7 @@ export namespace FetchInput {
                 case "--node-url": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has node_url as a value.`);
+                        throw new Error(`${value} must has node_url as a value.`);
                     }
 
                     input.nodeUrl = value;
@@ -111,7 +111,7 @@ export namespace FetchInput {
                 case "--out": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has output_path as a value.`);
+                        throw new Error(`${token} must has output_path as a value.`);
                     }
                     input.outputPath = value;
                     break;
@@ -121,7 +121,7 @@ export namespace FetchInput {
                 case "--src-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public_key as a value.`);
+                        throw new Error(`${token} must has public_key as a value.`);
                     }
                     input.sourcePublicKey = value;
                     break;
@@ -130,7 +130,7 @@ export namespace FetchInput {
                 case "--src-addr": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has address as a value.`);
+                        throw new Error(`${token} must has address as a value.`);
                     }
                     input.sourceAddress = Address.createFromRawAddress(value);
                     break;
@@ -140,7 +140,7 @@ export namespace FetchInput {
                 case "--tgt-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public_key as a value.`);
+                        throw new Error(`${token} must has public_key as a value.`);
                     }
                     input.targetPublicKey = value;
                     break;
@@ -149,7 +149,7 @@ export namespace FetchInput {
                 case "--tgt-addr": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has address as a value.`);
+                        throw new Error(`${token} must has address as a value.`);
                     }
                     input.targetAddress = Address.createFromRawAddress(value);
                     break;
@@ -157,7 +157,7 @@ export namespace FetchInput {
 
                 default: {
                     if (token.startsWith("-")) {
-                        throw Error(`Unknown option ${token}`);
+                        throw new Error(`Unknown option ${token}`);
                     }
 
                     // We'll use only first one.
@@ -175,7 +175,7 @@ export namespace FetchInput {
     // Initializing CLI environment
     export const validateInput = async (input: CommandlineInput) => {
         if (!input.nodeUrl) {
-            throw Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
+            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
         }
 
         // We'll not announce any TXs this command.

@@ -34,7 +34,7 @@ export namespace VerifyInput {
                 case "--key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has metal_key (HEX) as a value.`);
+                        throw new Error(`${token} must has metal_key (HEX) as a value.`);
                     }
                     input.key = UInt64.fromHex(value);
                     break;
@@ -44,10 +44,10 @@ export namespace VerifyInput {
                 case "--mosaic": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has mosaic_id as a value.`);
+                        throw new Error(`${value} must has mosaic_id as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
-                        throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
+                        throw new Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Mosaic;
@@ -59,10 +59,10 @@ export namespace VerifyInput {
                 case "--namespace": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has namespace_name as a value.`);
+                        throw new Error(`${token} must has namespace_name as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
-                        throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
+                        throw new Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Namespace;
@@ -73,7 +73,7 @@ export namespace VerifyInput {
                 case "--priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has signer's private_key as a value.`);
+                        throw new Error(`${token} must has signer's private_key as a value.`);
                     }
                     input.signerPrivateKey = value;
                     break;
@@ -83,7 +83,7 @@ export namespace VerifyInput {
                 case "--src-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public_key as a value.`);
+                        throw new Error(`${token} must has public_key as a value.`);
                     }
                     input.sourcePublicKey = value;
                     break;
@@ -92,7 +92,7 @@ export namespace VerifyInput {
                 case "--src-addr": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has address as a value.`);
+                        throw new Error(`${token} must has address as a value.`);
                     }
                     input.sourceAddress = Address.createFromRawAddress(value);
                     break;
@@ -102,7 +102,7 @@ export namespace VerifyInput {
                 case "--tgt-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public_key as a value.`);
+                        throw new Error(`${token} must has public_key as a value.`);
                     }
                     input.targetPublicKey = value;
                     break;
@@ -111,7 +111,7 @@ export namespace VerifyInput {
                 case "--tgt-addr": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has address as a value.`);
+                        throw new Error(`${token} must has address as a value.`);
                     }
                     input.targetAddress = Address.createFromRawAddress(value);
                     break;
@@ -119,7 +119,7 @@ export namespace VerifyInput {
 
                 default: {
                     if (token.startsWith("-")) {
-                        throw Error(`Unknown option ${token}`);
+                        throw new Error(`Unknown option ${token}`);
                     }
 
                     if (!input.filePath) {
@@ -141,17 +141,17 @@ export namespace VerifyInput {
     // Initializing CLI environment
     export const validateInput = async (input: CommandlineInput) => {
         if (!input.nodeUrl) {
-            throw Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
+            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
         }
 
         // We'll not announce any TXs this command.
         await initCliEnv(input.nodeUrl, 0);
 
         if (!input.filePath) {
-            throw Error("[input_file] wasn't specified.")
+            throw new Error("[input_file] wasn't specified.")
         }
         if (!fs.existsSync(input.filePath)) {
-            throw Error(`${input.filePath}: File not found.`);
+            throw new Error(`${input.filePath}: File not found.`);
         }
 
         return validateMetalIdentifyInput(input);

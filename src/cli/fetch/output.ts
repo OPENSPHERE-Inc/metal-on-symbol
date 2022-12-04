@@ -6,7 +6,7 @@ export namespace FetchOutput {
 
     export interface CommandlineOutput {
         networkType: NetworkType;
-        payload: Buffer;
+        payload: Uint8Array;
         sourceAddress: Address;
         targetAddress: Address;
         key: UInt64 | undefined;

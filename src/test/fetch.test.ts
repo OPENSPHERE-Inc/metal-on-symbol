@@ -13,7 +13,7 @@ describe("Fetch CLI", () => {
     let target: Account;
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
-    let testData: Buffer;
+    let testData: Uint8Array;
 
     beforeAll(async () => {
         initTestEnv();
@@ -51,7 +51,7 @@ describe("Fetch CLI", () => {
         expect(output?.targetAddress).toStrictEqual(target.address);
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId).toBeUndefined();
-        expect(output?.payload).toStrictEqual(testData);
+        expect(output?.payload.buffer).toStrictEqual(testData.buffer);
 
         assert(metalId);
         await MetalTest.scrapMetal(metalId, signer1.publicAccount, target.publicAccount, signer1, [ target ]);
@@ -80,7 +80,7 @@ describe("Fetch CLI", () => {
         expect(output?.targetAddress).toStrictEqual(signer1.address);
         expect(output?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(output?.namespaceId).toBeUndefined();
-        expect(output?.payload).toStrictEqual(testData);
+        expect(output?.payload.buffer).toStrictEqual(testData.buffer);
 
         assert(metalId);
         await MetalTest.scrapMetal(metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
@@ -109,7 +109,7 @@ describe("Fetch CLI", () => {
         expect(output?.targetAddress).toStrictEqual(signer1.address);
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId?.toHex()).toBe(namespaceId.toHex());
-        expect(output?.payload).toStrictEqual(testData);
+        expect(output?.payload.buffer).toStrictEqual(testData.buffer);
 
         assert(metalId);
         await MetalTest.scrapMetal(metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);

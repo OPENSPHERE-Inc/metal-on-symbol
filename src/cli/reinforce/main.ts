@@ -22,6 +22,7 @@ import moment from "moment/moment";
 import {MetalService} from "../../services";
 import PromptSync from "prompt-sync";
 import {PACKAGE_VERSION} from "../../package_version";
+import { Base64 } from "js-base64";
 
 
 export namespace ReinforceCLI {
@@ -33,7 +34,7 @@ export namespace ReinforceCLI {
         sourceAccount: PublicAccount,
         targetAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
-        payload: Buffer,
+        payload: Uint8Array,
         additive?: string
     ) => {
         const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
@@ -55,7 +56,7 @@ export namespace ReinforceCLI {
         return intermediateTxs.txs.map((tx) => {
             const signedTx = new SignedTransaction(
                 // Convert base64 to HEX
-                Convert.uint8ToHex(Buffer.from(tx.payload, "base64")),
+                Convert.uint8ToHex(Base64.toUint8Array(tx.payload)),
                 tx.hash,
                 signerAccount.publicKey,
                 TransactionType.AGGREGATE_COMPLETE,
@@ -80,12 +81,12 @@ export namespace ReinforceCLI {
     const reinforceMetal = async (
         input: ReinforceInput.CommandlineInput,
         intermediateTxs: IntermediateTxs,
-        payload: Buffer,
+        payload: Uint8Array,
     ): Promise<ReinforceOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
 
         if (networkType !== intermediateTxs.networkType) {
-            throw Error(`Wrong network type ${intermediateTxs.networkType}`);
+            throw new Error(`Wrong network type ${intermediateTxs.networkType}`);
         }
 
         const cosigners = [
@@ -127,7 +128,7 @@ export namespace ReinforceCLI {
                 signerAccount.address,
                 metadataKeys,
             )) {
-                throw Error(`Intermediate TXs validation failed.`);
+                throw new Error(`Intermediate TXs validation failed.`);
             }
         }
 
@@ -159,7 +160,7 @@ export namespace ReinforceCLI {
             });
 
             if (errors) {
-                throw Error(`Some errors occurred during announcing.`);
+                throw new Error(`Some errors occurred during announcing.`);
             } else {
                 console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
             }
@@ -208,7 +209,7 @@ export namespace ReinforceCLI {
         console.log(`${input.filePath}: Reading...`);
         const payload = fs.readFileSync(input.filePath);
         if (!payload.length) {
-            throw Error(`${input.filePath}: The file is empty.`);
+            throw new Error(`${input.filePath}: The file is empty.`);
         }
 
         const output = await reinforceMetal(input, intermediateTxs, payload);

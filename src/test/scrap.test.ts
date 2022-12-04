@@ -14,7 +14,7 @@ describe("Scrap CLI", () => {
     let target: Account;
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
-    let testData: Buffer;
+    let testData: Uint8Array;
 
     beforeAll(async () => {
         initTestEnv();

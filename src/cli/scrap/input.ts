@@ -49,7 +49,7 @@ export namespace ScrapInput {
                 case "--additive": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has additive (4 ascii chars) as a value.`);
+                        throw new Error(`${token} must has additive (4 ascii chars) as a value.`);
                     }
                     input.additive = value;
                     break;
@@ -58,7 +58,7 @@ export namespace ScrapInput {
                 case "--cosigner": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has cosigner's private_key as a value.`);
+                        throw new Error(`${token} must has cosigner's private_key as a value.`);
                     }
                     input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), value ];
                     break;
@@ -73,7 +73,7 @@ export namespace ScrapInput {
                 case "--fee-ratio": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has fee_ratio (decimal) as a value.`);
+                        throw new Error(`${token} must has fee_ratio (decimal) as a value.`);
                     }
                     input.feeRatio = Number(value);
                     break;
@@ -94,7 +94,7 @@ export namespace ScrapInput {
                 case "--in": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has input_path as a value.`);
+                        throw new Error(`${token} must has input_path as a value.`);
                     }
                     input.filePath = value;
                     break;
@@ -104,7 +104,7 @@ export namespace ScrapInput {
                 case "--key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has metadata_key (HEX) as a value.`);
+                        throw new Error(`${token} must has metadata_key (HEX) as a value.`);
                     }
                     input.key = UInt64.fromHex(value);
                     break;
@@ -114,10 +114,10 @@ export namespace ScrapInput {
                 case "--mosaic": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has mosaic_id as a value.`);
+                        throw new Error(`${value} must has mosaic_id as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
-                        throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
+                        throw new Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Mosaic;
@@ -129,10 +129,10 @@ export namespace ScrapInput {
                 case "--namespace": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has namespace_name as a value.`);
+                        throw new Error(`${token} must has namespace_name as a value.`);
                     }
                     if (input.type !== MetadataType.Account) {
-                        throw Error("You cannot specify --mosaic and --namespace more than once, or both.")
+                        throw new Error("You cannot specify --mosaic and --namespace more than once, or both.")
                     }
 
                     input.type = MetadataType.Namespace;
@@ -144,7 +144,7 @@ export namespace ScrapInput {
                 case "--out": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has output_path as a value.`);
+                        throw new Error(`${token} must has output_path as a value.`);
                     }
                     input.outputPath = value;
                     break;
@@ -153,7 +153,7 @@ export namespace ScrapInput {
                 case "--parallels": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has number as a value.`);
+                        throw new Error(`${token} must has number as a value.`);
                     }
                     input.maxParallels = Number(value);
                     break;
@@ -162,7 +162,7 @@ export namespace ScrapInput {
                 case "--priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has signer's private_key as a value.`);
+                        throw new Error(`${token} must has signer's private_key as a value.`);
                     }
                     input.signerPrivateKey = value;
                     break;
@@ -171,7 +171,7 @@ export namespace ScrapInput {
                 case "--src-priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has source's private_key as a value.`);
+                        throw new Error(`${token} must has source's private_key as a value.`);
                     }
                     input.sourcePrivateKey = value;
                     break;
@@ -181,7 +181,7 @@ export namespace ScrapInput {
                 case "--src-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public_key as a value.`);
+                        throw new Error(`${token} must has public_key as a value.`);
                     }
                     input.sourcePublicKey = value;
                     break;
@@ -190,7 +190,7 @@ export namespace ScrapInput {
                 case "--tgt-priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has target's private_key as a value.`);
+                        throw new Error(`${token} must has target's private_key as a value.`);
                     }
                     input.targetPrivateKey = value;
                     break;
@@ -200,7 +200,7 @@ export namespace ScrapInput {
                 case "--tgt-pub-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has public_key as a value.`);
+                        throw new Error(`${token} must has public_key as a value.`);
                     }
                     input.targetPublicKey = value;
                     break;
@@ -208,7 +208,7 @@ export namespace ScrapInput {
 
                 default: {
                     if (token.startsWith("-")) {
-                        throw Error(`Unknown option ${token}`);
+                        throw new Error(`Unknown option ${token}`);
                     }
 
                     // We'll use only first one.
@@ -226,17 +226,17 @@ export namespace ScrapInput {
     // Initializing CLI environment
     export const validateInput = async (input: CommandlineInput) => {
         if (!input.nodeUrl) {
-            throw Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
+            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
         }
 
         await initCliEnv(input.nodeUrl, input.feeRatio);
 
         if (input.filePath) {
             if (!fs.existsSync(input.filePath)) {
-                throw Error(`${input.filePath}: File not found.`);
+                throw new Error(`${input.filePath}: File not found.`);
             }
         } else if(!input.key && !input.metalId) {
-            throw Error(`[--key value] or [metal_id] is required.`)
+            throw new Error(`[--key value] or [metal_id] is required.`)
         }
 
         if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
@@ -247,7 +247,7 @@ export namespace ScrapInput {
 
         if (input.additive) {
             if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
-                throw Error("[--additive value] must be 4 ascii chars.");
+                throw new Error("[--additive value] must be 4 ascii chars.");
             }
             input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }

@@ -61,7 +61,7 @@ export namespace ForgeCLI {
                 targetId,
             );
             if (collisions.length) {
-                throw Error(`${key?.toHex()}: Already exists on the target ${
+                throw new Error(`${key?.toHex()}: Already exists on the target ${
                     ["account", "mosaic", "namespace"][input.type]
                 }`);
             }
@@ -139,7 +139,7 @@ export namespace ForgeCLI {
         console.log(`${input.filePath}: Reading...`);
         const payload = fs.readFileSync(input.filePath);
         if (!payload.length) {
-            throw Error(`${input.filePath}: The file is empty.`);
+            throw new Error(`${input.filePath}: The file is empty.`);
         }
 
         const output = await forgeMetal(input, payload);

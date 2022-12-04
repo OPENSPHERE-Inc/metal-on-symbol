@@ -97,7 +97,7 @@ export const buildAndExecuteBatches = async (
         if (usePrompt) {
             const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
             if (decision.toLowerCase() !== "y") {
-                throw Error("Canceled by user.");
+                throw new Error("Canceled by user.");
             }
         }
 
@@ -108,7 +108,7 @@ export const buildAndExecuteBatches = async (
         });
 
         if (errors) {
-            throw Error(`Some errors occurred during announcing.`);
+            throw new Error(`Some errors occurred during announcing.`);
         } else {
             console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
         }
@@ -121,7 +121,7 @@ export const buildAndExecuteBatches = async (
 };
 
 export const doVerify = async (
-    payload: Buffer,
+    payload: Uint8Array,
     type: MetadataType,
     sourceAddress: Address,
     targetAddress: Address,
@@ -144,7 +144,7 @@ export const doVerify = async (
         targetId,
     );
     if (mismatches) {
-        throw Error(`Verify error: Mismatch rate is ${mismatches / maxLength * 100}%`);
+        throw new Error(`Verify error: Mismatch rate is ${mismatches / maxLength * 100}%`);
     } else {
         console.log(`Verify succeeded: No mismatches found.`);
     }

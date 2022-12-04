@@ -8,7 +8,7 @@ export namespace ReinforceOutput {
 
     export interface CommandlineOutput extends IntermediateOutput {
         status: "reinforced" | "estimated";
-        payload: Buffer;
+        payload: Uint8Array;
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {

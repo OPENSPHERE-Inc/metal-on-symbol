@@ -30,7 +30,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         input.signerPrivateKey = prompt("Signer Private Key? ", "", { echo: "*" });
     }
     if (!input.signerPrivateKey) {
-        throw Error(
+        throw new Error(
             "Signer's private key wasn't specified. [--priv-key value] or SIGNER_PRIVATE_KEY are required."
         );
     }
@@ -45,7 +45,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     if (input.sourcePrivateKey) {
         input.sourceSigner = Account.createFromPrivateKey(input.sourcePrivateKey, networkType);
         if (input.sourceAccount && !input.sourceSigner.publicAccount.equals(input.sourceAccount)) {
-            throw Error(
+            throw new Error(
                 "Mismatched source account between public key and private key " +
                 "(You don't need to specify public key)"
             );
@@ -63,7 +63,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     if (input.targetPrivateKey) {
         input.targetSigner = Account.createFromPrivateKey(input.targetPrivateKey, networkType);
         if (input.targetAccount && !input.targetSigner.publicAccount.equals(input.targetAccount)) {
-            throw Error(
+            throw new Error(
                 "Mismatched target account between public key and private key " +
                 "(You don't need to specify public key)"
             );
@@ -100,7 +100,7 @@ export const validateAddressesInput = async <T extends AddressesInput>(
     if (input.sourcePublicKey) {
         const sourceAddress = Address.createFromPublicKey(input.sourcePublicKey, networkType);
         if (input.sourceAddress && !input.sourceAddress.equals(sourceAddress)) {
-            throw Error(
+            throw new Error(
                 "Mismatched source account between public key and address " +
                 "(You don't need to specify public key)"
             );
@@ -111,7 +111,7 @@ export const validateAddressesInput = async <T extends AddressesInput>(
     if (input.targetPublicKey) {
         const targetAddress = Address.createFromPublicKey(input.targetPublicKey, networkType);
         if (input.targetAddress && !input.targetAddress.equals(targetAddress)) {
-            throw Error(
+            throw new Error(
                 "Mismatched target account between public key and address " +
                 "(You don't need to specify public key)"
             );

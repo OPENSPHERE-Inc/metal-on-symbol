@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -32,6 +32,7 @@
   "dependencies": {
     "bs58": "^5.0.0",
     "dotenv": "^16.0.3",
+    "js-base64": "^3.7.3",
     "js-sha3": "https://github.com/Propine/js-sha3.git",
     "long": "^5.2.1",
     "moment": "^2.29.4",

@@ -49,7 +49,7 @@ export namespace ReinforceInput {
                 case "--cosigner": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has cosigner's private_key as a value.`);
+                        throw new Error(`${token} must has cosigner's private_key as a value.`);
                     }
                     input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), value ];
                     break;
@@ -69,7 +69,7 @@ export namespace ReinforceInput {
                 case "--node-url": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${value} must has node_url as a value.`);
+                        throw new Error(`${value} must has node_url as a value.`);
                     }
 
                     input.nodeUrl = value;
@@ -80,7 +80,7 @@ export namespace ReinforceInput {
                 case "--out": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has output_path as a value.`);
+                        throw new Error(`${token} must has output_path as a value.`);
                     }
                     input.outputPath = value;
                     break;
@@ -89,7 +89,7 @@ export namespace ReinforceInput {
                 case "--parallels": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has number as a value.`);
+                        throw new Error(`${token} must has number as a value.`);
                     }
                     input.maxParallels = Number(value);
                     break;
@@ -98,7 +98,7 @@ export namespace ReinforceInput {
                 case "--priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw Error(`${token} must has signer's private_key as a value.`);
+                        throw new Error(`${token} must has signer's private_key as a value.`);
                     }
                     input.signerPrivateKey = value;
                     break;
@@ -106,7 +106,7 @@ export namespace ReinforceInput {
 
                 default: {
                     if (token.startsWith("-")) {
-                        throw Error(`Unknown option ${token}`);
+                        throw new Error(`Unknown option ${token}`);
                     }
 
                     // We'll use only first one.
@@ -126,23 +126,23 @@ export namespace ReinforceInput {
 // Initializing CLI environment
     export const validateInput = async (input: CommandlineInput) => {
         if (!input.nodeUrl) {
-            throw Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
+            throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
         }
 
         await initCliEnv(input.nodeUrl, 0);
 
         if (!input.intermediatePath) {
-            throw Error("[intermediate_txs.json] wasn't specified.");
+            throw new Error("[intermediate_txs.json] wasn't specified.");
         }
         if (!fs.existsSync(input.intermediatePath)) {
-            throw Error(`${input.intermediatePath}: File not found.`);
+            throw new Error(`${input.intermediatePath}: File not found.`);
         }
 
         if (!input.filePath) {
-            throw Error("[input_file] wasn't specified.")
+            throw new Error("[input_file] wasn't specified.")
         }
         if (!fs.existsSync(input.filePath)) {
-            throw Error(`${input.filePath}: File not found.`);
+            throw new Error(`${input.filePath}: File not found.`);
         }
 
         if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
