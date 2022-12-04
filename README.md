@@ -728,6 +728,7 @@ SymbolService.init(config);
   - `deadline_hours: number` - **(Optional)** トランザクション有効期限（デフォルト 5 時間）
   - `batch_size: number` - **(Optional)** Aggregate インナートランザクション最大数（デフォルト 100）
   - `max_parallels: number` - **(Optional)** トランザクションアナウンス並列数（デフォルト 10）
+  - `repo_factory_config: RepositoryFactoryConfig` - **(Optional)** Symbol SDK の RepositoryFactoryHttp コンストラクタに渡すコンフィグ  
 
 サンプルコード
 
