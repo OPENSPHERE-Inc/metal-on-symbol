@@ -25,7 +25,7 @@ import {
     NamespaceRegistrationTransaction,
     NetworkConfiguration,
     NetworkType,
-    PublicAccount,
+    PublicAccount, RepositoryFactoryConfig,
     RepositoryFactoryHttp,
     SignedTransaction,
     TransactionFees,
@@ -52,6 +52,7 @@ export namespace SymbolService {
         deadline_hours: number;
         batch_size: number;
         max_parallels: number;
+        repo_factory_config?: RepositoryFactoryConfig;
     }
 
     let config: SymbolServiceConfig = {
@@ -66,6 +67,7 @@ export namespace SymbolService {
     // You MUST call once this function and setup Node URL before access the node.
     export const init = (cfg: Partial<SymbolServiceConfig>) => {
         config = { ...config, ...cfg };
+        network = null;
     };
 
     export interface SignedAggregateTx {
@@ -76,7 +78,6 @@ export namespace SymbolService {
 
     // Local cache
     let network: {
-        nodeUrl: string,
         networkType: NetworkType,
         repositoryFactory: RepositoryFactoryHttp,
         epochAdjustment: number,
@@ -94,9 +95,9 @@ export namespace SymbolService {
         warn: (message?: any, ...args: any[]) => config.logging && console.error(message, ...args),
     };
 
-    export const getNetwork = async (nodeUrl: string = config.node_url) => {
-        if (!network || nodeUrl !== network.nodeUrl/* || moment(network.updated_at).add(5, "minutes").isSameOrBefore()*/) {
-            const repositoryFactory = new RepositoryFactoryHttp(nodeUrl);
+    export const getNetwork = async () => {
+        if (!network /* || moment(network.updated_at).add(5, "minutes").isSameOrBefore()*/) {
+            const repositoryFactory = new RepositoryFactoryHttp(config.node_url, config.repo_factory_config);
             const epochAdjustment = await firstValueFrom(repositoryFactory.getEpochAdjustment());
             const networkGenerationHash = await firstValueFrom(repositoryFactory.getGenerationHash());
             const networkCurrencyMosaicId = (await firstValueFrom(repositoryFactory.getCurrencies())).currency.mosaicId;
@@ -107,7 +108,6 @@ export namespace SymbolService {
             const networkProperties = await firstValueFrom(networkHttp.getNetworkProperties());
 
             network = {
-                nodeUrl,
                 networkType,
                 repositoryFactory,
                 epochAdjustment,
