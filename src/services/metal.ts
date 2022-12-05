@@ -322,7 +322,7 @@ export namespace MetalService {
 
             const chunk = extractChunk(metadata);
             if (!chunk) {
-                break;
+                return undefined;
             }
 
             const valueBytes = Convert.utf8ToUint8(metadata.value);
