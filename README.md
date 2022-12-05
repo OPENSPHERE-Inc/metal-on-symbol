@@ -745,8 +745,8 @@ import {MetalService} from "metal-on-symbol";
 
 const { txs, key, additive } = await MetalService.createForgeTxs(
     type, 
-    sourceAddress,
     sourceAccount,
+    targetPubAccount,
     targetId,
     payaload,
     additive,
@@ -757,8 +757,8 @@ const { txs, key, additive } = await MetalService.createForgeTxs(
 **引数**
 
 - `type: MetadataType` - メタデータタイプの一つを指定する（Account, Mosaic, Namespace）
-- `sourceAccount: PublicAccount` - メタデータ付与元となるアカウント
-- `targetAccount: PublicAccount` - メタデータ付与先となるアカウント
+- `sourcePubAccount: PublicAccount` - メタデータ付与元となるアカウント
+- `targetPubAccount: PublicAccount` - メタデータ付与先となるアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先となるモザイク／ネームスペースのID。アカウントの場合は `undefined`
 - `payload: Uint8Array` - Forge したいデータ（バイナリ可）
 - `additive: Uint8Arra` - **(Optional)** 添加したい Additive で、省略すると `0000`（必ず 4 bytes の ascii 文字列であること）
@@ -791,7 +791,7 @@ const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
 
 - `txs: InnerTransaction[]` - `MetalService.createForgeTxs` で生成したトランザクションの配列
 - `signer: Account` - 署名するアカウント
-- `cosigners: Account[]` - 連署するアカウントの配列（`signer` および `sourceAccount`、`targetAccount`、`targetId` 
+- `cosigners: Account[]` - 連署するアカウントの配列（`signer` および `sourcePubAccount`、`targetPubAccount`、`targetId` 
   の作成者・所有者が一致しない場合は、 登場人物全員の署名が必要です）
 - `feeRatio: number` - **(Optional)** トランザクション手数料率を上書き（0.0～1.0。省略すると初期化時の値）
 - `batchSize: number` - **(Optional)** インナートランザクション最大数を上書き（1～。省略すると初期化時の値）
@@ -873,13 +873,13 @@ const metalId = MetalService.calculateMetalId(
 
 - `string` - 計算された `Metal ID`
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/forge.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge.ts)
 
 ```typescript
 const forgeMetal = async (
     type: MetadataType,
-    sourceAccount: PublicAccount,
-    targetAccount: PublicAccount,
+    sourcePubAccount: PublicAccount,
+    targetPubAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
     signer: Account,
@@ -888,8 +888,8 @@ const forgeMetal = async (
 ) => {
     const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
         type,
-        sourceAccount,
-        targetAccount,
+        sourcePubAccount,
+        targetPubAccount,
         targetId,
         payload,
         additive,
@@ -905,8 +905,8 @@ const forgeMetal = async (
     }
     const metalId = MetalService.calculateMetalId(
         type,
-        sourceAccount.address,
-        targetAccount.address,
+        sourcePubAccount.address,
+        targetPubAccount.address,
         targetId,
         key,
     );
@@ -929,8 +929,8 @@ const forgeMetal = async (
 const metadataPool = await SymbolService.searchMetadata(
     type, 
     {
-        source: sourceAccount,
-        target: targetAccount,
+        source: sourcePubAccount,
+        target: targetPubAccount,
         targetId
     });
 ```
@@ -950,13 +950,13 @@ const metadataPool = await SymbolService.searchMetadata(
 得られたメタデータリストを `MetalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
 あとは同じようにトランザクションへ署名してアナウンスしてください。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/forge_recover.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge_recover.ts)
 
 ```typescript
 const forgeMetal = async (
     type: MetadataType,
-    sourceAccount: PublicAccount,
-    targetAccount: PublicAccount,
+    sourcePubAccount: PublicAccount,
+    targetPubAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
     signer: Account,
@@ -966,14 +966,14 @@ const forgeMetal = async (
     const metadataPool = await SymbolService.searchMetadata(
         type, 
         {
-            source: sourceAccount,
-            target: targetAccount,
+            source: sourcePubAccount,
+            target: targetPubAccount,
             targetId
         });
     const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
         type,
-        sourceAccount,
-        targetAccount,
+        sourcePubAccount,
+        targetPubAccount,
         targetId,
         payload,
         additive,
@@ -1008,7 +1008,7 @@ const result = await MetalService.fetchByMetalId(metalId);
 
 `Metal ID` が見つからない場合は例外をスローします。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/fetch.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch.ts)
 
 #### 先頭チャンクメタデータで Fetch
 
@@ -1030,7 +1030,7 @@ const payload = await MetalService.fetch(type, sourceAddress, targetAddress, tar
 
 - `Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/fetch_by_key.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch_by_key.ts)
 
 ### 6.5. Scrap
 
@@ -1058,8 +1058,8 @@ const { metadataType: type, targetId, scopedMetadataKey: key } = metadata;
 ```typescript
 const txs = await MetalService.createScrapTxs(
     type,
-    sourceAccount,
-    targetAccount,
+    sourcePubAccount,
+    targetPubAccount,
     targetId,
     key,
     metadataPool,
@@ -1069,13 +1069,13 @@ const txs = await MetalService.createScrapTxs(
 **引数**
 
 - `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
-- `sourceAccount: PublicAccount` - メタデータ付与元のアカウント
-- `targetAccount: PublicAccount` - メタデータ付与先のアカウント
+- `sourcePubAccount: PublicAccount` - メタデータ付与元のアカウント
+- `targetPubAccount: PublicAccount` - メタデータ付与先のアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
 - `key: UInt64` - 先頭チャンクメタデータの `Key`
 - `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
  
-> メタデータからはトランザクション生成に必要なパブリックキーが取得できないので、別途入手してsourceAccount と targetAccount を渡す必要がある仕様です。
+> メタデータからはトランザクション生成に必要なパブリックキーが取得できないので、別途入手してsourcePubAccount と targetPubAccount を渡す必要がある仕様です。
 
 **戻り値**
 
@@ -1087,21 +1087,21 @@ const txs = await MetalService.createScrapTxs(
 
 後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/scrap.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/scrap.ts)
 
 ```typescript
 const scrapMetal = async (
     metalId: string,
-    sourceAccount: PublicAccount,
-    targetAccount: PublicAccount,
+    sourcePubAccount: PublicAccount,
+    targetPubAccount: PublicAccount,
     signer: Account,
     cosigners: Account[]
 ) => {
     const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
     const txs = await MetalService.createScrapTxs(
         metadataEntry.metadataType,
-        sourceAccount,
-        targetAccount,
+        sourcePubAccount,
+        targetPubAccount,
         metadataEntry.targetId,
         metadataEntry.scopedMetadataKey,
     );
@@ -1134,8 +1134,8 @@ const scrapMetal = async (
 ```typescript
 const txs = await MetalService.createDestroyTxs(
     type,
-    sourceAccount,
-    targetAccount,
+    sourcePubAccount,
+    targetPubAccount,
     targetId,
     payload,
     additive,
@@ -1146,8 +1146,8 @@ const txs = await MetalService.createDestroyTxs(
 **引数**
 
 - `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
-- `sourceAccount: PublicAccount` - メタデータ付与元のアカウント
-- `targetAccount: PublicAccount` - メタデータ付与先のアカウント
+- `sourcePubAccount: PublicAccount` - メタデータ付与元のアカウント
+- `targetPubAccount: PublicAccount` - メタデータ付与先のアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
 - `payload: Uint8Array` - 元ファイルのデータ（バイナリ可）
 - `additive: Uint8Array` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
@@ -1160,13 +1160,13 @@ const txs = await MetalService.createDestroyTxs(
 
 後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/scrap_by_payload.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/scrap_by_payload.ts)
 
 ```typescript
 const destroyMetal = async (
     type: MetadataType,
-    sourceAccount: PublicAccount,
-    targetAccount: PublicAccount,
+    sourcePubAccount: PublicAccount,
+    targetPubAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
     additive: Uint8Array,
@@ -1175,8 +1175,8 @@ const destroyMetal = async (
 ) => {
     const txs = await MetalService.createDestroyTxs(
         type,
-        sourceAccount,
-        targetAccount,
+        sourcePubAccount,
+        targetPubAccount,
         targetId,
         payload,
         additive,
@@ -1234,7 +1234,7 @@ const { mismatches, maxLength } = await MetalService.verify(
 - `mismatches: number` - ミスマッチしたバイト数。ゼロならデータ完全一致
 - `maxLength: number` - 元ファイル、オンチェーンの何れか、サイズが大きい方のバイト数
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/verify.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/verify.ts)
 
 ```typescript
 const verifyMetal = async (
@@ -1273,13 +1273,13 @@ const payloadBase64 = MetalService.decode(key, metadataPool);
 - `key: UInt64` - 先頭チャンクメタデータの `Key`
 - `metadataPool: Metadata[]` - Metal の全チャンクを含むメタデータのプール
 
-> metadataPool は、メタデータの `type`, `sourceAccount`, `targetAccount`, `targetId` が同一である事を前提にしています。
+> metadataPool は、メタデータの `type`, `sourcePubAccount`, `targetPubAccount`, `targetId` が同一である事を前提にしています。
 
 **戻り値**
 
 - `string` - base64 文字列。チャンクが壊れていても途中までの文字列が返ります。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/decode.ts)
+[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/decode.ts)
 
 ```typescript
 const payloadBase64 = MetalService.decode(key, metadataPool);
@@ -1332,6 +1332,9 @@ const compositeHash = MetalService.restoreMetadataHash(metalId);
 
 - `string` - `Composite Hash` 値の64文字 HEX
 
+### 6.9. サンプルコード
 
+[こちら](https://github.com/OPENSPHERE-Inc/metal-sdk-sample) のリポジトリにサンプルコードをアップしてあります。
 
-
+- [Node.js 用](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/tree/master/browser-react)
+- [Browser (React) 用](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/tree/master/nodejs)
