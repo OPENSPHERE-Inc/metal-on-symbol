@@ -8,7 +8,7 @@ import {
     Account,
     AccountMetadataTransaction, Convert,
     InnerTransaction,
-    Metadata,
+    Metadata, MetadataEntry,
     MetadataType,
     MosaicId,
     NamespaceId,
@@ -353,5 +353,129 @@ describe("MetalService", () => {
         console.log(`metadataPool.length=${metadataPool.length}`);
 
         expect(metadataPool.length).toBeFalsy();
+    }, 600000);
+
+    it("Failed to create Scrap TXs", async () => {
+        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { metalId, key } = (await MetalTest.forgeMetal(
+            MetadataType.Mosaic,
+            signer1.publicAccount,
+            signer1.publicAccount,
+            mosaicId,
+            testData,
+            signer1,
+            []
+        ));
+
+        const metadataPool = await SymbolService.searchMetadata(MetadataType.Mosaic, {
+            source: signer1.publicAccount,
+            target: signer1.publicAccount,
+            targetId: mosaicId,
+        });
+
+        // Break metadata value
+        const brokenMetadataPool = [ ...metadataPool ];
+        brokenMetadataPool[5] = new Metadata(
+            brokenMetadataPool[5].id,
+            new MetadataEntry(
+                brokenMetadataPool[5].metadataEntry.version,
+                brokenMetadataPool[5].metadataEntry.compositeHash,
+                brokenMetadataPool[5].metadataEntry.sourceAddress,
+                brokenMetadataPool[5].metadataEntry.targetAddress,
+                brokenMetadataPool[5].metadataEntry.scopedMetadataKey,
+                brokenMetadataPool[5].metadataEntry.metadataType,
+                "",
+                brokenMetadataPool[5].metadataEntry.targetId
+            )
+        );
+
+        const txs1 = await MetalService.createScrapTxs(
+            MetadataType.Mosaic,
+            signer1.publicAccount,
+            signer1.publicAccount,
+            mosaicId,
+            key,
+            brokenMetadataPool
+        );
+
+        expect(txs1).toBeUndefined();
+
+        // Break metadata chain
+        brokenMetadataPool.splice(5, 1);
+
+        const txs2 = await MetalService.createScrapTxs(
+            MetadataType.Mosaic,
+            signer1.publicAccount,
+            signer1.publicAccount,
+            mosaicId,
+            key,
+            brokenMetadataPool
+        );
+
+        expect(txs2).toBeUndefined();
+
+        await MetalTest.scrapMetal(metalId, signer1.publicAccount, signer1.publicAccount, signer1, []);
+    }, 600000);
+
+    it("Failed to decode metal", async () => {
+        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { metalId, key } = (await MetalTest.forgeMetal(
+            MetadataType.Namespace,
+            signer1.publicAccount,
+            signer1.publicAccount,
+            namespaceId,
+            testData,
+            signer1,
+            []
+        ));
+
+        const metadataPool = await SymbolService.searchMetadata(MetadataType.Namespace, {
+            source: signer1.publicAccount,
+            target: signer1.publicAccount,
+            targetId: namespaceId,
+        });
+
+        // Break metadata value
+        const brokenMetadataPool = [ ...metadataPool ];
+        brokenMetadataPool[10] = new Metadata(
+            brokenMetadataPool[10].id,
+            new MetadataEntry(
+                brokenMetadataPool[10].metadataEntry.version,
+                brokenMetadataPool[10].metadataEntry.compositeHash,
+                brokenMetadataPool[10].metadataEntry.sourceAddress,
+                brokenMetadataPool[10].metadataEntry.targetAddress,
+                brokenMetadataPool[10].metadataEntry.scopedMetadataKey,
+                brokenMetadataPool[10].metadataEntry.metadataType,
+                "",
+                brokenMetadataPool[10].metadataEntry.targetId
+            )
+        );
+
+        const txs1 = await MetalService.createScrapTxs(
+            MetadataType.Namespace,
+            signer1.publicAccount,
+            signer1.publicAccount,
+            namespaceId,
+            key,
+            brokenMetadataPool
+        );
+
+        expect(txs1).toBeUndefined();
+
+        // Break metadata chain
+        brokenMetadataPool.splice(10, 1);
+
+        const txs2 = await MetalService.createScrapTxs(
+            MetadataType.Namespace,
+            signer1.publicAccount,
+            signer1.publicAccount,
+            namespaceId,
+            key,
+            brokenMetadataPool
+        );
+
+        expect(txs2).toBeUndefined();
+
+        await MetalTest.scrapMetal(metalId, signer1.publicAccount, signer1.publicAccount, signer1, []);
     }, 600000);
 });
