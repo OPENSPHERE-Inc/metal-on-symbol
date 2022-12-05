@@ -1336,5 +1336,5 @@ const compositeHash = MetalService.restoreMetadataHash(metalId);
 
 [こちら](https://github.com/OPENSPHERE-Inc/metal-sdk-sample) のリポジトリにサンプルコードをアップしてあります。
 
-- [Node.js 用](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/tree/master/browser-react)
-- [Browser (React) 用](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/tree/master/nodejs)
+- [Node.js 用](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/tree/master/nodejs)
+- [Browser (React) 用](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/tree/master/browser-react)
