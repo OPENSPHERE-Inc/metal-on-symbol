@@ -1,7 +1,7 @@
 import {Utils} from "../../libs";
 import Long from "long";
-
 import {IntermediateOutput} from "../intermediate";
+import {Logger} from "../../libs";
 
 
 export namespace ScrapOutput {
@@ -11,7 +11,7 @@ export namespace ScrapOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        console.log(
+        Logger.log(
             `\n  --- Summary of Scrapping ${
                 output.status === "estimated" ? "(Estimate)" : "(Receipt)"
             } ---\n` +

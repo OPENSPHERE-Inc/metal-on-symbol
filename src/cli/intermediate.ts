@@ -2,6 +2,7 @@ import {Convert, MetadataType, MosaicId, NamespaceId, NetworkType, PublicAccount
 import {SymbolService} from "../services";
 import fs from "fs";
 import { Base64 } from "js-base64";
+import {Logger} from "../libs";
 
 
 export const VERSION = "1.0";
@@ -63,7 +64,7 @@ const batchToIntermediateTx = (batch: SymbolService.SignedAggregateTx) => ({
     payload: Base64.fromUint8Array(Convert.hexToUint8(batch.signedTx.payload)),
 });
 
-export const writeIntermediateFile = (output: IntermediateOutput, filePath: string) => {
+export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, filePath: string) => {
     const intermediateTxs: IntermediateTxs = {
         version: VERSION,
         command: output.command,
@@ -83,11 +84,11 @@ export const writeIntermediateFile = (output: IntermediateOutput, filePath: stri
         updatedAt: new Date().toISOString(),
     };
     fs.writeFileSync(filePath, JSON.stringify(intermediateTxs),"utf-8");
-    console.log(`${filePath}: JSON data saved.`);
+    Logger.log(`${filePath}: JSON data saved.`);
 };
 
 export const readIntermediateFile = (filePath: string) => {
-    console.log(`${filePath}: Reading...`);
+    Logger.log(`${filePath}: Reading...`);
     const intermediateJson = fs.readFileSync(filePath, "utf-8");
     if (!intermediateJson.length) {
         throw new Error(`${filePath}: The file is empty.`);

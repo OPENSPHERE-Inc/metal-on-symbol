@@ -1,6 +1,7 @@
 import {Utils} from "../../libs";
 import Long from "long";
 import {IntermediateOutput} from "../intermediate";
+import {Logger} from "../../libs";
 
 
 export namespace ForgeOutput {
@@ -11,7 +12,7 @@ export namespace ForgeOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        console.log(
+        Logger.log(
             `\n  --- Summary of Forging ${
                 output.status === "estimated" ? "(Estimate)" : "(Receipt)"
             } ---\n` +

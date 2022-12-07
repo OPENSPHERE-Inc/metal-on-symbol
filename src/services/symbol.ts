@@ -6,6 +6,7 @@ import {
     Convert,
     CosignatureSignedTransaction,
     CosignatureTransaction,
+    Crypto,
     Deadline,
     IListener,
     InnerTransaction,
@@ -36,6 +37,7 @@ import assert from "assert";
 import {firstValueFrom, Subscription} from "rxjs";
 import moment from "moment";
 import {sha3_256} from "js-sha3";
+import {Logger} from "../libs";
 
 
 export namespace SymbolService {
@@ -89,10 +91,10 @@ export namespace SymbolService {
     } | null = null;
 
     const logger = {
-        error: (message?: any, ...args: any[]) => config.logging && console.error(message, ...args),
-        log: (message?: any, ...args: any[]) => config.logging && console.log(message, ...args),
-        debug: (message?: any, ...args: any[]) => config.logging && console.debug(message, ...args),
-        warn: (message?: any, ...args: any[]) => config.logging && console.error(message, ...args),
+        error: (message?: any, ...args: any[]) => config.logging && Logger.error(message, ...args),
+        log: (message?: any, ...args: any[]) => config.logging && Logger.log(message, ...args),
+        debug: (message?: any, ...args: any[]) => config.logging && Logger.debug(message, ...args),
+        warn: (message?: any, ...args: any[]) => config.logging && Logger.error(message, ...args),
     };
 
     export const getNetwork = async () => {
@@ -632,4 +634,27 @@ export namespace SymbolService {
             return new NamespaceId(value);
         }
     };
+
+    export const encryptBinary = (plainData: Uint8Array, sender: Account, recipientPubAccount: PublicAccount) => {
+        // FIXME: This has overhead of hex <-> uint8 conversion.
+        return Convert.hexToUint8(
+            Crypto.encode(
+                sender.privateKey,
+                recipientPubAccount.publicKey,
+                Convert.uint8ToHex(plainData),
+                true
+            )
+        );
+    };
+
+    export const decryptBinary = (encryptedData: Uint8Array, senderPubAccount: PublicAccount, recipient: Account) => {
+        // FIXME: This has overhead of hex <-> uint8 conversion.
+        return Convert.hexToUint8(
+            Crypto.decode(
+                recipient.privateKey,
+                senderPubAccount.publicKey,
+                Convert.uint8ToHex(encryptedData)
+            )
+        );
+    }
 }

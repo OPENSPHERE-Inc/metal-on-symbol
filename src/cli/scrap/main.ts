@@ -9,12 +9,13 @@ import {SymbolService} from "../../services";
 import {buildAndExecuteBatches, designateCosigners} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 import {PACKAGE_VERSION} from "../../package_version";
+import {Logger} from "../../libs";
 
 
 export namespace ScrapCLI {
 
     const scrapMetal = async (
-        input: ScrapInput.CommandlineInput,
+        input: Readonly<ScrapInput.CommandlineInput>,
         payload?: Uint8Array,
     ): Promise<ScrapOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
@@ -67,7 +68,7 @@ export namespace ScrapCLI {
             );
         }
 
-        console.log(`Scanning on-chain chunks of the metal ${metalId}`);
+        Logger.log(`Scanning on-chain chunks of the metal ${metalId}`);
         const txs = (payload)
             ? await MetalService.createDestroyTxs(
                 type,
@@ -130,7 +131,7 @@ export namespace ScrapCLI {
     };
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Scrap CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
+        Logger.log(`Metal Scrap CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
         let input: ScrapInput.CommandlineInput;
         try {
@@ -146,7 +147,7 @@ export namespace ScrapCLI {
         let payload: Uint8Array | undefined;
         if (input.filePath) {
             // Read input file contents here.
-            console.log(`${input.filePath}: Reading...`);
+            Logger.log(`${input.filePath}: Reading...`);
             payload = fs.readFileSync(input.filePath);
             if (!payload.length) {
                 throw new Error(`${input.filePath}: The file is empty.`);

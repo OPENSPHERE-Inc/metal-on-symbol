@@ -5,6 +5,7 @@ import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../accounts";
 import {SymbolService} from "../../services";
 import PromptSync from "prompt-sync";
+import {Logger} from "../../libs";
 
 
 export namespace ScrapInput {
@@ -224,7 +225,8 @@ export namespace ScrapInput {
     };
 
     // Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
+    export const validateInput = async (_input: Readonly<CommandlineInput>) => {
+        let input: CommandlineInput = { ..._input };
         if (!input.nodeUrl) {
             throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
         }
@@ -256,7 +258,7 @@ export namespace ScrapInput {
     };
 
     export const printUsage = () => {
-        console.error(
+        Logger.error(
             `Usages:\n` +
             `  With Metal ID          $ scrap [options] metal_id\n` +
             `  Account Metal          $ scrap [options] -k metadata_key\n` +
@@ -270,7 +272,7 @@ export namespace ScrapInput {
             `                         Higher ratio may get fast TX but higher cost\n` +
             `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +
-            `  -i input_file,\n` +
+            `  -i input_path,\n` +
             `  --in value             Specify input_path\n` +
             `  -k metadata_key,\n` +
             `  --key value            Specify metadata_key\n` +
@@ -279,8 +281,8 @@ export namespace ScrapInput {
             `  -n namespace_name,\n` +
             `  --namespace value      Specify namespace_name and demand Namespace Metal\n` +
             `  --node-url node_url    Specify network node_url\n` +
-            `  -o output_file.json,\n` +
-            `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
+            `  -o output_path.json,\n` +
+            `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
             `  -s public_key,\n` +

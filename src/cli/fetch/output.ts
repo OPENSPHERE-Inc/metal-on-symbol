@@ -1,5 +1,5 @@
 import {Address, MetadataType, MosaicId, NamespaceId, NetworkType, UInt64} from "symbol-sdk";
-import fs from "fs";
+import {Logger} from "../../libs";
 
 
 export namespace FetchOutput {
@@ -17,7 +17,7 @@ export namespace FetchOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        console.log(
+        Logger.log(
             `\n  --- Fetch Summary ---\n` +
             `  Metal ID: ${output.metalId}\n` +
             `  Type: ${output.mosaicId ? "Mosaic" : output.namespaceId ? "Namespace" : "Account" }\n` +
@@ -29,10 +29,6 @@ export namespace FetchOutput {
             `  Data size: ${output.payload.length} bytes\n` +
             `  Network Type: ${output.networkType}\n`
         );
-    };
-
-    export const writeOutputFile = (output: CommandlineOutput, filePath: string) => {
-        fs.writeFileSync(filePath, output.payload);
     };
 
 }

@@ -1,5 +1,4 @@
 import {Convert, MetadataType, UInt64} from "symbol-sdk";
-import fs from "fs";
 import assert from "assert";
 import {ForgeInput} from "./input";
 import {ForgeOutput} from "./output";
@@ -9,13 +8,15 @@ import {MetalService} from "../../services";
 import {buildAndExecuteBatches, designateCosigners, doVerify} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 import {PACKAGE_VERSION} from "../../package_version";
+import {Logger} from "../../libs";
+import {readStreamInput} from "../stream";
 
 
 export namespace ForgeCLI {
 
     const forgeMetal = async (
-        input: ForgeInput.CommandlineInput,
-        payload: Buffer,
+        input: Readonly<ForgeInput.CommandlineInput>,
+        payload: Uint8Array,
     ): Promise<ForgeOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
         assert(input.signer);
@@ -49,7 +50,7 @@ export namespace ForgeCLI {
             targetId,
             key,
         );
-        console.log(`Computed Metal ID is ${metalId}`);
+        Logger.log(`Computed Metal ID is ${metalId}`);
 
         if (input.checkCollision && !input.recover) {
             // Check collision (Don't on recover mode)
@@ -121,7 +122,7 @@ export namespace ForgeCLI {
     };
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Forge CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
+        Logger.log(`Metal Forge CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
         let input: ForgeInput.CommandlineInput;
         try {
@@ -135,12 +136,7 @@ export namespace ForgeCLI {
         }
 
         // Read input file contents here.
-        assert(input.filePath);
-        console.log(`${input.filePath}: Reading...`);
-        const payload = fs.readFileSync(input.filePath);
-        if (!payload.length) {
-            throw new Error(`${input.filePath}: The file is empty.`);
-        }
+        const payload = await readStreamInput(input);
 
         const output = await forgeMetal(input, payload);
         if (input.outputPath) {

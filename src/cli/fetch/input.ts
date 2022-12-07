@@ -3,13 +3,11 @@ import {initCliEnv, isValueOption} from "../common";
 import {SymbolService} from "../../services";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
-import PromptSync from "prompt-sync";
-import fs from "fs";
+import {Logger} from "../../libs";
+import {validateStreamInput} from "../stream";
 
 
 export namespace FetchInput {
-
-    const prompt = PromptSync();
 
     export interface CommandlineInput extends MetalIdentifyInput {
         version: string;
@@ -17,6 +15,7 @@ export namespace FetchInput {
         noSave: boolean;
         outputPath?: string;
         force: boolean;
+        stdout: boolean;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -27,6 +26,7 @@ export namespace FetchInput {
             type: MetadataType.Account,
             noSave: false,
             force: false,
+            stdout: false,
         };
 
         for (let i = 0; i < argv.length; i++) {
@@ -117,6 +117,11 @@ export namespace FetchInput {
                     break;
                 }
 
+                case "--stdout": {
+                    input.stdout = true;
+                    break;
+                }
+
                 case "-s":
                 case "--src-pub-key": {
                     const value = argv[++i];
@@ -173,7 +178,7 @@ export namespace FetchInput {
     };
 
     // Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
+    export const validateInput = async (input: Readonly<CommandlineInput>) => {
         if (!input.nodeUrl) {
             throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
         }
@@ -181,17 +186,13 @@ export namespace FetchInput {
         // We'll not announce any TXs this command.
         await initCliEnv(input.nodeUrl, 0);
 
-        if (input.outputPath && !input.noSave && !input.force && fs.existsSync(input.outputPath)) {
-            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
-                throw new Error(`Canceled by user.`);
-            }
-        }
-
-        return validateMetalIdentifyInput(input);
+        return validateMetalIdentifyInput(
+            await validateStreamInput(input, !input.force)
+        );
     };
 
     export const printUsage = () => {
-        console.error(
+        Logger.error(
             `Usages:\n` +
             `  With Metal ID          $ fetch [options] metal_id\n` +
             `  Account Metal          $ fetch [options] -k metadata_key\n` +
@@ -211,12 +212,12 @@ export namespace FetchInput {
             `  -o output_path,\n` +
             `  --out value            Specify output_path (default:[metal_id])\n` +
             `  --priv-key value       Specify signer's private_key\n` +
-            `  -s address,\n` +
-            `  --src-pub-key value    Specify source_account via public_key\n` +
-            `  --src-addr value       Specify source_account via address\n` +
-            `  -t address,\n` +
-            `  --tgt-pub-key value    Specify target_account via public_key\n` +
-            `  --tgt-addr value       Specify target_account via address\n` +
+            `  -s public_key,\n` +
+            `  --src-pub-key value    Specify source_account via public_key (default:signer)\n` +
+            `  --src-addr value       Specify source_account via address (default:signer)\n` +
+            `  -t public_key,\n` +
+            `  --tgt-pub-key value    Specify target_account via public_key (default:signer)\n` +
+            `  --tgt-addr value       Specify target_account via address (default:signer)\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`

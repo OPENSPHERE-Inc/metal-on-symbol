@@ -1,16 +1,16 @@
 import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
 import {initCliEnv, isValueOption} from "../common";
 import {SymbolService} from "../../services";
-import fs from "fs";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
+import {Logger} from "../../libs";
+import {StreamInput, validateStreamInput} from "../stream";
 
 
 export namespace VerifyInput {
 
-    export interface CommandlineInput extends MetalIdentifyInput {
+    export interface CommandlineInput extends MetalIdentifyInput, StreamInput {
         version: string;
-        filePath?: string;
         nodeUrl?: string,
     }
 
@@ -21,6 +21,8 @@ export namespace VerifyInput {
             signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
             type: MetadataType.Account,
         };
+
+        const paths = new Array<string>();
 
         for (let i = 0; i < argv.length; i++) {
             const token = argv[i];
@@ -122,24 +124,26 @@ export namespace VerifyInput {
                         throw new Error(`Unknown option ${token}`);
                     }
 
-                    if (!input.filePath) {
-                        // [file_path]
-                        input.filePath = token;
-                    } else if (!input.metalId) {
-                        // [metal_id] [file_path]
-                        input.metalId = input.filePath;
-                        input.filePath = token;
-                    }
+                    paths.push(token);
                     break;
                 }
             }
+        }
+
+        if (!input.key) {
+            // [metal_id] [input_path]
+            input.metalId = paths[0];
+            input.filePath = paths[1];
+        } else {
+            // [input_path]
+            input.filePath = paths[0];
         }
 
         return input;
     };
 
     // Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
+    export const validateInput = async (input: Readonly<CommandlineInput>) => {
         if (!input.nodeUrl) {
             throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
         }
@@ -147,22 +151,17 @@ export namespace VerifyInput {
         // We'll not announce any TXs this command.
         await initCliEnv(input.nodeUrl, 0);
 
-        if (!input.filePath) {
-            throw new Error("[input_file] wasn't specified.")
-        }
-        if (!fs.existsSync(input.filePath)) {
-            throw new Error(`${input.filePath}: File not found.`);
-        }
-
-        return validateMetalIdentifyInput(input);
+        return validateMetalIdentifyInput(
+            await validateStreamInput(input, true)
+        );
     };
 
     export const printUsage = () => {
-        console.error(
-            `  With Metal ID          $ verify [options] metal_id input_file\n` +
-            `  Account Metal          $ verify [options] -k metadata_key input_file\n` +
-            `  Mosaic Metal           $ verify [options] -m mosaic_id -k metadata_key input_file\n` +
-            `  Namespace Metal        $ verify [options] -n namespace_name -k metadata_key input_file\n` +
+        Logger.error(
+            `  With Metal ID          $ verify [options] metal_id [input_path]\n` +
+            `  Account Metal          $ verify [options] -k metadata_key [input_path]\n` +
+            `  Mosaic Metal           $ verify [options] -m mosaic_id -k metadata_key [input_path]\n` +
+            `  Namespace Metal        $ verify [options] -n namespace_name -k metadata_key [input_path]\n` +
             `Options:\n` +
             `  -h, --help             Show command line usage\n` +
             `  -k metadata_key,\n` +

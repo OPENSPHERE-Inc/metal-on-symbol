@@ -23,6 +23,7 @@ import assert from "assert";
 import {sha3_256} from "js-sha3";
 import bs58 from "bs58";
 import { Base64 } from "js-base64";
+import {Logger} from "../libs";
 
 
 export namespace MetalService {
@@ -170,7 +171,7 @@ export namespace MetalService {
             const { value, key } = packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes);
 
             if (keys.includes(key.toHex())) {
-                console.warn(`Warning: Scoped key "${key.toHex()}" has been conflicted. Trying another additive.`);
+                Logger.warn(`Warning: Scoped key "${key.toHex()}" has been conflicted. Trying another additive.`);
                 // Retry with another additive via recursive call
                 return createForgeTxs(
                     type,
@@ -207,20 +208,20 @@ export namespace MetalService {
     export const extractChunk = (chunk: MetadataEntry) => {
         const magic = chunk.value.substring(0, 1);
         if (!isMagic(magic)) {
-            console.error(`Error: Malformed header magic ${magic}`);
+            Logger.error(`Error: Malformed header magic ${magic}`);
             return undefined;
         }
 
         const version = chunk.value.substring(1, 4);
         if (version !== VERSION) {
-            console.error(`Error: Malformed header version ${version}`);
+            Logger.error(`Error: Malformed header version ${version}`);
             return undefined;
         }
 
         const metadataValue = chunk.value;
         const checksum = generateMetadataKey(metadataValue);
         if (!checksum.equals(chunk.scopedMetadataKey)) {
-            console.error(
+            Logger.error(
                 `Error: The chunk ${chunk.scopedMetadataKey.toHex()} is broken ` +
                 `(calculated=${checksum.toHex()})`
             );
@@ -251,7 +252,7 @@ export namespace MetalService {
         do {
             const metadata = lookupTable.get(currentKeyHex)?.metadataEntry;
             if (!metadata) {
-                console.error(`Error: The chunk ${currentKeyHex} lost`);
+                Logger.error(`Error: The chunk ${currentKeyHex} lost`);
                 break;
             }
             lookupTable.delete(currentKeyHex);  // Prevent loop
@@ -315,7 +316,7 @@ export namespace MetalService {
         do {
             const metadata = lookupTable.get(currentKeyHex)?.metadataEntry;
             if (!metadata) {
-                console.error(`Error: The chunk ${currentKeyHex} lost.`);
+                Logger.error(`Error: The chunk ${currentKeyHex} lost.`);
                 return undefined;
             }
             lookupTable.delete(currentKeyHex);  // Prevent loop
@@ -424,7 +425,7 @@ export namespace MetalService {
                 let  metadataTx = tx as MetadataTransaction;
                 const keyHex = metadataTx.scopedMetadataKey.toHex();
                 if (lookupTable.has(keyHex)) {
-                    console.warn(`${keyHex}: Already exists on the chain.`);
+                    Logger.warn(`${keyHex}: Already exists on the chain.`);
                     collisions.push(metadataTx.scopedMetadataKey);
                 }
             }
@@ -520,12 +521,12 @@ export namespace MetalService {
     ) => {
         const tx = TransactionMapping.createFromPayload(batch.signedTx.payload) as AggregateTransaction;
         if (tx.type !== TransactionType.AGGREGATE_COMPLETE) {
-            console.error(`${batch.signedTx.hash}: TX validation error: Wrong transaction type ${tx.type}`);
+            Logger.error(`${batch.signedTx.hash}: TX validation error: Wrong transaction type ${tx.type}`);
             return false;
         }
 
         if (!tx.signer?.address.equals(signerAddress)) {
-            console.error(`${batch.signedTx.hash}: TX validation error: Wrong signer ${tx.signer?.address.plain()}`);
+            Logger.error(`${batch.signedTx.hash}: TX validation error: Wrong signer ${tx.signer?.address.plain()}`);
             return false;
         }
 
@@ -541,7 +542,7 @@ export namespace MetalService {
             switch (innerTx.type) {
                 case TransactionType.ACCOUNT_METADATA: {
                     if (type !== MetadataType.Account) {
-                        console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
+                        Logger.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                         return false;
                     }
                     const metadataTx = innerTx as AccountMetadataTransaction;
@@ -556,7 +557,7 @@ export namespace MetalService {
 
                 case TransactionType.MOSAIC_METADATA: {
                     if (type !== MetadataType.Mosaic) {
-                        console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
+                        Logger.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                         return false;
                     }
                     const metadataTx = innerTx as MosaicMetadataTransaction;
@@ -572,7 +573,7 @@ export namespace MetalService {
 
                 case TransactionType.NAMESPACE_METADATA: {
                     if (type !== MetadataType.Namespace) {
-                        console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
+                        Logger.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                         return false;
                     }
                     const metadataTx = innerTx as NamespaceMetadataTransaction;
@@ -587,7 +588,7 @@ export namespace MetalService {
                 }
 
                 default:
-                    console.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
+                    Logger.error(`${batch.signedTx.hash}: TX validation error: Invalid transaction type ${innerTx.type}`);
                     return false;
             }
 
@@ -595,20 +596,20 @@ export namespace MetalService {
                 !metadata.targetAddress?.equals(targetAddress) ||
                 (!metadata.targetId !== !targetId || (metadata.targetId && !metadata.targetId.equals(targetId)))
             ) {
-                console.error(`${batch.signedTx.hash}: TX validation error: Malformed transaction.`);
+                Logger.error(`${batch.signedTx.hash}: TX validation error: Malformed transaction.`);
                 return false;
             }
 
             // The chunk must be existing on the contents.
             if (!metadataKeys.includes(metadata.key.toHex())) {
-                console.error(`${batch.signedTx.hash}: TX validation error: Unknown chunk ${metadata.key.toHex()} contains.`);
+                Logger.error(`${batch.signedTx.hash}: TX validation error: Unknown chunk ${metadata.key.toHex()} contains.`);
                 return false;
             }
 
             // Check chunk value condition
             const calculatedKey = generateMetadataKey(Convert.uint8ToUtf8(metadata.value));
             if (!metadata.key.equals(calculatedKey)) {
-                console.error(`${batch.signedTx.hash}: TX validation error: The chunk ${metadata.key.toHex()} is broken.`);
+                Logger.error(`${batch.signedTx.hash}: TX validation error: The chunk ${metadata.key.toHex()} is broken.`);
                 return false;
             }
         }

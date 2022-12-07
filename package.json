@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -69,6 +69,8 @@
     "scrap": "node dist/cli/main.js scrap",
     "fetch": "node dist/cli/main.js fetch",
     "reinforce": "node dist/cli/main.js reinforce",
+    "encrypt": "node dist/cli/main.js encrypt",
+    "decrypt": "node dist/cli/main.js decrypt",
     "build-pack": "yarn build && yarn pack",
     "build-publish": "yarn build && yarn publish"
   },

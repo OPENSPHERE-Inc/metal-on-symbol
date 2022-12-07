@@ -4,17 +4,18 @@ import {initCliEnv, isValueOption} from "../common";
 import {VERSION} from "./version";
 import PromptSync from "prompt-sync";
 import {SymbolService} from "../../services";
+import {Logger} from "../../libs";
+import {StreamInput, validateStreamInput} from "../stream";
 
 
 export namespace ReinforceInput {
 
     const prompt = PromptSync();
 
-    export interface CommandlineInput {
+    export interface CommandlineInput extends StreamInput {
         version: string;
         announce: boolean;
         cosignerPrivateKeys?: string[];
-        filePath?: string;
         force: boolean;
         intermediatePath?: string;
         maxParallels: number;
@@ -123,13 +124,16 @@ export namespace ReinforceInput {
         return input;
     };
 
-// Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
+    // Initializing CLI environment
+    export const validateInput = async (_input: Readonly<CommandlineInput>) => {
+        let input: CommandlineInput = { ..._input };
         if (!input.nodeUrl) {
             throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
         }
 
         await initCliEnv(input.nodeUrl, 0);
+
+        input = await validateStreamInput(input, !input.force);
 
         if (!input.intermediatePath) {
             throw new Error("[intermediate_txs.json] wasn't specified.");
@@ -138,33 +142,20 @@ export namespace ReinforceInput {
             throw new Error(`${input.intermediatePath}: File not found.`);
         }
 
-        if (!input.filePath) {
-            throw new Error("[input_file] wasn't specified.")
-        }
-        if (!fs.existsSync(input.filePath)) {
-            throw new Error(`${input.filePath}: File not found.`);
-        }
-
-        if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
-            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
-                throw new Error(`Canceled by user.`);
-            }
-        }
-
         const { networkType } = await SymbolService.getNetwork();
 
-        if (!input.signerPrivateKey && !input.force) {
+        if (!input.signerPrivateKey && !input.force && !input.stdin) {
             input.signerPrivateKey = prompt("Cosigner Private Key [Enter:skip]? ", "", { echo: "*" });
         }
         if (input.signerPrivateKey) {
             input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-            console.log(`Signer Address is ${input.signer.address.plain()}`);
+            Logger.log(`Signer Address is ${input.signer.address.plain()}`);
         }
 
         input.cosigners = input.cosignerPrivateKeys?.map(
             (privateKey) => {
                 const cosigner = Account.createFromPrivateKey(privateKey, networkType)
-                console.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+                Logger.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
                 return cosigner;
             }
         );
@@ -173,16 +164,16 @@ export namespace ReinforceInput {
     };
 
     export const printUsage = () => {
-        console.error(
-            `Usage: reinforce [options] intermediate_txs.json input_file\n` +
+        Logger.error(
+            `Usage: reinforce [options] intermediate_txs.json input_path\n` +
             `Options:\n` +
             `  -a, --announce         Announce completely signed TXs\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +
             `  --node-url node_url    Specify network node_url\n` +
-            `  -o output_file.json,\n` +
-            `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
+            `  -o output_path.json,\n` +
+            `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify cosigner's private_key (Same as [--cosigner])\n` +
             `Environment Variables:\n` +

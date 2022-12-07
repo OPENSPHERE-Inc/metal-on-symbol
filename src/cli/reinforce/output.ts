@@ -2,6 +2,7 @@ import {Utils} from "../../libs";
 import Long from "long";
 import {IntermediateOutput} from "../intermediate";
 import moment from "moment";
+import {Logger} from "../../libs";
 
 
 export namespace ReinforceOutput {
@@ -12,7 +13,7 @@ export namespace ReinforceOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        console.log(
+        Logger.log(
             `\n  --- Summary of Reinforcement ${
                 output.status === "estimated" ? "(Estimate)" : "(Receipt)"
             } ---\n` +

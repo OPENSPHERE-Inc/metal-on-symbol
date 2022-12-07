@@ -1,17 +1,17 @@
-import {SymbolService} from "../services";
+import {MetalService, SymbolService} from "../services";
 import {
     Account,
     Address,
     InnerTransaction,
     MetadataType,
     MosaicId,
-    NamespaceId, PublicAccount,
+    NamespaceId,
+    PublicAccount,
     UInt64
 } from "symbol-sdk";
-import {Utils} from "../libs";
+import {Logger, Utils} from "../libs";
 import Long from "long";
 import moment from "moment";
-import {MetalService} from "../services";
 import PromptSync from "prompt-sync";
 
 
@@ -27,7 +27,7 @@ export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
     });
 
     const { networkType } = await SymbolService.getNetwork();
-    console.log(`Using Node URL: ${nodeUrl} (network_type:${networkType})`);
+    Logger.log(`Using Node URL: ${nodeUrl} (network_type:${networkType})`);
 };
 
 export const designateCosigners = (
@@ -57,7 +57,7 @@ export const designateCosigners = (
     );
 
     if (!hasEnoughCosigners) {
-        console.warn("You need more cosigner(s) to announce TXs.");
+        Logger.warn("You need more cosigner(s) to announce TXs.");
     }
 
     return {
@@ -90,7 +90,7 @@ export const buildAndExecuteBatches = async (
     );
 
     if (canAnnounce) {
-        console.log(
+        Logger.log(
             `Announcing ${batches.length} aggregate TXs ` +
             `with fee ${Utils.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
@@ -104,13 +104,13 @@ export const buildAndExecuteBatches = async (
         const startAt = moment.now();
         const errors = await SymbolService.executeBatches(batches, signer, maxParallels);
         errors?.forEach(({txHash, error}) => {
-            console.error(`${txHash}: ${error}`);
+            Logger.error(`${txHash}: ${error}`);
         });
 
         if (errors) {
             throw new Error(`Some errors occurred during announcing.`);
         } else {
-            console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+            Logger.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
         }
     }
 
@@ -128,7 +128,7 @@ export const doVerify = async (
     key: UInt64,
     targetId?: MosaicId | NamespaceId,
 ) => {
-    console.log(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
+    Logger.log(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
         type === MetadataType.Mosaic
             ? `Mosaic:${targetId?.toHex()}`
             : type === MetadataType.Namespace
@@ -146,6 +146,6 @@ export const doVerify = async (
     if (mismatches) {
         throw new Error(`Verify error: Mismatch rate is ${mismatches / maxLength * 100}%`);
     } else {
-        console.log(`Verify succeeded: No mismatches found.`);
+        Logger.log(`Verify succeeded: No mismatches found.`);
     }
 };

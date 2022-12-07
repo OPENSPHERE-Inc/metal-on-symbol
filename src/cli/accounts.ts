@@ -1,6 +1,7 @@
 import {Account, Address, PublicAccount} from "symbol-sdk";
 import {SymbolService} from "../services";
 import PromptSync from "prompt-sync";
+import {Logger} from "../libs";
 
 
 const prompt = PromptSync();
@@ -21,9 +22,10 @@ export interface AccountsInput {
 }
 
 export const validateAccountsInput = async <T extends AccountsInput>(
-    input: T,
+    _input: Readonly<T>,
     noPrompt: boolean = false,
 ) => {
+    let input: T = { ..._input };
     const { networkType } = await SymbolService.getNetwork();
 
     if (!input.signerPrivateKey && !noPrompt) {
@@ -35,7 +37,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         );
     }
     input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-    console.log(`Signer Address is ${input.signer.address.plain()}`);
+    Logger.log(`Signer Address is ${input.signer.address.plain()}`);
 
 
     if (input.sourcePublicKey) {
@@ -53,7 +55,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     }
 
     if (input.sourceAccount || input.sourceSigner) {
-        console.log(`Source Address is ${(input.sourceAccount || input.sourceSigner)?.address.plain()}`)
+        Logger.log(`Source Address is ${(input.sourceAccount || input.sourceSigner)?.address.plain()}`)
     }
 
     if (input.targetPublicKey) {
@@ -71,13 +73,13 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     }
 
     if (input.targetAccount || input.targetSigner) {
-        console.log(`Target Address is ${(input.targetAccount || input.targetSigner)?.address.plain()}`)
+        Logger.log(`Target Address is ${(input.targetAccount || input.targetSigner)?.address.plain()}`)
     }
 
     input.cosigners = input.cosignerPrivateKeys?.map(
         (privateKey) => {
             const cosigner = Account.createFromPrivateKey(privateKey, networkType)
-            console.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+            Logger.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
             return cosigner;
         }
     );
@@ -90,33 +92,38 @@ export interface AddressesInput {
     sourcePublicKey?: string;
     targetAddress?: Address;
     targetPublicKey?: string;
+
+    // Filled by validator
+    sourceAccount?: PublicAccount;
+    targetAccount?: PublicAccount;
 }
 
 export const validateAddressesInput = async <T extends AddressesInput>(
-    input: T,
+    _input: Readonly<T>,
 ) => {
+    let input: T = { ..._input };
     const { networkType } = await SymbolService.getNetwork();
 
     if (input.sourcePublicKey) {
-        const sourceAddress = Address.createFromPublicKey(input.sourcePublicKey, networkType);
-        if (input.sourceAddress && !input.sourceAddress.equals(sourceAddress)) {
+        input.sourceAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);
+        if (input.sourceAddress && !input.sourceAddress.equals(input.sourceAccount.address)) {
             throw new Error(
                 "Mismatched source account between public key and address " +
                 "(You don't need to specify public key)"
             );
         }
-        input.sourceAddress = sourceAddress;
+        input.sourceAddress = input.sourceAccount.address;
     }
 
     if (input.targetPublicKey) {
-        const targetAddress = Address.createFromPublicKey(input.targetPublicKey, networkType);
-        if (input.targetAddress && !input.targetAddress.equals(targetAddress)) {
+        input.targetAccount = PublicAccount.createFromPublicKey(input.targetPublicKey, networkType);
+        if (input.targetAddress && !input.targetAddress.equals(input.targetAccount.address)) {
             throw new Error(
                 "Mismatched target account between public key and address " +
                 "(You don't need to specify public key)"
             );
         }
-        input.targetAddress = targetAddress;
+        input.targetAddress = input.targetAccount.address;
     }
 
     return input;

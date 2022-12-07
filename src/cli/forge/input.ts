@@ -1,24 +1,21 @@
-import {Convert, MetadataType, MosaicId, NamespaceId,} from "symbol-sdk";
-import fs from "fs";
+import {Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {initCliEnv, isValueOption} from "../common";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../accounts";
 import {SymbolService} from "../../services";
-import PromptSync from "prompt-sync";
+import {Logger} from "../../libs";
+import {StreamInput, validateStreamInput} from "../stream";
 
 
 export namespace ForgeInput {
 
-    const prompt = PromptSync();
-
-    export interface CommandlineInput extends AccountsInput {
+    export interface CommandlineInput extends AccountsInput, StreamInput {
         version: string;
         additive?: string;
         checkCollision: boolean;
         cosignerPrivateKeys?: string[];
         estimate: boolean;
         feeRatio: number;
-        filePath?: string;
         force: boolean;
         maxParallels: number;
         mosaicId?: MosaicId;
@@ -237,7 +234,8 @@ export namespace ForgeInput {
     };
 
     // Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
+    export const validateInput = async (_input: Readonly<CommandlineInput>) => {
+        let input: CommandlineInput = { ..._input };
         if (!input.nodeUrl) {
             throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
         }
@@ -247,18 +245,7 @@ export namespace ForgeInput {
 
         await initCliEnv(input.nodeUrl, input.feeRatio);
 
-        if (!input.filePath) {
-            throw new Error("[input_file] wasn't specified.")
-        }
-        if (!fs.existsSync(input.filePath)) {
-            throw new Error(`${input.filePath}: File not found.`);
-        }
-
-        if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
-            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
-                throw new Error(`Canceled by user.`);
-            }
-        }
+        input = await validateStreamInput(input, !input.force);
 
         if (input.additive) {
             if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
@@ -267,12 +254,12 @@ export namespace ForgeInput {
             input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
 
-        return validateAccountsInput(input, input.force);
+        return validateAccountsInput(input, input.force || input.stdin);
     };
 
     export const printUsage = () => {
-        console.error(
-            `Usage: forge [options] input_file\n` +
+        Logger.error(
+            `Usage: forge [options] [input_path]\n` +
             `Options:\n` +
             `  --additive value       Specify additive with 4 ascii characters (e.g. "A123")\n` +
             `  -c, --check-collision  Check key collision before announce (Also estimation mode allowed)\n` +
@@ -287,8 +274,8 @@ export namespace ForgeInput {
             `  -n namespace_name,\n` +
             `  --namespace value      Specify namespace_name and demand Namespace Metal\n` +
             `  --node-url node_url    Specify network node_url\n` +
-            `  -o output_file.json,\n` +
-            `  --out value            Specify JSON file output_path that will contain serialized TXs\n` +
+            `  -o output_path.json,\n` +
+            `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
             `  -r, --recover          Announce only lost chunks for recovery\n` +

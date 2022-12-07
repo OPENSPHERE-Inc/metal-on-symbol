@@ -1,7 +1,6 @@
 import {VERSION} from "./version";
 import {ReinforceInput} from "./input";
 import assert from "assert";
-import fs from "fs";
 import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
 import {ReinforceOutput} from "./output";
 import {SymbolService} from "../../services";
@@ -23,6 +22,8 @@ import {MetalService} from "../../services";
 import PromptSync from "prompt-sync";
 import {PACKAGE_VERSION} from "../../package_version";
 import { Base64 } from "js-base64";
+import {Logger} from "../../libs";
+import {readStreamInput} from "../stream";
 
 
 export namespace ReinforceCLI {
@@ -79,7 +80,7 @@ export namespace ReinforceCLI {
     };
 
     const reinforceMetal = async (
-        input: ReinforceInput.CommandlineInput,
+        input: Readonly<ReinforceInput.CommandlineInput>,
         intermediateTxs: IntermediateTxs,
         payload: Uint8Array,
     ): Promise<ReinforceOutput.CommandlineOutput> => {
@@ -117,7 +118,7 @@ export namespace ReinforceCLI {
         const batches = await retrieveBatches(intermediateTxs);
 
         // Validate transactions that was contained intermediate JSON.
-        console.log(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
+        Logger.log(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
         for (const batch of batches) {
             if (!MetalService.validateBatch(
                 batch,
@@ -142,7 +143,7 @@ export namespace ReinforceCLI {
         });
 
         if (input.announce) {
-            console.log(
+            Logger.log(
                 `Announcing ${batches.length} aggregate TXs. ` +
                 `TX fee ${Utils.toXYM(intermediateTxs.totalFee)} XYM will be paid by ${intermediateTxs.command} originator.`
             );
@@ -156,13 +157,13 @@ export namespace ReinforceCLI {
             const startAt = moment.now();
             const errors = await SymbolService.executeBatches(batches, signerAccount, input.maxParallels);
             errors?.forEach(({txHash, error}) => {
-                console.error(`${txHash}: ${error}`);
+                Logger.error(`${txHash}: ${error}`);
             });
 
             if (errors) {
                 throw new Error(`Some errors occurred during announcing.`);
             } else {
-                console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+                Logger.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
             }
         }
 
@@ -187,7 +188,7 @@ export namespace ReinforceCLI {
     };
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
+        Logger.log(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
 
         let input: ReinforceInput.CommandlineInput;
         try {
@@ -205,12 +206,7 @@ export namespace ReinforceCLI {
         const intermediateTxs = readIntermediateFile(input.intermediatePath);
 
         // Read input file here.
-        assert(input.filePath);
-        console.log(`${input.filePath}: Reading...`);
-        const payload = fs.readFileSync(input.filePath);
-        if (!payload.length) {
-            throw new Error(`${input.filePath}: The file is empty.`);
-        }
+        const payload = await readStreamInput(input);
 
         const output = await reinforceMetal(input, intermediateTxs, payload);
         if (input.outputPath) {

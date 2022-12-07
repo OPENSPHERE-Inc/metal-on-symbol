@@ -1,4 +1,5 @@
 import {Address, MetadataType, MosaicId, NamespaceId, NetworkType, UInt64} from "symbol-sdk";
+import {Logger} from "../../libs";
 
 
 export namespace VerifyOutput {
@@ -16,7 +17,7 @@ export namespace VerifyOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        console.log(
+        Logger.log(
             `\n  --- Verify Summary ---\n` +
             `  Metal ID: ${output.metalId}\n` +
             `  Type: ${output.mosaicId ? "Mosaic" : output.namespaceId ? "Namespace" : "Account" }\n` +
