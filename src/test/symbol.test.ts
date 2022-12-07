@@ -279,4 +279,18 @@ describe("SymbolService", () => {
 
         expect(metadata).toBeUndefined();
     }, 600000);
+
+    it("Encrypt and decrypt", async () => {
+        const { signer1: sender } = await SymbolTest.getNamedAccounts();
+
+        const plain = Convert.utf8ToUint8("Test text test text 123");
+        const encrypted = SymbolService.encryptBinary(plain, sender, target.publicAccount);
+
+        expect(encrypted.buffer).not.toStrictEqual(plain.buffer);
+
+        const decrypted = SymbolService.decryptBinary(encrypted, sender.publicAccount, target);
+
+        expect(decrypted.buffer).not.toStrictEqual(encrypted.buffer);
+        expect(decrypted.buffer).toStrictEqual(plain.buffer);
+    }, 600000);
 });
