@@ -1,5 +1,5 @@
 import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {SymbolService} from "../../services";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
@@ -9,9 +9,8 @@ import {validateStreamInput} from "../stream";
 
 export namespace FetchInput {
 
-    export interface CommandlineInput extends MetalIdentifyInput {
+    export interface CommandlineInput extends NodeInput, MetalIdentifyInput {
         version: string;
-        nodeUrl?: string;
         noSave: boolean;
         outputPath?: string;
         force: boolean;
@@ -179,12 +178,8 @@ export namespace FetchInput {
 
     // Initializing CLI environment
     export const validateInput = async (input: Readonly<CommandlineInput>) => {
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
-        }
-
         // We'll not announce any TXs this command.
-        await initCliEnv(input.nodeUrl, 0);
+        await initCliEnv(input, 0);
 
         return validateMetalIdentifyInput(
             await validateStreamInput(input, !input.force)
@@ -208,9 +203,9 @@ export namespace FetchInput {
             `  -n namespace_name,\n` +
             `  --namespace value      Specify namespace_name and demand Namespace Metal\n` +
             `  --node-url node_url    Specify network node_url\n` +
-            `  --no-save              Don't save file (Only show summary)\n` +
+            `  --no-save              Don't save any files (Only show summary)\n` +
             `  -o output_path,\n` +
-            `  --out value            Specify output_path (default:[metal_id])\n` +
+            `  --out value            Specify output_path (default:stdout)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
             `  -s public_key,\n` +
             `  --src-pub-key value    Specify source_account via public_key (default:signer)\n` +

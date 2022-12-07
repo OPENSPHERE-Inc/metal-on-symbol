@@ -1,6 +1,6 @@
 import {Account, PublicAccount} from "symbol-sdk";
 import {VERSION} from "../forge/version";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import PromptSync from "prompt-sync";
 import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
@@ -11,12 +11,11 @@ export namespace DecryptInput {
 
     const prompt = PromptSync();
 
-    export interface CommandlineInput extends StreamInput {
+    export interface CommandlineInput extends NodeInput, StreamInput {
         version: string;
         encryptSenderPublicKey?: string;
         encryptRecipientPrivateKey?: string;
         force: boolean;
-        nodeUrl?: string;
         outputPath?: string;
 
         // Filled by validator
@@ -104,11 +103,8 @@ export namespace DecryptInput {
     // Initializing CLI environment
     export const validateInput = async (_input: Readonly<CommandlineInput>) => {
         let input: CommandlineInput = { ..._input };
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
-        }
 
-        await initCliEnv(input.nodeUrl, 0);
+        await initCliEnv(input, 0);
 
         input = await validateStreamInput(input, !input.force);
 
@@ -139,12 +135,13 @@ export namespace DecryptInput {
         Logger.error(
             `Usage: decrypt [options] [input_path]\n` +
             `Options:\n` +
+            `  input_path             Specify input_path of plain file (default:stdin)\n` +
             `  -f, --force            Do not show any prompts\n` +
             `  --from public_key      Specify encryption sender's public_key (default:recipient)\n` +
             `  -h, --help             Show command line usage\n` +
             `  --node-url node_url    Specify network node_url\n` +
             `  -o output_path,\n` +
-            `  --out value            Specify output_path that will be saved encrypted binary\n` +
+            `  --out value            Specify output_path that will be saved encrypted binary (default:stdout)\n` +
             `  --priv-key value       Specify encryption recipient's private_key\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +

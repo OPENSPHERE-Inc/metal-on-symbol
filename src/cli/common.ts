@@ -18,16 +18,24 @@ import PromptSync from "prompt-sync";
 const prompt = PromptSync();
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 
-export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
+export interface NodeInput {
+    nodeUrl?: string;
+}
+
+export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRatio: number) => {
+    if (!input.nodeUrl) {
+        throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
+    }
+
     SymbolService.init({
-        node_url: nodeUrl,
+        node_url: input.nodeUrl,
         fee_ratio: feeRatio,
         logging: true,
         deadline_hours: 5,
     });
 
     const { networkType } = await SymbolService.getNetwork();
-    Logger.log(`Using Node URL: ${nodeUrl} (network_type:${networkType})`);
+    Logger.log(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
 };
 
 export const designateCosigners = (

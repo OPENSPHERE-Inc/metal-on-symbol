@@ -1,5 +1,5 @@
 import {Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../accounts";
 import {SymbolService} from "../../services";
@@ -9,7 +9,7 @@ import {StreamInput, validateStreamInput} from "../stream";
 
 export namespace ForgeInput {
 
-    export interface CommandlineInput extends AccountsInput, StreamInput {
+    export interface CommandlineInput extends NodeInput, AccountsInput, StreamInput {
         version: string;
         additive?: string;
         checkCollision: boolean;
@@ -20,7 +20,6 @@ export namespace ForgeInput {
         maxParallels: number;
         mosaicId?: MosaicId;
         namespaceId?: NamespaceId;
-        nodeUrl?: string;
         outputPath?: string;
         recover: boolean;
         type: MetadataType;
@@ -236,14 +235,11 @@ export namespace ForgeInput {
     // Initializing CLI environment
     export const validateInput = async (_input: Readonly<CommandlineInput>) => {
         let input: CommandlineInput = { ..._input };
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
-        }
         if (input.feeRatio && (input.feeRatio > 1.0 || input.feeRatio < 0.0)) {
             throw new Error("[--fee-ratio value] must be 0.0 <= x <= 1.0")
         }
 
-        await initCliEnv(input.nodeUrl, input.feeRatio);
+        await initCliEnv(input, input.feeRatio);
 
         input = await validateStreamInput(input, !input.force);
 
@@ -261,7 +257,8 @@ export namespace ForgeInput {
         Logger.error(
             `Usage: forge [options] [input_path]\n` +
             `Options:\n` +
-            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123")\n` +
+            `  input_path             Specify input_path of payload file (default:stdin)\n` +
+            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123", default:0000)\n` +
             `  -c, --check-collision  Check key collision before announce (Also estimation mode allowed)\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +

@@ -1,5 +1,5 @@
 import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {SymbolService} from "../../services";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
@@ -9,9 +9,8 @@ import {StreamInput, validateStreamInput} from "../stream";
 
 export namespace VerifyInput {
 
-    export interface CommandlineInput extends MetalIdentifyInput, StreamInput {
+    export interface CommandlineInput extends NodeInput, MetalIdentifyInput, StreamInput {
         version: string;
-        nodeUrl?: string,
     }
 
     export const parseInput = (argv: string[]) => {
@@ -144,12 +143,8 @@ export namespace VerifyInput {
 
     // Initializing CLI environment
     export const validateInput = async (input: Readonly<CommandlineInput>) => {
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
-        }
-
         // We'll not announce any TXs this command.
-        await initCliEnv(input.nodeUrl, 0);
+        await initCliEnv(input, 0);
 
         return validateMetalIdentifyInput(
             await validateStreamInput(input, true)
@@ -163,6 +158,7 @@ export namespace VerifyInput {
             `  Mosaic Metal           $ verify [options] -m mosaic_id -k metadata_key [input_path]\n` +
             `  Namespace Metal        $ verify [options] -n namespace_name -k metadata_key [input_path]\n` +
             `Options:\n` +
+            `  input_path             Specify input_path of payload file (default:stdin)\n` +
             `  -h, --help             Show command line usage\n` +
             `  -k metadata_key,\n` +
             `  --key value            Specify metadata_key\n` +

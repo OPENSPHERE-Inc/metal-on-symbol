@@ -1,5 +1,5 @@
 import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import fs from "fs";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../accounts";
@@ -12,7 +12,7 @@ export namespace ScrapInput {
 
     const prompt = PromptSync();
 
-    export interface CommandlineInput extends AccountsInput {
+    export interface CommandlineInput extends NodeInput, AccountsInput {
         version: string;
         additive?: string;
         estimate: boolean;
@@ -24,7 +24,6 @@ export namespace ScrapInput {
         metalId?: string;
         mosaicId?: MosaicId;
         namespaceId?: NamespaceId;
-        nodeUrl?: string,
         outputPath?: string;
         type?: MetadataType;
 
@@ -227,11 +226,11 @@ export namespace ScrapInput {
     // Initializing CLI environment
     export const validateInput = async (_input: Readonly<CommandlineInput>) => {
         let input: CommandlineInput = { ..._input };
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
+        if (input.feeRatio && (input.feeRatio > 1.0 || input.feeRatio < 0.0)) {
+            throw new Error("[--fee-ratio value] must be 0.0 <= x <= 1.0")
         }
 
-        await initCliEnv(input.nodeUrl, input.feeRatio);
+        await initCliEnv(input, input.feeRatio);
 
         if (input.filePath) {
             if (!fs.existsSync(input.filePath)) {
@@ -265,7 +264,7 @@ export namespace ScrapInput {
             `  Mosaic Metal           $ scrap [options] -m mosaic_id -k metadata_key\n` +
             `  Namespace Metal        $ scrap [options] -n namespace_name -k metadata_key\n` +
             `Options:\n` +
-            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123")\n` +
+            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123", default:0000)\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
             `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +

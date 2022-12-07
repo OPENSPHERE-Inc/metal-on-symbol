@@ -1,6 +1,6 @@
 import {Account} from "symbol-sdk";
 import fs from "fs";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {VERSION} from "./version";
 import PromptSync from "prompt-sync";
 import {SymbolService} from "../../services";
@@ -12,14 +12,13 @@ export namespace ReinforceInput {
 
     const prompt = PromptSync();
 
-    export interface CommandlineInput extends StreamInput {
+    export interface CommandlineInput extends NodeInput, StreamInput {
         version: string;
         announce: boolean;
         cosignerPrivateKeys?: string[];
         force: boolean;
         intermediatePath?: string;
         maxParallels: number;
-        nodeUrl?: string;
         outputPath?: string;
         signerPrivateKey?: string;
 
@@ -127,11 +126,8 @@ export namespace ReinforceInput {
     // Initializing CLI environment
     export const validateInput = async (_input: Readonly<CommandlineInput>) => {
         let input: CommandlineInput = { ..._input };
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
-        }
 
-        await initCliEnv(input.nodeUrl, 0);
+        await initCliEnv(input, 0);
 
         input = await validateStreamInput(input, !input.force);
 
@@ -175,7 +171,7 @@ export namespace ReinforceInput {
             `  -o output_path.json,\n` +
             `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
-            `  --priv-key value       Specify cosigner's private_key (Same as [--cosigner])\n` +
+            `  --priv-key value       Specify cosigner's private_key (Same as single of [--cosigner])\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
