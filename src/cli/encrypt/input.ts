@@ -18,8 +18,8 @@ export namespace EncryptInput {
         outputPath?: string;
 
         // Filled by validator
-        encryptSender?: Account;
-        encryptRecipientAccount?: PublicAccount;
+        encryptSenderAccount?: Account;
+        encryptRecipientPubAccount?: PublicAccount;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -126,7 +126,7 @@ export namespace EncryptInput {
 
         const { networkType } = await SymbolService.getNetwork();
         if (input.encryptSenderPrivateKey) {
-            input.encryptSender = Account.createFromPrivateKey(input.encryptSenderPrivateKey, networkType);
+            input.encryptSenderAccount = Account.createFromPrivateKey(input.encryptSenderPrivateKey, networkType);
         } else {
             throw new Error(
                 "Sender's private key wasn't specified. [--priv-key value] or SIGNER_PRIVATE_KEY are required."
@@ -134,7 +134,7 @@ export namespace EncryptInput {
         }
 
         if (input.encryptRecipientPublicKey) {
-            input.encryptRecipientAccount = PublicAccount.createFromPublicKey(
+            input.encryptRecipientPubAccount = PublicAccount.createFromPublicKey(
                 input.encryptRecipientPublicKey,
                 networkType
             );

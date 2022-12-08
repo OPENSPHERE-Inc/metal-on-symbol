@@ -38,29 +38,29 @@ export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRat
 };
 
 export const designateCosigners = (
-    signerAccount: PublicAccount,
-    sourceAccount: PublicAccount,
-    targetAccount: PublicAccount,
-    sourceSigner?: Account,
-    targetSigner?: Account,
-    cosigners?: Account[]
+    signerPubAccount: PublicAccount,
+    sourcePubAccount: PublicAccount,
+    targetPubAccount: PublicAccount,
+    sourceSignerAccount?: Account,
+    targetSignerAccount?: Account,
+    cosignerAccounts?: Account[]
 ) => {
-    const designatedCosigners = new Array<Account>(...(cosigners || []));
-    if (!signerAccount.equals(sourceAccount) && sourceSigner) {
-        designatedCosigners.push(sourceSigner);
+    const designatedCosignerAccounts = new Array<Account>(...(cosignerAccounts || []));
+    if (!signerPubAccount.equals(sourcePubAccount) && sourceSignerAccount) {
+        designatedCosignerAccounts.push(sourceSignerAccount);
     }
-    if (!signerAccount.equals(targetAccount) && targetSigner) {
-        designatedCosigners.push(targetSigner);
+    if (!signerPubAccount.equals(targetPubAccount) && targetSignerAccount) {
+        designatedCosignerAccounts.push(targetSignerAccount);
     }
 
     const hasEnoughCosigners = (
-        signerAccount.equals(sourceAccount) ||
-        !!sourceSigner ||
-        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === sourceAccount.publicKey).shift()
+        signerPubAccount.equals(sourcePubAccount) ||
+        !!sourceSignerAccount ||
+        !!designatedCosignerAccounts.filter((cosigner) => cosigner.publicKey === sourcePubAccount.publicKey).shift()
     ) && (
-        signerAccount.equals(targetAccount) ||
-        !!targetSigner ||
-        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === targetAccount.publicKey).shift()
+        signerPubAccount.equals(targetPubAccount) ||
+        !!targetSignerAccount ||
+        !!designatedCosignerAccounts.filter((cosigner) => cosigner.publicKey === targetPubAccount.publicKey).shift()
     );
 
     if (!hasEnoughCosigners) {
@@ -69,14 +69,14 @@ export const designateCosigners = (
 
     return {
         hasEnoughCosigners,
-        designatedCosigners,
+        designatedCosignerAccounts,
     };
 };
 
 export const buildAndExecuteBatches = async (
     txs: InnerTransaction[],
-    signer: Account,
-    cosigners: Account[],
+    signerAccount: Account,
+    cosignerAccounts: Account[],
     feeRatio: number,
     maxParallels: number,
     canAnnounce: boolean,
@@ -87,8 +87,8 @@ export const buildAndExecuteBatches = async (
 
     const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
         txs,
-        signer,
-        cosigners,
+        signerAccount,
+        cosignerAccounts,
         feeRatio,
         batchSize,
     );
@@ -115,7 +115,7 @@ export const buildAndExecuteBatches = async (
         }
 
         const startAt = moment.now();
-        const errors = await SymbolService.executeBatches(batches, signer, maxParallels);
+        const errors = await SymbolService.executeBatches(batches, signerAccount, maxParallels);
         errors?.forEach(({txHash, error}) => {
             Logger.error(`${txHash}: ${error}`);
         });
@@ -142,11 +142,7 @@ export const doVerify = async (
     targetId?: MosaicId | NamespaceId,
 ) => {
     Logger.debug(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
-        type === MetadataType.Mosaic
-            ? `Mosaic:${targetId?.toHex()}`
-            : type === MetadataType.Namespace
-                ? `Namespace:${targetId?.toHex()}`
-                : `Account:${targetAddress.plain()}`
+        [ `Account:${targetAddress.plain()}`, `Mosaic:${targetId?.toHex()}`, `Namespace:${targetId?.toHex()}` ][type]
     }`);
     const { mismatches, maxLength } = await MetalService.verify(
         payload,

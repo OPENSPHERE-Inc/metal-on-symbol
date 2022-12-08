@@ -29,8 +29,8 @@ export namespace VerifyCLI {
         // Read input file contents here.
         const payload = await readStreamInput(input);
 
-        let sourceAddress = input.sourceAddress || input.signer?.address;
-        let targetAddress = input.targetAddress || input.signer?.address;
+        let sourceAddress = input.sourceAddress || input.signerAccount?.address;
+        let targetAddress = input.targetAddress || input.signerAccount?.address;
         let type = input.type;
         let key = input.key;
         let targetId = [undefined, input.mosaicId, input.namespaceId][type];

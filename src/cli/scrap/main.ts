@@ -17,11 +17,11 @@ export namespace ScrapCLI {
         payload?: Uint8Array,
     ): Promise<ScrapOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
-        assert(input.signer);
+        assert(input.signerAccount);
 
-        const signerAccount = input.signer.publicAccount;
-        let sourceAccount = input.sourceAccount || input.sourceSigner?.publicAccount || signerAccount;
-        let targetAccount = input.targetAccount || input.targetSigner?.publicAccount || signerAccount;
+        const signerPubAccount = input.signerAccount.publicAccount;
+        let sourcePubAccount = input.sourcePubAccount || input.sourceSignerAccount?.publicAccount || signerPubAccount;
+        let targetPubAccount = input.targetPubAccount || input.targetSignerAccount?.publicAccount || signerPubAccount;
         let type = input.type;
         let key = input.key;
         let metalId = input.metalId;
@@ -40,10 +40,10 @@ export namespace ScrapCLI {
             }
 
             // We cannot retrieve publicKey at this time. Only can do address check.
-            if (!sourceAccount.address.equals(metadataEntry?.sourceAddress)) {
+            if (!sourcePubAccount.address.equals(metadataEntry?.sourceAddress)) {
                 throw new Error(`Source address mismatched.`);
             }
-            if (!targetAccount.address.equals(metadataEntry?.targetAddress)) {
+            if (!targetPubAccount.address.equals(metadataEntry?.targetAddress)) {
                 throw new Error(`Target address mismatched.`);
             }
         } else {
@@ -59,8 +59,8 @@ export namespace ScrapCLI {
             targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
             metalId = MetalService.calculateMetalId(
                 type,
-                sourceAccount.address,
-                targetAccount.address,
+                sourcePubAccount.address,
+                targetPubAccount.address,
                 targetId,
                 key,
             );
@@ -70,16 +70,16 @@ export namespace ScrapCLI {
         const txs = (payload)
             ? await MetalService.createDestroyTxs(
                 type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
                 payload,
                 additiveBytes,
             )
             : await MetalService.createScrapTxs(
                 type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
                 key,
             );
@@ -87,21 +87,21 @@ export namespace ScrapCLI {
             throw new Error(`Scrap metal TXs creation failed.`);
         }
 
-        const { designatedCosigners, hasEnoughCosigners } = designateCosigners(
-            signerAccount,
-            sourceAccount,
-            targetAccount,
-            input.sourceSigner,
-            input.targetSigner,
-            input.cosigners,
+        const { designatedCosignerAccounts, hasEnoughCosigners } = designateCosigners(
+            signerPubAccount,
+            sourcePubAccount,
+            targetPubAccount,
+            input.sourceSignerAccount,
+            input.targetSignerAccount,
+            input.cosignerAccounts,
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
         const { batches, totalFee } = txs.length
             ? await buildAndExecuteBatches(
                 txs,
-                input.signer,
-                designatedCosigners,
+                input.signerAccount,
+                designatedCosignerAccounts,
                 input.feeRatio,
                 input.maxParallels,
                 canAnnounce,
@@ -115,13 +115,13 @@ export namespace ScrapCLI {
             batches,
             key,
             totalFee,
-            sourceAccount: sourceAccount,
-            targetAccount: targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             ...(type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
             ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
             status: canAnnounce ? "scrapped" : "estimated",
             metalId,
-            signerAccount,
+            signerPubAccount,
             additive: Convert.uint8ToUtf8(additiveBytes || MetalService.DEFAULT_ADDITIVE),
             type,
             createdAt: new Date(),

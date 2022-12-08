@@ -23,7 +23,7 @@ import { Base64 } from "js-base64";
 
 
 describe("MetalService", () => {
-    let target: Account;
+    let targetAccount: Account;
     let metadataKey: UInt64;
     let metalAdditive: Uint8Array;
     let testData: Uint8Array;
@@ -43,7 +43,7 @@ describe("MetalService", () => {
         dataChunks = Math.ceil(Base64.fromUint8Array(testData).length / 1000);
 
         const assets = await MetalTest.generateAssets();
-        target = assets.account;
+        targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
     }, 600000);
@@ -70,11 +70,11 @@ describe("MetalService", () => {
     };
 
     it("Compute metal ID and restore metadata hash", async () => {
-        const { signer1: source } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
         const metadataHash = SymbolService.calculateMetadataHash(
             MetadataType.Mosaic,
-            source.address,
-            target.address,
+            sourceAccount.address,
+            targetAccount.address,
             mosaicId,
             MetalService.generateMetadataKey("test1keyhohohogehoge"),
         );
@@ -82,8 +82,8 @@ describe("MetalService", () => {
 
         const metalId = MetalService.calculateMetalId(
             MetadataType.Mosaic,
-            source.address,
-            target.address,
+            sourceAccount.address,
+            targetAccount.address,
             mosaicId,
             MetalService.generateMetadataKey("test1keyhohohogehoge"),
         );
@@ -96,11 +96,11 @@ describe("MetalService", () => {
     });
 
     it("Forge account metal", async () => {
-        const { signer1: source } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
         const { key, txs, additive } = await MetalService.createForgeTxs(
             MetadataType.Account,
-            source.publicAccount,
-            target.publicAccount,
+            sourceAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             testData,
         );
@@ -112,8 +112,8 @@ describe("MetalService", () => {
         metalAdditive = additive;
         metalId = MetalService.calculateMetalId(
             MetadataType.Account,
-            source.address,
-            target.address,
+            sourceAccount.address,
+            targetAccount.address,
             undefined,
             metadataKey,
         );
@@ -125,20 +125,20 @@ describe("MetalService", () => {
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
         expect(txs.length).toBe(dataChunks);
 
-        const errors = await doBatches(txs, source, [ target ]);
+        const errors = await doBatches(txs, sourceAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
     }, 600000);
 
     it("Fetch and decode account metal", async () => {
-        const { signer1: source } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
         const result = await MetalService.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
         expect(result?.payload.buffer).toStrictEqual(testData.buffer);
         expect(result?.type).toBe(MetadataType.Account);
-        expect(result?.sourceAddress).toStrictEqual(source.address);
-        expect(result?.targetAddress).toStrictEqual(target.address);
+        expect(result?.sourceAddress).toStrictEqual(sourceAccount.address);
+        expect(result?.targetAddress).toStrictEqual(targetAccount.address);
         expect(result?.key).toStrictEqual(metadataKey);
         expect(result?.targetId).toBeUndefined();
     }, 600000);
@@ -150,11 +150,11 @@ describe("MetalService", () => {
     });
 
     it("Scrap account metal", async () => {
-        const { signer1: source } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
         const txs = await MetalService.createScrapTxs(
             MetadataType.Account,
-            source.publicAccount,
-            target.publicAccount,
+            sourceAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             metadataKey,
         );
@@ -164,22 +164,22 @@ describe("MetalService", () => {
         assert(txs);
         console.log(`txs.length=${txs?.length}`);
 
-        const errors = await doBatches(txs, source, [ target ]);
+        const errors = await doBatches(txs, sourceAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
 
-        metadataPool = await SymbolService.searchMetadata(MetadataType.Account, { target });
+        metadataPool = await SymbolService.searchMetadata(MetadataType.Account, { target: targetAccount });
         console.log(`metadataPool.length=${metadataPool.length}`);
 
         expect(metadataPool.length).toBeFalsy();
     }, 600000);
 
     it("Forge mosaic metal", async () => {
-        const { signer1: creator } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
         const { key, txs, additive } = await MetalService.createForgeTxs(
             MetadataType.Mosaic,
-            target.publicAccount,
-            creator.publicAccount,
+            targetAccount.publicAccount,
+            creatorAccount.publicAccount,
             mosaicId,
             testData,
         );
@@ -191,8 +191,8 @@ describe("MetalService", () => {
         metalAdditive = additive;
         metalId = MetalService.calculateMetalId(
             MetadataType.Mosaic,
-            target.address,
-            creator.address,
+            targetAccount.address,
+            creatorAccount.address,
             mosaicId,
             metadataKey,
         );
@@ -204,20 +204,20 @@ describe("MetalService", () => {
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
         expect(txs.length).toBe(dataChunks);
 
-        const errors = await doBatches(txs, creator, [ target ]);
+        const errors = await doBatches(txs, creatorAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
     }, 600000);
 
     it("Fetch and decode mosaic metal", async () => {
-        const { signer1: creator } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
         const result = await MetalService.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
         expect(result?.payload.buffer).toStrictEqual(testData.buffer);
         expect(result?.type).toBe(MetadataType.Mosaic);
-        expect(result?.sourceAddress).toStrictEqual(target.address);
-        expect(result?.targetAddress).toStrictEqual(creator.address);
+        expect(result?.sourceAddress).toStrictEqual(targetAccount.address);
+        expect(result?.targetAddress).toStrictEqual(creatorAccount.address);
         expect(result?.key).toStrictEqual(metadataKey);
         expect(result?.targetId?.toHex()).toBe(mosaicId.toHex());
     }, 600000);
@@ -229,11 +229,11 @@ describe("MetalService", () => {
     });
 
     it("Scrap mosaic metal", async () => {
-        const { signer1: creator } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
         const txs = await MetalService.createScrapTxs(
             MetadataType.Mosaic,
-            target.publicAccount,
-            creator.publicAccount,
+            targetAccount.publicAccount,
+            creatorAccount.publicAccount,
             mosaicId,
             metadataKey,
         );
@@ -243,7 +243,7 @@ describe("MetalService", () => {
         assert(txs);
         console.log(`txs.length=${txs?.length}`);
 
-        const errors = await doBatches(txs, creator, [ target ]);
+        const errors = await doBatches(txs, creatorAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
 
@@ -254,11 +254,11 @@ describe("MetalService", () => {
     }, 600000);
 
     it("Forge namespace metal", async () => {
-        const { signer1: owner } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: ownerAccount } = await SymbolTest.getNamedAccounts();
         const { key, txs, additive } = await MetalService.createForgeTxs(
             MetadataType.Namespace,
-            target.publicAccount,
-            owner.publicAccount,
+            targetAccount.publicAccount,
+            ownerAccount.publicAccount,
             namespaceId,
             testData,
         );
@@ -270,8 +270,8 @@ describe("MetalService", () => {
         metalAdditive = additive;
         metalId = MetalService.calculateMetalId(
             MetadataType.Namespace,
-            target.address,
-            owner.address,
+            targetAccount.address,
+            ownerAccount.address,
             namespaceId,
             metadataKey,
         );
@@ -283,30 +283,30 @@ describe("MetalService", () => {
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
         expect(txs.length).toBe(dataChunks);
 
-        const errors = await doBatches(txs, owner, [ target ]);
+        const errors = await doBatches(txs, ownerAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
     }, 600000);
 
     it("Fetch and decode namespace metal", async () => {
-        const { signer1: owner } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: ownerAccount } = await SymbolTest.getNamedAccounts();
         const result = await MetalService.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
         expect(result?.payload.buffer).toStrictEqual(testData.buffer);
         expect(result?.type).toBe(MetadataType.Namespace);
-        expect(result?.sourceAddress).toStrictEqual(target.address);
-        expect(result?.targetAddress).toStrictEqual(owner.address);
+        expect(result?.sourceAddress).toStrictEqual(targetAccount.address);
+        expect(result?.targetAddress).toStrictEqual(ownerAccount.address);
         expect(result?.key).toStrictEqual(metadataKey);
         expect(result?.targetId?.toHex()).toBe(namespaceId.toHex());
     }, 600000);
 
     it("Scrap namespace metal", async () => {
-        const { signer1: owner } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: ownerAccount } = await SymbolTest.getNamedAccounts();
         const txs = await MetalService.createScrapTxs(
             MetadataType.Namespace,
-            target.publicAccount,
-            owner.publicAccount,
+            targetAccount.publicAccount,
+            ownerAccount.publicAccount,
             namespaceId,
             metadataKey,
         );
@@ -316,7 +316,7 @@ describe("MetalService", () => {
         assert(txs);
         console.log(`txs.length=${txs?.length}`);
 
-        const errors = await doBatches(txs, owner, [ target ]);
+        const errors = await doBatches(txs, ownerAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
 
@@ -327,25 +327,25 @@ describe("MetalService", () => {
     }, 600000);
 
     it("Destroy mosaic metal", async () => {
-        const { signer1: creator } = await SymbolTest.getNamedAccounts();
+        const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
         const { txs: forgeTxs, additive } = await MetalService.createForgeTxs(
             MetadataType.Mosaic,
-            target.publicAccount,
-            creator.publicAccount,
+            targetAccount.publicAccount,
+            creatorAccount.publicAccount,
             mosaicId,
             testData,
         );
-        await doBatches(forgeTxs, creator, [ target ]);
+        await doBatches(forgeTxs, creatorAccount, [ targetAccount ]);
 
         const destroyTxs = await MetalService.createDestroyTxs(
             MetadataType.Mosaic,
-            target.publicAccount,
-            creator.publicAccount,
+            targetAccount.publicAccount,
+            creatorAccount.publicAccount,
             mosaicId,
             testData,
             additive,
         );
-        const errors = await doBatches(destroyTxs, creator, [ target ]);
+        const errors = await doBatches(destroyTxs, creatorAccount, [ targetAccount ]);
 
         expect(errors).toBeUndefined();
 
@@ -356,20 +356,20 @@ describe("MetalService", () => {
     }, 600000);
 
     it("Failed to create Scrap TXs", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = (await MetalTest.forgeMetal(
             MetadataType.Mosaic,
-            signer1.publicAccount,
-            signer1.publicAccount,
+            signerAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             testData,
-            signer1,
+            signerAccount,
             []
         ));
 
         const metadataPool = await SymbolService.searchMetadata(MetadataType.Mosaic, {
-            source: signer1.publicAccount,
-            target: signer1.publicAccount,
+            source: signerAccount.publicAccount,
+            target: signerAccount.publicAccount,
             targetId: mosaicId,
         });
 
@@ -391,8 +391,8 @@ describe("MetalService", () => {
 
         const txs1 = await MetalService.createScrapTxs(
             MetadataType.Mosaic,
-            signer1.publicAccount,
-            signer1.publicAccount,
+            signerAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             key,
             brokenMetadataPool
@@ -405,8 +405,8 @@ describe("MetalService", () => {
 
         const txs2 = await MetalService.createScrapTxs(
             MetadataType.Mosaic,
-            signer1.publicAccount,
-            signer1.publicAccount,
+            signerAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             key,
             brokenMetadataPool
@@ -414,24 +414,24 @@ describe("MetalService", () => {
 
         expect(txs2).toBeUndefined();
 
-        await MetalTest.scrapMetal(metalId, signer1.publicAccount, signer1.publicAccount, signer1, []);
+        await MetalTest.scrapMetal(metalId, signerAccount.publicAccount, signerAccount.publicAccount, signerAccount, []);
     }, 600000);
 
     it("Failed to decode metal", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = (await MetalTest.forgeMetal(
             MetadataType.Namespace,
-            signer1.publicAccount,
-            signer1.publicAccount,
+            signerAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             testData,
-            signer1,
+            signerAccount,
             []
         ));
 
         const metadataPool = await SymbolService.searchMetadata(MetadataType.Namespace, {
-            source: signer1.publicAccount,
-            target: signer1.publicAccount,
+            source: signerAccount.publicAccount,
+            target: signerAccount.publicAccount,
             targetId: namespaceId,
         });
 
@@ -453,8 +453,8 @@ describe("MetalService", () => {
 
         const txs1 = await MetalService.createScrapTxs(
             MetadataType.Namespace,
-            signer1.publicAccount,
-            signer1.publicAccount,
+            signerAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             key,
             brokenMetadataPool
@@ -467,8 +467,8 @@ describe("MetalService", () => {
 
         const txs2 = await MetalService.createScrapTxs(
             MetadataType.Namespace,
-            signer1.publicAccount,
-            signer1.publicAccount,
+            signerAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             key,
             brokenMetadataPool
@@ -476,6 +476,6 @@ describe("MetalService", () => {
 
         expect(txs2).toBeUndefined();
 
-        await MetalTest.scrapMetal(metalId, signer1.publicAccount, signer1.publicAccount, signer1, []);
+        await MetalTest.scrapMetal(metalId, signerAccount.publicAccount, signerAccount.publicAccount, signerAccount, []);
     }, 600000);
 });

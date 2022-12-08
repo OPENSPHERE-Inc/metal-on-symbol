@@ -18,8 +18,8 @@ export namespace DecryptInput {
         outputPath?: string;
 
         // Filled by validator
-        encryptRecipient?: Account;
-        encryptSenderAccount?: PublicAccount;
+        encryptRecipientAccount?: Account;
+        encryptSenderPubAccount?: PublicAccount;
         stdout?: boolean;
     }
 
@@ -127,7 +127,7 @@ export namespace DecryptInput {
 
         const { networkType } = await SymbolService.getNetwork();
         if (input.encryptRecipientPrivateKey) {
-            input.encryptRecipient = Account.createFromPrivateKey(input.encryptRecipientPrivateKey, networkType);
+            input.encryptRecipientAccount = Account.createFromPrivateKey(input.encryptRecipientPrivateKey, networkType);
         } else {
             throw new Error(
                 "Recipient's private key wasn't specified. [--priv-key value] or SIGNER_PRIVATE_KEY are required."
@@ -135,7 +135,7 @@ export namespace DecryptInput {
         }
 
         if (input.encryptSenderPublicKey) {
-            input.encryptSenderAccount = PublicAccount.createFromPublicKey(
+            input.encryptSenderPubAccount = PublicAccount.createFromPublicKey(
                 input.encryptSenderPublicKey,
                 networkType
             );

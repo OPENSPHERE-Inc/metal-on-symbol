@@ -38,14 +38,14 @@ export interface IntermediateTxs {
 export interface IntermediateOutput {
     command: "forge" | "scrap";
     type: MetadataType;
-    sourceAccount: PublicAccount;
-    targetAccount: PublicAccount;
+    sourcePubAccount: PublicAccount;
+    targetPubAccount: PublicAccount;
     key?: UInt64;
     mosaicId?: MosaicId;
     namespaceId?: NamespaceId;
     networkType: NetworkType;
     batches: SymbolService.SignedAggregateTx[];
-    signerAccount: PublicAccount;
+    signerPubAccount: PublicAccount;
     totalFee: UInt64;
     additive: string;
     metalId: string;
@@ -71,14 +71,14 @@ export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, file
         metalId: output.metalId,
         networkType: output.networkType,
         type: output.type,
-        sourcePublicKey: output.sourceAccount.publicKey,
-        targetPublicKey: output.targetAccount.publicKey,
+        sourcePublicKey: output.sourcePubAccount.publicKey,
+        targetPublicKey: output.targetPubAccount.publicKey,
         key: output.key?.toHex(),
         ...(output.mosaicId && { mosaicId: output.mosaicId.toHex() }),
         ...(output.namespaceId && { namespaceId: output.namespaceId.toHex() }),
         totalFee: output.totalFee.toString(),
         additive: output.additive,
-        signerPublicKey: output.signerAccount.publicKey,
+        signerPublicKey: output.signerPubAccount.publicKey,
         txs: output.batches.map((batch) => batchToIntermediateTx(batch)),
         createdAt: output.createdAt.toISOString(),
         updatedAt: new Date().toISOString(),

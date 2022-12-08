@@ -5,8 +5,8 @@ export namespace EncryptOutput {
 
     export interface CommandlineOutput {
         payload: Uint8Array;
-        senderAccount: PublicAccount;
-        recipientAccount: PublicAccount;
+        senderPubAccount: PublicAccount;
+        recipientPubAccount: PublicAccount;
     }
 
 }

@@ -35,18 +35,18 @@ describe("Encrypt/Decrypt CLI", () => {
     });
 
     it("Encrypt file", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const output = await EncryptCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
+            "--priv-key", signerAccount.privateKey,
             "--to", targetAccount.publicKey,
             "--out", encryptedFile,
             inputFile,
         ]);
 
         expect(output?.payload).toBeDefined();
-        expect(output?.senderAccount).toStrictEqual(signer1.publicAccount);
-        expect(output?.recipientAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(output?.senderPubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(output?.recipientPubAccount).toStrictEqual(targetAccount.publicAccount);
         expect(fs.existsSync(encryptedFile)).toBeTruthy();
 
         const plain = fs.readFileSync(inputFile);
@@ -58,18 +58,18 @@ describe("Encrypt/Decrypt CLI", () => {
     }, 600000);
 
     it("Decrypt file", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const output = await DecryptCLI.main([
             "-f",
             "--priv-key", targetAccount.privateKey,
-            "--from", signer1.publicKey,
+            "--from", signerAccount.publicKey,
             "--out", decryptedFile,
             encryptedFile,
         ]);
 
         expect(output?.payload).toBeDefined();
-        expect(output?.senderAccount).toStrictEqual(signer1.publicAccount);
-        expect(output?.recipientAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(output?.senderPubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(output?.recipientPubAccount).toStrictEqual(targetAccount.publicAccount);
         expect(fs.existsSync(encryptedFile)).toBeTruthy();
 
         const plain = fs.readFileSync(inputFile);

@@ -17,24 +17,24 @@ export namespace ForgeCLI {
         payload: Uint8Array,
     ): Promise<ForgeOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
-        assert(input.signer);
+        assert(input.signerAccount);
 
         const targetId = [ undefined, input.mosaicId, input.namespaceId ][input.type];
-        const signerAccount = input.signer.publicAccount;
-        const sourceAccount = input.sourceAccount || input.sourceSigner?.publicAccount || signerAccount;
-        const targetAccount = input.targetAccount || input.targetSigner?.publicAccount || signerAccount;
+        const signerPubAccount = input.signerAccount.publicAccount;
+        const sourcePubAccount = input.sourcePubAccount || input.sourceSignerAccount?.publicAccount || signerPubAccount;
+        const targetPubAccount = input.targetPubAccount || input.targetSignerAccount?.publicAccount || signerPubAccount;
         const metadataPool = input.recover
             ? await SymbolService.searchMetadata(input.type, {
-                source: sourceAccount,
-                target: targetAccount,
+                source: sourcePubAccount,
+                target: targetPubAccount,
                 targetId
             })
             : undefined;
 
         const { key, txs, additive: additiveBytes } = await MetalService.createForgeTxs(
             input.type,
-            sourceAccount,
-            targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             targetId,
             payload,
             input.additiveBytes,
@@ -43,8 +43,8 @@ export namespace ForgeCLI {
 
         const metalId = MetalService.calculateMetalId(
             input.type,
-            sourceAccount.address,
-            targetAccount.address,
+            sourcePubAccount.address,
+            targetPubAccount.address,
             targetId,
             key,
         );
@@ -55,8 +55,8 @@ export namespace ForgeCLI {
             const collisions = await MetalService.checkCollision(
                 txs,
                 input.type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
             );
             if (collisions.length) {
@@ -66,21 +66,21 @@ export namespace ForgeCLI {
             }
         }
 
-        const { designatedCosigners, hasEnoughCosigners } = designateCosigners(
-            signerAccount,
-            sourceAccount,
-            targetAccount,
-            input.sourceSigner,
-            input.targetSigner,
-            input.cosigners,
+        const { designatedCosignerAccounts, hasEnoughCosigners } = designateCosigners(
+            signerPubAccount,
+            sourcePubAccount,
+            targetPubAccount,
+            input.sourceSignerAccount,
+            input.targetSignerAccount,
+            input.cosignerAccounts,
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
         const { batches, totalFee } = txs.length
             ? await buildAndExecuteBatches(
                 txs,
-                input.signer,
-                designatedCosigners,
+                input.signerAccount,
+                designatedCosignerAccounts,
                 input.feeRatio,
                 input.maxParallels,
                 canAnnounce,
@@ -92,8 +92,8 @@ export namespace ForgeCLI {
             await doVerify(
                 payload,
                 input.type,
-                sourceAccount.address,
-                targetAccount.address,
+                sourcePubAccount.address,
+                targetPubAccount.address,
                 key,
                 targetId
             );
@@ -106,13 +106,13 @@ export namespace ForgeCLI {
             key,
             totalFee,
             additive: Convert.uint8ToUtf8(additiveBytes),
-            sourceAccount: sourceAccount,
-            targetAccount: targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),
             ...(input.type === MetadataType.Namespace ? { namespaceId: input.namespaceId } : {}),
             status: canAnnounce ? "forged" : "estimated",
             metalId,
-            signerAccount,
+            signerPubAccount,
             type: input.type,
             createdAt: new Date(),
             payload,

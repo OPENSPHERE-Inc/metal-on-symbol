@@ -13,7 +13,7 @@ export interface MetalIdentifyInput extends AddressesInput {
     signerPrivateKey?: string;
 
     // Filled by validateMetalIdentify
-    signer?: Account;
+    signerAccount?: Account;
 }
 
 export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(_input: Readonly<T>) => {
@@ -22,16 +22,16 @@ export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(_
     const { networkType } = await SymbolService.getNetwork();
 
     if (input.signerPrivateKey) {
-        input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-        Logger.info(`Singer Address is ${input.signer.address.plain()}`);
+        input.signerAccount = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
+        Logger.info(`Singer Address is ${input.signerAccount.address.plain()}`);
     }
-    if (!input.metalId && !input.signer && !input.sourceAddress) {
+    if (!input.metalId && !input.signerAccount && !input.sourceAddress) {
         throw new Error(
             "[source_account] must be specified via [--src-pub-key value], " +
             "[--src-addr value] or [--priv-key value]"
         );
     }
-    if (!input.metalId && !input.signer && !input.targetAddress) {
+    if (!input.metalId && !input.signerAccount && !input.targetAddress) {
         throw new Error(
             "[target_account] must be specified via [--tgt-pub-key value], " +
             "[--tgt-addr value] or [--priv-key value]"

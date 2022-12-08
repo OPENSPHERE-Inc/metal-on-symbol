@@ -10,7 +10,7 @@ import {MetalService} from "../services";
 
 describe("Forge CLI", () => {
     let inputFile: string;
-    let target: Account;
+    let targetAccount: Account;
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
 
@@ -21,18 +21,18 @@ describe("Forge CLI", () => {
         inputFile = process.env.TEST_INPUT_FILE;
 
         const assets = await MetalTest.generateAssets();
-        target = assets.account;
+        targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
     }, 600000);
 
     it("Estimation of Forge Metal", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const output = await ForgeCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "-s", signer1.publicKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", signerAccount.publicKey,
+            "-t", targetAccount.publicKey,
             "-c",
             inputFile,
         ]);
@@ -44,13 +44,13 @@ describe("Forge CLI", () => {
     }, 600000);
 
     it("Forge Metal into Account", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const output = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-s", signer1.publicKey,
-            "-t", target.publicKey,
-            "--cosigner", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", signerAccount.publicKey,
+            "-t", targetAccount.publicKey,
+            "--cosigner", targetAccount.privateKey,
             "-c",
             "-v",
             inputFile,
@@ -61,18 +61,18 @@ describe("Forge CLI", () => {
         expect(output?.type).toBe(MetadataType.Account);
 
         assert(output?.metalId);
-        await MetalTest.scrapMetal(output?.metalId, signer1.publicAccount, target.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(output?.metalId, signerAccount.publicAccount, targetAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Forge Metal into Mosaic", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const output = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-s", target.publicKey,
-            "-t", signer1.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", targetAccount.publicKey,
+            "-t", signerAccount.publicKey,
             "--mosaic", mosaicId.toHex(),
-            "--cosigner", target.privateKey,
+            "--cosigner", targetAccount.privateKey,
             "-c",
             "-v",
             inputFile,
@@ -83,20 +83,20 @@ describe("Forge CLI", () => {
         expect(output?.type).toBe(MetadataType.Mosaic);
 
         assert(output?.metalId);
-        await MetalTest.scrapMetal(output?.metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(output?.metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Forge Metal into Namespace", async () => {
         assert(namespaceId.fullName);
 
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const output = await ForgeCLI.main([
             "--force",
-            "--priv-key", signer1.privateKey,
-            "--src-pub-key", target.publicKey,
-            "--tgt-pub-key", signer1.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "--src-pub-key", targetAccount.publicKey,
+            "--tgt-pub-key", signerAccount.publicKey,
             "--namespace", namespaceId.fullName,
-            "--src-priv-key", target.privateKey,
+            "--src-priv-key", targetAccount.privateKey,
             "--check-collision",
             "--verify",
             "--parallels", "1",
@@ -108,18 +108,18 @@ describe("Forge CLI", () => {
         expect(output?.type).toBe(MetadataType.Namespace);
 
         assert(output?.metalId);
-        await MetalTest.scrapMetal(output.metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(output.metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Forge Metal into Account with Alt additive", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         // Estimate metal ID without no additive
         const outputNoAdditive = await ForgeCLI.main([
             "--estimate",
-            "--priv-key", signer1.privateKey,
-            "-s", signer1.publicKey,
-            "-t", target.publicKey,
-            "--cosigner", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", signerAccount.publicKey,
+            "-t", targetAccount.publicKey,
+            "--cosigner", targetAccount.privateKey,
             "-c",
             "--fee-ratio", "0.35",
             inputFile,
@@ -132,10 +132,10 @@ describe("Forge CLI", () => {
         const additive = Convert.uint8ToUtf8(MetalService.generateRandomAdditive());
         const outputWithAdditive = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-s", signer1.publicKey,
-            "-t", target.publicKey,
-            "--tgt-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", signerAccount.publicKey,
+            "-t", targetAccount.publicKey,
+            "--tgt-priv-key", targetAccount.privateKey,
             "-c",
             "-v",
             "--additive", additive,
@@ -148,6 +148,6 @@ describe("Forge CLI", () => {
         expect(outputWithAdditive?.type).toBe(MetadataType.Account);
 
         assert(outputWithAdditive?.metalId);
-        await MetalTest.scrapMetal(outputWithAdditive.metalId, signer1.publicAccount, target.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(outputWithAdditive.metalId, signerAccount.publicAccount, targetAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 });

@@ -614,12 +614,12 @@ const calculateMetadataHash = (
     sourceAddress: Address,
     targetAddress: Address,
     targetId: undefined | MosaicId | NamespaceId,
-    scopedMetadataKey: UInt64,
+    key: UInt64,
 ) => {
     const hasher = sha3_256.create()
     hasher.update(sourceAddress.encodeUnresolvedAddress());
     hasher.update(targetAddress.encodeUnresolvedAddress());
-    hasher.update(Convert.hexToUint8Reverse(scopedMetadataKey.toHex()));
+    hasher.update(Convert.hexToUint8Reverse(key.toHex()));
     hasher.update(Convert.hexToUint8Reverse(targetId?.toHex() || "0000000000000000"))
     hasher.update(Convert.numberToUint8Array(type, 1));
     return hasher.hex().toUpperCase();
@@ -834,7 +834,7 @@ import {MetalService} from "metal-on-symbol";
 
 const { txs, key, additive } = await MetalService.createForgeTxs(
     type, 
-    sourceAccount,
+    sourcePubAccount,
     targetPubAccount,
     targetId,
     payaload,
@@ -869,8 +869,8 @@ const { txs, key, additive } = await MetalService.createForgeTxs(
 ```typescript
 const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
     txs,
-    signer,
-    cosigners,
+    signerAccount,
+    cosignerAccounts,
     feeRatio,
     batchSize,
 );
@@ -879,8 +879,8 @@ const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
 **引数**
 
 - `txs: InnerTransaction[]` - `MetalService.createForgeTxs` で生成したトランザクションの配列
-- `signer: Account` - 署名するアカウント
-- `cosigners: Account[]` - 連署するアカウントの配列（`signer` および `sourcePubAccount`、`targetPubAccount`、`targetId` 
+- `signerAccount: Account` - 署名するアカウント
+- `cosignerAccounts: Account[]` - 連署するアカウントの配列（`signerAccount` および `sourcePubAccount`、`targetPubAccount`、`targetId` 
   の作成者・所有者が一致しない場合は、 登場人物全員の署名が必要です）
 - `feeRatio: number` - **(Optional)** トランザクション手数料率を上書き（0.0～1.0。省略すると初期化時の値）
 - `batchSize: number` - **(Optional)** インナートランザクション最大数を上書き（1～。省略すると初期化時の値）
@@ -896,13 +896,13 @@ const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
 以下の関数では、全てのトランザクションが承認されるか、最初にエラーが発生するまでウェイトします。
 
 ```typescript
-const errors = await SymbolService.executeBatches(batches, signer, maxParallels);
+const errors = await SymbolService.executeBatches(batches, signerAccount, maxParallels);
 ```
 
 **引数**
 
 - `batches: SymbolService.SignedAggregateTx[]` - 署名済みバッチ配列
-- `signer: Account | PublicAccount` - 署名したアカウント。トランザクションを監視する為に指定します。従って `PublicAccount` でも可です。
+- `signerAccount: Account | PublicAccount` - 署名したアカウント。トランザクションを監視する為に指定します。従って `PublicAccount` でも可です。
 - `maxParallels: number` - **(Optional)** トランザクションアナウンス並列数を上書き（1～。省略すると初期化時の値）
 
 **戻り値**
@@ -971,8 +971,8 @@ const forgeMetal = async (
     targetPubAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
-    signer: Account,
-    cosigners: Account[],
+    signerAccount: Account,
+    cosignerAccounts: Account[],
     additive?: Uint8Array,
 ) => {
     const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
@@ -985,10 +985,10 @@ const forgeMetal = async (
     );
     const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
         txs,
-        signer,
-        cosigners,
+        signerAccount,
+        cosignerAccounts,
     );
-    const errors = await SymbolService.executeBatches(batches, signer);
+    const errors = await SymbolService.executeBatches(batches, signerAccount);
     if (errors) {
         throw Error("Transaction error.");
     }
@@ -1048,8 +1048,8 @@ const forgeMetal = async (
     targetPubAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
-    signer: Account,
-    cosigners: Account[],
+    signerAccount: Account,
+    cosignerAccounts: Account[],
     additive?: Uint8Array,
 ) => {
     const metadataPool = await SymbolService.searchMetadata(
@@ -1128,7 +1128,7 @@ const payload = await MetalService.fetch(type, sourceAddress, targetAddress, tar
 まず、先頭チャンクメタデータを取得します。
 
 ```typescript
-const metadata = await MetalService.getFirstChunk(metalId);
+const metadata = (await MetalService.getFirstChunk(metalId)).metadataEntry;
 const { metadataType: type, targetId, scopedMetadataKey: key } = metadata;
 ```
 
@@ -1183,8 +1183,8 @@ const scrapMetal = async (
     metalId: string,
     sourcePubAccount: PublicAccount,
     targetPubAccount: PublicAccount,
-    signer: Account,
-    cosigners: Account[]
+    signerAccount: Account,
+    cosignerAccounts: Account[]
 ) => {
     const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
     const txs = await MetalService.createScrapTxs(
@@ -1199,10 +1199,10 @@ const scrapMetal = async (
     }
     const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
         txs,
-        signer,
-        cosigners,
+        signerAccount,
+        cosignerAccounts,
     );
-    const errors = await SymbolService.executeBatches(batches, signer);
+    const errors = await SymbolService.executeBatches(batches, signerAccount);
     if (errors) {
         throw Error("Transaction error.");
     }
@@ -1259,8 +1259,8 @@ const destroyMetal = async (
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
     additive: Uint8Array,
-    signer: Account,
-    cosigners: Account[]
+    signerAccount: Account,
+    cosignerAccounts: Account[]
 ) => {
     const txs = await MetalService.createDestroyTxs(
         type,
@@ -1284,7 +1284,7 @@ const destroyMetal = async (
 まず、`Metal ID` で先頭チャンクメタデータを取得してください。
 
 ```typescript
-const metadata = await MetalService.getFirstChunk(metalId);
+const metadata = (await MetalService.getFirstChunk(metalId)).metadataEntry;
 const {
     metadataType: type,
     sourceAddress,

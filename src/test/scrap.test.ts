@@ -11,7 +11,7 @@ import {MetalService} from "../services";
 
 describe("Scrap CLI", () => {
     let inputFile: string;
-    let target: Account;
+    let targetAccount: Account;
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
     let testData: Uint8Array;
@@ -24,43 +24,43 @@ describe("Scrap CLI", () => {
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
 
         const assets = await MetalTest.generateAssets();
-        target = assets.account;
+        targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
     }, 600000);
 
     it("Account Metal via metal ID", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId } = await MetalTest.forgeMetal(
             MetadataType.Account,
-            signer1.publicAccount,
-            target.publicAccount,
+            signerAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             metalId,
         ]);
 
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Account);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(signer1.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(target.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(targetAccount.publicAccount);
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "--tgt-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--tgt-priv-key", targetAccount.privateKey,
             metalId,
         ]);
 
@@ -70,37 +70,37 @@ describe("Scrap CLI", () => {
     }, 6000000);
 
     it("Mosaic Metal via metal ID", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId } = await MetalTest.forgeMetal(
             MetadataType.Mosaic,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "-s", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", targetAccount.publicKey,
             metalId,
         ]);
 
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Mosaic);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(target.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(signer1.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
         expect(estimateOutput?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "--src-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--src-priv-key", targetAccount.privateKey,
             metalId,
         ]);
 
@@ -110,37 +110,37 @@ describe("Scrap CLI", () => {
     }, 6000000);
 
     it("Namespace Metal via metal ID", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId } = await MetalTest.forgeMetal(
             MetadataType.Namespace,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "-s", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", targetAccount.publicKey,
             metalId,
         ]);
 
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Namespace);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(target.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(signer1.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
         expect(estimateOutput?.mosaicId).toBeUndefined()
         expect(estimateOutput?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "--src-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--src-priv-key", targetAccount.privateKey,
             metalId,
         ]);
 
@@ -150,37 +150,37 @@ describe("Scrap CLI", () => {
     }, 6000000);
 
     it("Account Metal via metadata key", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { key, metalId } = await MetalTest.forgeMetal(
             MetadataType.Account,
-            signer1.publicAccount,
-            target.publicAccount,
+            signerAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             "-k", key.toHex(),
         ]);
 
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Account);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(signer1.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(target.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(targetAccount.publicAccount);
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "--tgt-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--tgt-priv-key", targetAccount.privateKey,
             "-k", key.toHex(),
         ]);
 
@@ -190,21 +190,21 @@ describe("Scrap CLI", () => {
     }, 6000000);
 
     it("Mosaic Metal via metadata key", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Mosaic,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "--src-pub-key", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "--src-pub-key", targetAccount.publicKey,
             "-m", mosaicId.toHex(),
             "-k", key.toHex(),
         ]);
@@ -212,16 +212,16 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Mosaic);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(target.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(signer1.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
         expect(estimateOutput?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "--src-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--src-priv-key", targetAccount.privateKey,
             "--mosaic", mosaicId.toHex(),
             "-k", key.toHex(),
         ]);
@@ -232,22 +232,22 @@ describe("Scrap CLI", () => {
     }, 6000000);
 
     it("Namespace Metal via metadata key", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Namespace,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         assert(namespaceId.fullName);
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "-s", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", targetAccount.publicKey,
             "-n", namespaceId.fullName,
             "-k", key.toHex(),
         ]);
@@ -255,16 +255,16 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Namespace);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(target.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(signer1.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
         expect(estimateOutput?.mosaicId).toBeUndefined()
         expect(estimateOutput?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "--src-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--src-priv-key", targetAccount.privateKey,
             "--namespace", namespaceId.fullName,
             "--key", key.toHex(),
         ]);
@@ -275,23 +275,23 @@ describe("Scrap CLI", () => {
     }, 6000000);
 
     it("Account Metal via input file with Alt additive", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const generatedAdditiveBytes = MetalService.generateRandomAdditive();
         const { metalId, additiveBytes } = await MetalTest.forgeMetal(
             MetadataType.Account,
-            signer1.publicAccount,
-            target.publicAccount,
+            signerAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
             generatedAdditiveBytes,
         );
 
         const estimateOutput = await ScrapCLI.main([
             "-e",
-            "--priv-key", signer1.privateKey,
-            "--tgt-pub-key", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "--tgt-pub-key", targetAccount.publicKey,
             "-i", inputFile,
             "--additive", Convert.uint8ToUtf8(additiveBytes),
         ]);
@@ -299,8 +299,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Account);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(signer1.publicAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(target.publicAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(targetAccount.publicAccount);
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(additiveBytes).toStrictEqual(generatedAdditiveBytes);
@@ -308,8 +308,8 @@ describe("Scrap CLI", () => {
 
         const scrapOutput = await ScrapCLI.main([
             "--force",
-            "--priv-key", signer1.privateKey,
-            "--tgt-priv-key", target.privateKey,
+            "--priv-key", signerAccount.privateKey,
+            "--tgt-priv-key", targetAccount.privateKey,
             "--in", inputFile,
             "--additive", Convert.uint8ToUtf8(additiveBytes),
             "--parallels", "1",

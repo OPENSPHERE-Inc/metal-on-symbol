@@ -206,7 +206,7 @@ export namespace SymbolService {
     //   - txs: Array of InnerTransaction
     //   - mosaicId: Generated mosaic ID
     export const createMosaicDefinitionTx = async (
-        creatorAccount: PublicAccount,
+        creatorPubAccount: PublicAccount,
         durationBlocks: UInt64,
         divisibility: number,
         supplyAmount: number,
@@ -218,7 +218,7 @@ export namespace SymbolService {
         const { epochAdjustment, networkType } = await getNetwork();
 
         const nonce = MosaicNonce.createRandom();
-        const mosaicId = MosaicId.createFromNonce(nonce, creatorAccount.address);
+        const mosaicId = MosaicId.createFromNonce(nonce, creatorPubAccount.address);
         const txs = new Array<InnerTransaction>();
 
         txs.push(
@@ -230,7 +230,7 @@ export namespace SymbolService {
                 divisibility,
                 durationBlocks,
                 networkType,
-            ).toAggregate(creatorAccount)
+            ).toAggregate(creatorPubAccount)
         );
 
         txs.push(
@@ -240,7 +240,7 @@ export namespace SymbolService {
                 MosaicSupplyChangeAction.Increase,
                 UInt64.fromUint(supplyAmount * Math.pow(10, divisibility)),
                 networkType,
-            ).toAggregate(creatorAccount)
+            ).toAggregate(creatorPubAccount)
         );
 
         return {
@@ -253,7 +253,7 @@ export namespace SymbolService {
     //   - name: The name can be up to 64 characters long.
     //   - durationBlocks: At least 86400 (30minutes) or long
     export const createNamespaceRegistrationTx = async (
-        ownerAccount: PublicAccount,
+        ownerPubAccount: PublicAccount,
         name: string,
         durationBlocks: UInt64,
     ) => {
@@ -263,15 +263,15 @@ export namespace SymbolService {
             name,
             durationBlocks,
             networkType,
-        ).toAggregate(ownerAccount);
+        ).toAggregate(ownerPubAccount);
     };
 
     // When type is mosaic: targetAccount must be mosaic creator
     // When type is namespace: targetAccount must be namespace owner
     export const createMetadataTx = async (
         type: MetadataType,
-        sourceAccount: PublicAccount,
-        targetAccount: PublicAccount,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId | string,
         key: string | UInt64,
         value: string | Uint8Array,
@@ -286,36 +286,36 @@ export namespace SymbolService {
             case MetadataType.Mosaic: {
                 return MosaicMetadataTransaction.create(
                     Deadline.create(epochAdjustment, config.deadline_hours),
-                    targetAccount.address,
+                    targetPubAccount.address,
                     typeof(key) === "string" ? generateKey(key) : key,
                     typeof(targetId) === "string" ? new MosaicId(targetId) : targetId as MosaicId,
                     actualSizeDelta,
                     valueBytes,
                     networkType,
-                ).toAggregate(sourceAccount);
+                ).toAggregate(sourcePubAccount);
             }
 
             case MetadataType.Namespace: {
                 return NamespaceMetadataTransaction.create(
                     Deadline.create(epochAdjustment, config.deadline_hours),
-                    targetAccount.address,
+                    targetPubAccount.address,
                     actualKey,
                     typeof(targetId) === "string" ? new NamespaceId(targetId) : targetId as NamespaceId,
                     actualSizeDelta,
                     valueBytes,
                     networkType,
-                ).toAggregate(sourceAccount);
+                ).toAggregate(sourcePubAccount);
             }
 
             default: {
                 return AccountMetadataTransaction.create(
                     Deadline.create(epochAdjustment, config.deadline_hours),
-                    targetAccount.address,
+                    targetPubAccount.address,
                     actualKey,
                     actualSizeDelta,
                     valueBytes,
                     networkType
-                ).toAggregate(sourceAccount);
+                ).toAggregate(sourcePubAccount);
             }
         }
     };
@@ -526,8 +526,8 @@ export namespace SymbolService {
     // Return: Array of signed aggregate complete TX and cosignatures (when cosigners are specified)
     export const buildSignedAggregateCompleteTxBatches = async (
         txs: InnerTransaction[],
-        signer: Account,
-        cosigners?: Account[],
+        signerAccount: Account,
+        cosignerAccounts?: Account[],
         feeRatio: number = config.fee_ratio,
         batchSize: number = config.batch_size,
     ) => {
@@ -540,12 +540,12 @@ export namespace SymbolService {
             const innerTxs = txPool.splice(0, batchSize);
             const aggregateTx = await composeAggregateCompleteTx(
                 feeMultiplier,
-                cosigners?.length || 0,
+                cosignerAccounts?.length || 0,
                 innerTxs,
             );
 
-            const signedTx = signer.sign(aggregateTx, networkGenerationHash);
-            const cosignatures = cosigners?.map(
+            const signedTx = signerAccount.sign(aggregateTx, networkGenerationHash);
+            const cosignatures = cosignerAccounts?.map(
                 (cosigner) => CosignatureTransaction.signTransactionHash(cosigner, signedTx.hash)
             ) || [];
 
@@ -565,7 +565,7 @@ export namespace SymbolService {
     //   - Failed: errors
     export const executeBatches = async (
         batches: SignedAggregateTx[],
-        signer: Account | PublicAccount,
+        signerAccount: Account | PublicAccount,
         maxParallel: number = config.max_parallels,
     ) => {
         const txPool = [ ...batches ];
@@ -580,7 +580,7 @@ export namespace SymbolService {
                 const nextBatch = () => txPool.splice(0, 1).shift();
                 for (let batch = nextBatch(); batch; batch = nextBatch()) {
                     await announceTxWithCosignatures(batch.signedTx, batch.cosignatures);
-                    const errors = (await listenTxs(listener, signer, [batch.signedTx.hash], "confirmed"))
+                    const errors = (await listenTxs(listener, signerAccount, [batch.signedTx.hash], "confirmed"))
                         .filter((result) => result.error);
                     if (errors.length) {
                         resolve(errors);
@@ -608,12 +608,12 @@ export namespace SymbolService {
         sourceAddress: Address,
         targetAddress: Address,
         targetId: undefined | MosaicId | NamespaceId,
-        scopedMetadataKey: UInt64,
+        key: UInt64,
     ) => {
         const hasher = sha3_256.create()
         hasher.update(sourceAddress.encodeUnresolvedAddress());
         hasher.update(targetAddress.encodeUnresolvedAddress());
-        hasher.update(Convert.hexToUint8Reverse(scopedMetadataKey.toHex()));
+        hasher.update(Convert.hexToUint8Reverse(key.toHex()));
         hasher.update(Convert.hexToUint8Reverse(targetId?.toHex() || "0000000000000000"))
         hasher.update(Convert.numberToUint8Array(type, 1));
         return hasher.hex().toUpperCase();
@@ -636,11 +636,11 @@ export namespace SymbolService {
     };
 
     // Encrypt data with AES-GCM
-    export const encryptBinary = (plainData: Uint8Array, sender: Account, recipientPubAccount: PublicAccount) => {
+    export const encryptBinary = (plainData: Uint8Array, senderAccount: Account, recipientPubAccount: PublicAccount) => {
         // FIXME: This has overhead of hex <-> uint8 conversion.
         return Convert.hexToUint8(
             Crypto.encode(
-                sender.privateKey,
+                senderAccount.privateKey,
                 recipientPubAccount.publicKey,
                 Convert.uint8ToHex(plainData),
                 true
@@ -649,11 +649,11 @@ export namespace SymbolService {
     };
 
     // Decrypt data with AES-GCM
-    export const decryptBinary = (encryptedData: Uint8Array, senderPubAccount: PublicAccount, recipient: Account) => {
+    export const decryptBinary = (encryptedData: Uint8Array, senderPubAccount: PublicAccount, recipientAccount: Account) => {
         // FIXME: This has overhead of hex <-> uint8 conversion.
         return Convert.hexToUint8(
             Crypto.decode(
-                recipient.privateKey,
+                recipientAccount.privateKey,
                 senderPubAccount.publicKey,
                 Convert.uint8ToHex(encryptedData)
             )

@@ -28,8 +28,8 @@ export namespace ReinforceCLI {
 
     const extractMetadataKeys = async (
         type: MetadataType,
-        sourceAccount: PublicAccount,
-        targetAccount: PublicAccount,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
         additive?: string
@@ -37,8 +37,8 @@ export namespace ReinforceCLI {
         const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
         const { txs } = await MetalService.createForgeTxs(
             type,
-            sourceAccount,
-            targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             targetId,
             payload,
             additiveBytes,
@@ -48,14 +48,14 @@ export namespace ReinforceCLI {
 
     const retrieveBatches = async (intermediateTxs: IntermediateTxs) => {
         const { networkType } = await SymbolService.getNetwork();
-        const signerAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
+        const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
 
         return intermediateTxs.txs.map((tx) => {
             const signedTx = new SignedTransaction(
                 // Convert base64 to HEX
                 Convert.uint8ToHex(Base64.toUint8Array(tx.payload)),
                 tx.hash,
-                signerAccount.publicKey,
+                signerPubAccount.publicKey,
                 TransactionType.AGGREGATE_COMPLETE,
                 networkType
             );
@@ -86,14 +86,14 @@ export namespace ReinforceCLI {
             throw new Error(`Wrong network type ${intermediateTxs.networkType}`);
         }
 
-        const cosigners = [
-            ...(input.signer ? [ input.signer ] : []),
-            ...(input.cosigners || []),
+        const cosignerAccounts = [
+            ...(input.signerAccount ? [ input.signerAccount ] : []),
+            ...(input.cosignerAccounts || []),
         ];
-        const signerAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
+        const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
         const type = intermediateTxs.type;
-        const sourceAccount = PublicAccount.createFromPublicKey(intermediateTxs.sourcePublicKey, networkType);
-        const targetAccount = PublicAccount.createFromPublicKey(intermediateTxs.targetPublicKey, networkType);
+        const sourcePubAccount = PublicAccount.createFromPublicKey(intermediateTxs.sourcePublicKey, networkType);
+        const targetPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.targetPublicKey, networkType);
         const targetId = type === MetadataType.Mosaic && intermediateTxs.mosaicId
             ? new MosaicId(intermediateTxs.mosaicId)
             : type === MetadataType.Namespace && intermediateTxs.namespaceId
@@ -103,8 +103,8 @@ export namespace ReinforceCLI {
         // Construct reference txs and extract metadata keys.
         let metadataKeys = await extractMetadataKeys(
             type,
-            sourceAccount,
-            targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             targetId,
             payload,
             intermediateTxs.additive
@@ -119,10 +119,10 @@ export namespace ReinforceCLI {
             if (!MetalService.validateBatch(
                 batch,
                 type,
-                sourceAccount.address,
-                targetAccount.address,
+                sourcePubAccount.address,
+                targetPubAccount.address,
                 targetId,
-                signerAccount.address,
+                signerPubAccount.address,
                 metadataKeys,
             )) {
                 throw new Error(`Intermediate TXs validation failed.`);
@@ -132,7 +132,7 @@ export namespace ReinforceCLI {
         // Add cosignatures of new cosigners
         batches.forEach((batch) => {
             batch.cosignatures.push(
-                ...cosigners.map(
+                ...cosignerAccounts.map(
                     (cosigner) => CosignatureTransaction.signTransactionHash(cosigner, batch.signedTx.hash)
                 )
             );
@@ -157,7 +157,7 @@ export namespace ReinforceCLI {
             }
 
             const startAt = moment.now();
-            const errors = await SymbolService.executeBatches(batches, signerAccount, input.maxParallels);
+            const errors = await SymbolService.executeBatches(batches, signerPubAccount, input.maxParallels);
             errors?.forEach(({txHash, error}) => {
                 Logger.error(`${txHash}: ${error}`);
             });
@@ -175,13 +175,13 @@ export namespace ReinforceCLI {
             key: intermediateTxs.key !== undefined ? UInt64.fromHex(intermediateTxs.key) : undefined,
             totalFee: UInt64.fromNumericString(intermediateTxs.totalFee),
             additive: intermediateTxs.additive,
-            sourceAccount: sourceAccount,
-            targetAccount: targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             ...(intermediateTxs.mosaicId ? { mosaicId: new MosaicId(intermediateTxs.mosaicId) } : {}),
             ...(intermediateTxs.namespaceId ? { namespaceId: new NamespaceId(intermediateTxs.namespaceId) } : {}),
             status: input.announce ? "reinforced" : "estimated",
             metalId: intermediateTxs.metalId,
-            signerAccount,
+            signerPubAccount,
             command: intermediateTxs.command,
             type,
             createdAt: new Date(intermediateTxs.createdAt),

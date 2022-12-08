@@ -72,14 +72,14 @@ export namespace MetalService {
         sourceAddress: Address,
         targetAddress: Address,
         targetId: undefined | MosaicId | NamespaceId,
-        scopedMetadataKey: UInt64,
+        key: UInt64,
     ) => {
         const compositeHash = SymbolService.calculateMetadataHash(
             type,
             sourceAddress,
             targetAddress,
             targetId,
-            scopedMetadataKey
+            key
         );
         const hashBytes = Convert.hexToUint8(METAL_ID_HEADER_HEX + compositeHash);
         return bs58.encode(hashBytes);
@@ -148,8 +148,8 @@ export namespace MetalService {
     //   - additive: Actual additive that been used during encoding. You should store this for verifying the metal.
     export const createForgeTxs = async (
         type: MetadataType,
-        sourceAccount: PublicAccount,
-        targetAccount: PublicAccount,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
         additive: Uint8Array = DEFAULT_ADDITIVE,
@@ -175,8 +175,8 @@ export namespace MetalService {
                 // Retry with another additive via recursive call
                 return createForgeTxs(
                     type,
-                    sourceAccount,
-                    targetAccount,
+                    sourcePubAccount,
+                    targetPubAccount,
                     targetId,
                     payload,
                     generateRandomAdditive(),
@@ -187,8 +187,8 @@ export namespace MetalService {
             // Only non on-chain data to be announced.
             !lookupTable.has(key.toHex()) && txs.push(await SymbolService.createMetadataTx(
                 type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
                 key,
                 value,
@@ -292,8 +292,8 @@ export namespace MetalService {
     // Scrap metal via removing metadata
     export const createScrapTxs = async (
         type: MetadataType,
-        sourceAccount: PublicAccount,
-        targetAccount: PublicAccount,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         key: UInt64,
         metadataPool?: Metadata[],
@@ -302,8 +302,8 @@ export namespace MetalService {
             metadataPool ||
             // Retrieve scoped metadata from on-chain
             await SymbolService.searchMetadata(type, {
-                source: sourceAccount,
-                target: targetAccount,
+                source: sourcePubAccount,
+                target: targetPubAccount,
                 targetId,
             })
         );
@@ -329,8 +329,8 @@ export namespace MetalService {
             const valueBytes = Convert.utf8ToUint8(metadata.value);
             txs.push(await SymbolService.createMetadataTx(
                 type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
                 metadata.scopedMetadataKey,
                 Convert.hexToUint8(Convert.xor(valueBytes, scrappedValueBytes)),
@@ -346,8 +346,8 @@ export namespace MetalService {
 
     export const createDestroyTxs = async (
         type: MetadataType,
-        sourceAccount: PublicAccount,
-        targetAccount: PublicAccount,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
         additive: Uint8Array = DEFAULT_ADDITIVE,
@@ -356,7 +356,7 @@ export namespace MetalService {
         const lookupTable = createMetadataLookupTable(
             metadataPool ||
             // Retrieve scoped metadata from on-chain
-            await SymbolService.searchMetadata(type,  { source: sourceAccount, target: targetAccount, targetId })
+            await SymbolService.searchMetadata(type,  { source: sourcePubAccount, target: targetPubAccount, targetId })
         );
         const scrappedValueBytes = Convert.utf8ToUint8("");
         const payloadBase64Bytes = Convert.utf8ToUint8(Base64.fromUint8Array(payload));
@@ -378,8 +378,8 @@ export namespace MetalService {
                 const valueBytes = Convert.utf8ToUint8(onChainMetadata.metadataEntry.value);
                 txs.push(await SymbolService.createMetadataTx(
                     type,
-                    sourceAccount,
-                    targetAccount,
+                    sourcePubAccount,
+                    targetPubAccount,
                     targetId,
                     key,
                     Convert.hexToUint8(Convert.xor(valueBytes, scrappedValueBytes)),

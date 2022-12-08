@@ -22,8 +22,8 @@ export namespace ReinforceInput {
         signerPrivateKey?: string;
 
         // Filled by validateInput
-        cosigners?: Account[];
-        signer?: Account;
+        cosignerAccounts?: Account[];
+        signerAccount?: Account;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -157,11 +157,11 @@ export namespace ReinforceInput {
             })).private_key;
         }
         if (input.signerPrivateKey) {
-            input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-            Logger.info(`Signer Address is ${input.signer.address.plain()}`);
+            input.signerAccount = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
+            Logger.info(`Signer Address is ${input.signerAccount.address.plain()}`);
         }
 
-        input.cosigners = input.cosignerPrivateKeys?.map(
+        input.cosignerAccounts = input.cosignerPrivateKeys?.map(
             (privateKey) => {
                 const cosigner = Account.createFromPrivateKey(privateKey, networkType)
                 Logger.info(`Additional Cosigner Address is ${cosigner.address.plain()}`);

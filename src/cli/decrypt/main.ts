@@ -27,12 +27,12 @@ export namespace DecryptCLI {
         const payload = await readStreamInput(input);
 
         // Encrypt payload here.
-        assert(input.encryptRecipient);
-        const encryptSenderAccount = input.encryptSenderAccount || input.encryptRecipient.publicAccount;
+        assert(input.encryptRecipientAccount);
+        const encryptSenderPubAccount = input.encryptSenderPubAccount || input.encryptRecipientAccount.publicAccount;
         const decryptedPayload = SymbolService.decryptBinary(
             payload,
-            encryptSenderAccount,
-            input.encryptRecipient
+            encryptSenderPubAccount,
+            input.encryptRecipientAccount
         );
 
         // Output encrypt file here.
@@ -40,8 +40,8 @@ export namespace DecryptCLI {
 
         const output: DecryptOutput.CommandlineOutput = {
             payload: decryptedPayload,
-            senderAccount: encryptSenderAccount,
-            recipientAccount: input.encryptRecipient.publicAccount,
+            senderPubAccount: encryptSenderPubAccount,
+            recipientPubAccount: input.encryptRecipientAccount.publicAccount,
         };
 
         return output;

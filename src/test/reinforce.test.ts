@@ -25,7 +25,7 @@ import {writeIntermediateFile} from "../cli/intermediate";
 describe("Reinforce CLI", () => {
     let inputFile: string;
     let outputFile: string;
-    let target: Account;
+    let targetAccount: Account;
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
     let metalId: string;
@@ -39,7 +39,7 @@ describe("Reinforce CLI", () => {
         outputFile = process.env.TEST_OUTPUT_FILE;
 
         const assets = await MetalTest.generateAssets();
-        target = assets.account;
+        targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
     }, 600000);
@@ -51,11 +51,11 @@ describe("Reinforce CLI", () => {
     });
 
     it("Forge Account Metal", async() => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const forgeOutput = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             "-c",
             "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
             "-o", outputFile,
@@ -83,18 +83,18 @@ describe("Reinforce CLI", () => {
         expect(estimateOutput?.totalFee).toStrictEqual(forgeOutput?.totalFee);
         expect(estimateOutput?.batches).toStrictEqual(forgeOutput?.batches);
         expect(estimateOutput?.type).toBe(forgeOutput?.type);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(forgeOutput?.sourceAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(forgeOutput?.targetAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(forgeOutput?.sourcePubAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(forgeOutput?.targetPubAccount);
         expect(estimateOutput?.key).toStrictEqual(forgeOutput?.key);
         expect(estimateOutput?.mosaicId?.toHex()).toBe(forgeOutput?.mosaicId);
         expect(estimateOutput?.namespaceId?.toHex()).toBe(forgeOutput?.namespaceId?.toHex());
         expect(estimateOutput?.additive).toBe(forgeOutput?.additive);
-        expect(estimateOutput?.signerAccount).toStrictEqual(forgeOutput?.signerAccount);
+        expect(estimateOutput?.signerPubAccount).toStrictEqual(forgeOutput?.signerPubAccount);
 
         const reinforceOutput = await ReinforceCLI.main([
             "-a",
             "-f",
-            "--cosigner", target.privateKey,
+            "--cosigner", targetAccount.privateKey,
             outputFile,
             inputFile,
         ]);
@@ -105,11 +105,11 @@ describe("Reinforce CLI", () => {
     }, 600000);
 
     it("Scrap Account Metal", async() => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const scrapOutput = await ScrapCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             "-o", outputFile,
             metalId,
         ]);
@@ -130,18 +130,18 @@ describe("Reinforce CLI", () => {
         expect(estimateOutput?.totalFee).toStrictEqual(scrapOutput?.totalFee);
         expect(estimateOutput?.batches).toStrictEqual(scrapOutput?.batches);
         expect(estimateOutput?.type).toBe(scrapOutput?.type);
-        expect(estimateOutput?.sourceAccount).toStrictEqual(scrapOutput?.sourceAccount);
-        expect(estimateOutput?.targetAccount).toStrictEqual(scrapOutput?.targetAccount);
+        expect(estimateOutput?.sourcePubAccount).toStrictEqual(scrapOutput?.sourcePubAccount);
+        expect(estimateOutput?.targetPubAccount).toStrictEqual(scrapOutput?.targetPubAccount);
         expect(estimateOutput?.key).toStrictEqual(scrapOutput?.key);
         expect(estimateOutput?.mosaicId?.toHex()).toBe(scrapOutput?.mosaicId);
         expect(estimateOutput?.namespaceId?.toHex()).toBe(scrapOutput?.namespaceId?.toHex());
         expect(estimateOutput?.additive).toBe(scrapOutput?.additive);
-        expect(estimateOutput?.signerAccount).toStrictEqual(scrapOutput?.signerAccount);
+        expect(estimateOutput?.signerPubAccount).toStrictEqual(scrapOutput?.signerPubAccount);
 
         const reinforceOutput = await ReinforceCLI.main([
             "-a",
             "-f",
-            "--priv-key", target.privateKey,
+            "--priv-key", targetAccount.privateKey,
             outputFile,
             inputFile,
         ]);
@@ -152,11 +152,11 @@ describe("Reinforce CLI", () => {
     }, 600000);
 
     it("Reject manipulated intermediate TXs", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const forgeOutput1 = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             "-c",
             "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
             "-o", outputFile,
@@ -165,8 +165,8 @@ describe("Reinforce CLI", () => {
 
         const forgeOutput2 = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             "-c",
             "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
             "-o", outputFile,
@@ -192,7 +192,7 @@ describe("Reinforce CLI", () => {
         // Manipulated sourceAccount
         writeIntermediateFile({
             ...forgeOutput1,
-            sourceAccount: target.publicAccount,
+            sourcePubAccount: targetAccount.publicAccount,
         }, outputFile);
 
         await expect(async () => {
@@ -206,7 +206,7 @@ describe("Reinforce CLI", () => {
         // Manipulated targetAccount
         writeIntermediateFile({
             ...forgeOutput1,
-            targetAccount: signer1.publicAccount,
+            targetPubAccount: signerAccount.publicAccount,
         }, outputFile);
 
         await expect(async () => {
@@ -220,8 +220,8 @@ describe("Reinforce CLI", () => {
         // Manipulated mosaicId
         const forgeOutput3 = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-s", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", targetAccount.publicKey,
             "-m", mosaicId.toHex(),
             "-c",
             "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
@@ -246,8 +246,8 @@ describe("Reinforce CLI", () => {
         // Manipulated namespaceId
         const forgeOutput4 = await ForgeCLI.main([
             "-f",
-            "--priv-key", signer1.privateKey,
-            "-s", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-s", targetAccount.publicKey,
             "-n", namespaceId.toHex(),
             "-c",
             "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
@@ -270,17 +270,17 @@ describe("Reinforce CLI", () => {
         }).rejects.toThrowError("Intermediate TXs validation failed.");
 
         // Contamination
-        const { epochAdjustment, networkCurrencyMosaicId,networkType } = await SymbolService.getNetwork();
+        const { epochAdjustment, networkCurrencyMosaicId, networkType } = await SymbolService.getNetwork();
         const txs = [
             TransferTransaction.create(
                 Deadline.create(epochAdjustment),
-                signer1.address,
+                signerAccount.address,
                 [ new Mosaic(networkCurrencyMosaicId, UInt64.fromNumericString("10000000000") ) ],
                 PlainMessage.create("I stole your money"),
                 networkType,
-            ).toAggregate(target.publicAccount)
+            ).toAggregate(targetAccount.publicAccount)
         ];
-        const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(txs, signer1);
+        const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(txs, signerAccount);
 
         writeIntermediateFile({
             ...forgeOutput1,
