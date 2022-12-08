@@ -1,9 +1,8 @@
 import {Account, Address, PublicAccount} from "symbol-sdk";
 import {SymbolService} from "../services";
-import PromptSync from "prompt-sync";
+import {Logger} from "../libs";
+import prompts from "prompts";
 
-
-const prompt = PromptSync();
 
 export interface AccountsInput {
     cosignerPrivateKeys?: string[];
@@ -12,39 +11,45 @@ export interface AccountsInput {
     sourcePrivateKey?: string;
     targetPublicKey?: string;
     targetPrivateKey?: string;
-    cosigners?: Account[];
-    signer?: Account;
-    sourceAccount?: PublicAccount;
-    sourceSigner?: Account;
-    targetAccount?: PublicAccount;
-    targetSigner?: Account;
+    cosignerAccounts?: Account[];
+    signerAccount?: Account;
+    sourcePubAccount?: PublicAccount;
+    sourceSignerAccount?: Account;
+    targetPubAccount?: PublicAccount;
+    targetSignerAccount?: Account;
 }
 
 export const validateAccountsInput = async <T extends AccountsInput>(
-    input: T,
-    noPrompt: boolean = false,
+    _input: Readonly<T>,
+    showPrompt: boolean = true,
 ) => {
+    let input: T = { ..._input };
     const { networkType } = await SymbolService.getNetwork();
 
-    if (!input.signerPrivateKey && !noPrompt) {
-        input.signerPrivateKey = prompt("Signer Private Key? ", "", { echo: "*" });
+    if (!input.signerPrivateKey && showPrompt) {
+        input.signerPrivateKey = (await prompts({
+            type: "password",
+            name: "private_key",
+            message: "Signer's Private Key?",
+            stdout: process.stderr,
+        })).private_key;
     }
     if (!input.signerPrivateKey) {
         throw new Error(
             "Signer's private key wasn't specified. [--priv-key value] or SIGNER_PRIVATE_KEY are required."
         );
     }
-    input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-    console.log(`Signer Address is ${input.signer.address.plain()}`);
+    input.signerAccount = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
+    Logger.info(`Signer Address is ${input.signerAccount.address.plain()}`);
 
 
     if (input.sourcePublicKey) {
-        input.sourceAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);
+        input.sourcePubAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);
     }
 
     if (input.sourcePrivateKey) {
-        input.sourceSigner = Account.createFromPrivateKey(input.sourcePrivateKey, networkType);
-        if (input.sourceAccount && !input.sourceSigner.publicAccount.equals(input.sourceAccount)) {
+        input.sourceSignerAccount = Account.createFromPrivateKey(input.sourcePrivateKey, networkType);
+        if (input.sourcePubAccount && !input.sourceSignerAccount.publicAccount.equals(input.sourcePubAccount)) {
             throw new Error(
                 "Mismatched source account between public key and private key " +
                 "(You don't need to specify public key)"
@@ -52,17 +57,17 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         }
     }
 
-    if (input.sourceAccount || input.sourceSigner) {
-        console.log(`Source Address is ${(input.sourceAccount || input.sourceSigner)?.address.plain()}`)
+    if (input.sourcePubAccount || input.sourceSignerAccount) {
+        Logger.info(`Source Address is ${(input.sourcePubAccount || input.sourceSignerAccount)?.address.plain()}`)
     }
 
     if (input.targetPublicKey) {
-        input.targetAccount = PublicAccount.createFromPublicKey(input.targetPublicKey, networkType);
+        input.targetPubAccount = PublicAccount.createFromPublicKey(input.targetPublicKey, networkType);
     }
 
     if (input.targetPrivateKey) {
-        input.targetSigner = Account.createFromPrivateKey(input.targetPrivateKey, networkType);
-        if (input.targetAccount && !input.targetSigner.publicAccount.equals(input.targetAccount)) {
+        input.targetSignerAccount = Account.createFromPrivateKey(input.targetPrivateKey, networkType);
+        if (input.targetPubAccount && !input.targetSignerAccount.publicAccount.equals(input.targetPubAccount)) {
             throw new Error(
                 "Mismatched target account between public key and private key " +
                 "(You don't need to specify public key)"
@@ -70,14 +75,14 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         }
     }
 
-    if (input.targetAccount || input.targetSigner) {
-        console.log(`Target Address is ${(input.targetAccount || input.targetSigner)?.address.plain()}`)
+    if (input.targetPubAccount || input.targetSignerAccount) {
+        Logger.info(`Target Address is ${(input.targetPubAccount || input.targetSignerAccount)?.address.plain()}`)
     }
 
-    input.cosigners = input.cosignerPrivateKeys?.map(
+    input.cosignerAccounts = input.cosignerPrivateKeys?.map(
         (privateKey) => {
             const cosigner = Account.createFromPrivateKey(privateKey, networkType)
-            console.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+            Logger.info(`Additional Cosigner Address is ${cosigner.address.plain()}`);
             return cosigner;
         }
     );
@@ -90,33 +95,38 @@ export interface AddressesInput {
     sourcePublicKey?: string;
     targetAddress?: Address;
     targetPublicKey?: string;
+
+    // Filled by validator
+    sourcePubAccount?: PublicAccount;
+    targetPubAccount?: PublicAccount;
 }
 
 export const validateAddressesInput = async <T extends AddressesInput>(
-    input: T,
+    _input: Readonly<T>,
 ) => {
+    let input: T = { ..._input };
     const { networkType } = await SymbolService.getNetwork();
 
     if (input.sourcePublicKey) {
-        const sourceAddress = Address.createFromPublicKey(input.sourcePublicKey, networkType);
-        if (input.sourceAddress && !input.sourceAddress.equals(sourceAddress)) {
+        input.sourcePubAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);
+        if (input.sourceAddress && !input.sourceAddress.equals(input.sourcePubAccount.address)) {
             throw new Error(
                 "Mismatched source account between public key and address " +
                 "(You don't need to specify public key)"
             );
         }
-        input.sourceAddress = sourceAddress;
+        input.sourceAddress = input.sourcePubAccount.address;
     }
 
     if (input.targetPublicKey) {
-        const targetAddress = Address.createFromPublicKey(input.targetPublicKey, networkType);
-        if (input.targetAddress && !input.targetAddress.equals(targetAddress)) {
+        input.targetPubAccount = PublicAccount.createFromPublicKey(input.targetPublicKey, networkType);
+        if (input.targetAddress && !input.targetAddress.equals(input.targetPubAccount.address)) {
             throw new Error(
                 "Mismatched target account between public key and address " +
                 "(You don't need to specify public key)"
             );
         }
-        input.targetAddress = targetAddress;
+        input.targetAddress = input.targetPubAccount.address;
     }
 
     return input;

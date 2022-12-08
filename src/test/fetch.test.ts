@@ -10,7 +10,7 @@ import {FetchCLI} from "../cli";
 
 describe("Fetch CLI", () => {
     let inputFile: string;
-    let target: Account;
+    let targetAccount: Account;
     let mosaicId: MosaicId;
     let namespaceId: NamespaceId;
     let testData: Uint8Array;
@@ -23,21 +23,21 @@ describe("Fetch CLI", () => {
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
 
         const assets = await MetalTest.generateAssets();
-        target = assets.account;
+        targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
     }, 600000);
 
     it("Account Metal via metal ID", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Account,
-            signer1.publicAccount,
-            target.publicAccount,
+            signerAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const output = await FetchCLI.main([
@@ -47,26 +47,26 @@ describe("Fetch CLI", () => {
 
         expect(output?.key).toStrictEqual(key);
         expect(output?.type).toBe(MetadataType.Account);
-        expect(output?.sourceAddress).toStrictEqual(signer1.address);
-        expect(output?.targetAddress).toStrictEqual(target.address);
+        expect(output?.sourceAddress).toStrictEqual(signerAccount.address);
+        expect(output?.targetAddress).toStrictEqual(targetAccount.address);
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId).toBeUndefined();
         expect(output?.payload.buffer).toStrictEqual(testData.buffer);
 
         assert(metalId);
-        await MetalTest.scrapMetal(metalId, signer1.publicAccount, target.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(metalId, signerAccount.publicAccount, targetAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Mosaic Metal via metal ID", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Mosaic,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const output = await FetchCLI.main([
@@ -76,26 +76,26 @@ describe("Fetch CLI", () => {
 
         expect(output?.key).toStrictEqual(key);
         expect(output?.type).toBe(MetadataType.Mosaic);
-        expect(output?.sourceAddress).toStrictEqual(target.address);
-        expect(output?.targetAddress).toStrictEqual(signer1.address);
+        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
+        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
         expect(output?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(output?.namespaceId).toBeUndefined();
         expect(output?.payload.buffer).toStrictEqual(testData.buffer);
 
         assert(metalId);
-        await MetalTest.scrapMetal(metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Namespace Metal via metal ID", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Namespace,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const output = await FetchCLI.main([
@@ -105,106 +105,106 @@ describe("Fetch CLI", () => {
 
         expect(output?.key).toStrictEqual(key);
         expect(output?.type).toBe(MetadataType.Namespace);
-        expect(output?.sourceAddress).toStrictEqual(target.address);
-        expect(output?.targetAddress).toStrictEqual(signer1.address);
+        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
+        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(output?.payload.buffer).toStrictEqual(testData.buffer);
 
         assert(metalId);
-        await MetalTest.scrapMetal(metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Account Metal via metadata key", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Account,
-            signer1.publicAccount,
-            target.publicAccount,
+            signerAccount.publicAccount,
+            targetAccount.publicAccount,
             undefined,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const output = await FetchCLI.main([
             "--no-save",
-            "--priv-key", signer1.privateKey,
-            "-t", target.publicKey,
+            "--priv-key", signerAccount.privateKey,
+            "-t", targetAccount.publicKey,
             "-k", key.toHex(),
         ]);
 
         expect(output?.metalId).toStrictEqual(metalId);
         expect(output?.type).toBe(MetadataType.Account);
-        expect(output?.sourceAddress).toStrictEqual(signer1.address);
-        expect(output?.targetAddress).toStrictEqual(target.address);
+        expect(output?.sourceAddress).toStrictEqual(signerAccount.address);
+        expect(output?.targetAddress).toStrictEqual(targetAccount.address);
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId).toBeUndefined();
 
         assert(metalId);
-        await MetalTest.scrapMetal(metalId, signer1.publicAccount, target.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(metalId, signerAccount.publicAccount, targetAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Mosaic Metal via metadata key", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Mosaic,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             mosaicId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         const output = await FetchCLI.main([
             "--no-save",
-            "--src-pub-key", target.publicKey,
-            "--tgt-pub-key", signer1.publicKey,
+            "--src-pub-key", targetAccount.publicKey,
+            "--tgt-pub-key", signerAccount.publicKey,
             "-m", mosaicId.toHex(),
             "-k", key.toHex(),
         ]);
 
         expect(output?.metalId).toStrictEqual(metalId);
         expect(output?.type).toBe(MetadataType.Mosaic);
-        expect(output?.sourceAddress).toStrictEqual(target.address);
-        expect(output?.targetAddress).toStrictEqual(signer1.address);
+        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
+        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
         expect(output?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(output?.namespaceId).toBeUndefined();
 
         assert(metalId);
-        await MetalTest.scrapMetal(metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
     it("Namespace Metal via metadata key", async () => {
-        const { signer1 } = await SymbolTest.getNamedAccounts();
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
         const { metalId, key } = await MetalTest.forgeMetal(
             MetadataType.Namespace,
-            target.publicAccount,
-            signer1.publicAccount,
+            targetAccount.publicAccount,
+            signerAccount.publicAccount,
             namespaceId,
             testData,
-            signer1,
-            [ target ],
+            signerAccount,
+            [ targetAccount ],
         );
 
         assert(namespaceId.fullName);
         const output = await FetchCLI.main([
             "--no-save",
-            "--src-addr", target.address.plain(),
-            "--tgt-addr", signer1.address.plain(),
+            "--src-addr", targetAccount.address.plain(),
+            "--tgt-addr", signerAccount.address.plain(),
             "--namespace", namespaceId.toHex(),
             "--key", key.toHex(),
         ]);
 
         expect(output?.metalId).toStrictEqual(metalId);
         expect(output?.type).toBe(MetadataType.Namespace);
-        expect(output?.sourceAddress).toStrictEqual(target.address);
-        expect(output?.targetAddress).toStrictEqual(signer1.address);
+        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
+        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId?.toHex()).toBe(namespaceId.toHex());
 
         assert(metalId);
-        await MetalTest.scrapMetal(metalId, target.publicAccount, signer1.publicAccount, signer1, [ target ]);
+        await MetalTest.scrapMetal(metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 });

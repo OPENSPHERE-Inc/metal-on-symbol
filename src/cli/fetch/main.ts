@@ -1,22 +1,24 @@
 import {FetchInput} from "./input";
 import assert from "assert";
-import {VERSION} from "./version";
 import {MetalService} from "../../services";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {FetchOutput} from "./output";
 import {SymbolService} from "../../services";
-import {PACKAGE_VERSION} from "../../package_version";
+import {Logger} from "../../libs";
+import {writeStreamOutput} from "../stream";
 
 
 export namespace FetchCLI {
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Fetch CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: FetchInput.CommandlineInput;
         try {
             input = await FetchInput.validateInput(FetchInput.parseInput(argv));
         } catch (e) {
+            FetchInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             FetchInput.printUsage();
             if (e === "help") {
                 return;
@@ -24,15 +26,15 @@ export namespace FetchCLI {
             throw e;
         }
 
-        let sourceAddress = input.sourceAddress || input.signer?.address;
-        let targetAddress = input.targetAddress || input.signer?.address;
+        let sourceAddress = input.sourceAddress || input.signerAccount?.address;
+        let targetAddress = input.targetAddress || input.signerAccount?.address;
         let type = input.type;
         let key = input.key;
         let targetId: undefined | MosaicId | NamespaceId;
         let payload: Uint8Array;
 
         if (input.metalId) {
-            console.log(`Fetching metal ${input.metalId}`);
+            Logger.debug(`Fetching metal ${input.metalId}`);
             const result = await MetalService.fetchByMetalId(input.metalId);
             if (!result) {
                 throw new Error(`The metal fetch failed.`);
@@ -51,7 +53,7 @@ export namespace FetchCLI {
             assert(sourceAddress);
             assert(targetAddress);
 
-            console.log(`Fetching metal key:${key.toHex()},source:${sourceAddress.plain()},${
+            Logger.debug(`Fetching metal key:${key.toHex()},source:${sourceAddress.plain()},${
                 type === MetadataType.Mosaic
                     ? `mosaic:${targetId?.toHex()}`
                     : type === MetadataType.Namespace
@@ -59,6 +61,10 @@ export namespace FetchCLI {
                         : `account:${targetAddress.plain()}`
             }`);
             payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+        }
+
+        if (!input.noSave) {
+            writeStreamOutput(payload, input.outputPath);
         }
 
         const { networkType } = await SymbolService.getNetwork();
@@ -74,9 +80,7 @@ export namespace FetchCLI {
             key,
             metalId,
         };
-        if (!input.noSave) {
-            FetchOutput.writeOutputFile(output, input.outputPath || metalId);
-        }
+
         FetchOutput.printOutputSummary(output);
 
         return output;

@@ -1,22 +1,21 @@
 import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {SymbolService} from "../../services";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
-import PromptSync from "prompt-sync";
-import fs from "fs";
+import {Logger} from "../../libs";
+import {validateStreamInput} from "../stream";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace FetchInput {
 
-    const prompt = PromptSync();
-
-    export interface CommandlineInput extends MetalIdentifyInput {
+    export interface CommandlineInput extends NodeInput, MetalIdentifyInput {
         version: string;
-        nodeUrl?: string;
         noSave: boolean;
         outputPath?: string;
         force: boolean;
+        stdout: boolean;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -27,6 +26,7 @@ export namespace FetchInput {
             type: MetadataType.Account,
             noSave: false,
             force: false,
+            stdout: false,
         };
 
         for (let i = 0; i < argv.length; i++) {
@@ -117,6 +117,11 @@ export namespace FetchInput {
                     break;
                 }
 
+                case "--stdout": {
+                    input.stdout = true;
+                    break;
+                }
+
                 case "-s":
                 case "--src-pub-key": {
                     const value = argv[++i];
@@ -155,6 +160,15 @@ export namespace FetchInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -173,25 +187,17 @@ export namespace FetchInput {
     };
 
     // Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
-        }
-
+    export const validateInput = async (input: Readonly<CommandlineInput>) => {
         // We'll not announce any TXs this command.
-        await initCliEnv(input.nodeUrl, 0);
+        await initCliEnv(input, 0);
 
-        if (input.outputPath && !input.noSave && !input.force && fs.existsSync(input.outputPath)) {
-            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
-                throw new Error(`Canceled by user.`);
-            }
-        }
-
-        return validateMetalIdentifyInput(input);
+        return validateMetalIdentifyInput(
+            await validateStreamInput(input, !input.force)
+        );
     };
 
     export const printUsage = () => {
-        console.error(
+        Logger.info(
             `Usages:\n` +
             `  With Metal ID          $ fetch [options] metal_id\n` +
             `  Account Metal          $ fetch [options] -k metadata_key\n` +
@@ -207,20 +213,26 @@ export namespace FetchInput {
             `  -n namespace_name,\n` +
             `  --namespace value      Specify namespace_name and demand Namespace Metal\n` +
             `  --node-url node_url    Specify network node_url\n` +
-            `  --no-save              Don't save file (Only show summary)\n` +
+            `  --no-save              Don't save any files (Only show summary)\n` +
             `  -o output_path,\n` +
-            `  --out value            Specify output_path (default:[metal_id])\n` +
+            `  --out value            Specify output_path (default:stdout)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
-            `  -s address,\n` +
-            `  --src-pub-key value    Specify source_account via public_key\n` +
-            `  --src-addr value       Specify source_account via address\n` +
-            `  -t address,\n` +
-            `  --tgt-pub-key value    Specify target_account via public_key\n` +
-            `  --tgt-addr value       Specify target_account via address\n` +
+            `  -s public_key,\n` +
+            `  --src-pub-key value    Specify source_account via public_key (default:signer)\n` +
+            `  --src-addr value       Specify source_account via address (default:signer)\n` +
+            `  -t public_key,\n` +
+            `  --tgt-pub-key value    Specify target_account via public_key (default:signer)\n` +
+            `  --tgt-addr value       Specify target_account via address (default:signer)\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Fetch CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -21,7 +21,7 @@
   "devDependencies": {
     "@types/jest": "^29.2.3",
     "@types/long": "^5.0.0",
-    "@types/prompt-sync": "^4.2.0",
+    "@types/prompts": "^2.4.2",
     "@types/uuid": "^8.3.4",
     "cross-env": "^7.0.3",
     "jest": "^29.3.1",
@@ -36,7 +36,7 @@
     "js-sha3": "https://github.com/Propine/js-sha3.git",
     "long": "^5.2.1",
     "moment": "^2.29.4",
-    "prompt-sync": "^4.2.0",
+    "prompts": "^2.4.2",
     "rxjs": "^7.5.7",
     "symbol-sdk": "^2.0.3",
     "uuid": "^9.0.0"
@@ -69,6 +69,8 @@
     "scrap": "node dist/cli/main.js scrap",
     "fetch": "node dist/cli/main.js fetch",
     "reinforce": "node dist/cli/main.js reinforce",
+    "encrypt": "node dist/cli/main.js encrypt",
+    "decrypt": "node dist/cli/main.js decrypt",
     "build-pack": "yarn build && yarn pack",
     "build-publish": "yarn build && yarn publish"
   },

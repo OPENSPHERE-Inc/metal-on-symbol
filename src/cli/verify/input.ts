@@ -1,17 +1,17 @@
 import {Address, MetadataType, MosaicId, UInt64} from "symbol-sdk";
-import {initCliEnv, isValueOption} from "../common";
+import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {SymbolService} from "../../services";
-import fs from "fs";
 import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
+import {Logger} from "../../libs";
+import {StreamInput, validateStreamInput} from "../stream";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace VerifyInput {
 
-    export interface CommandlineInput extends MetalIdentifyInput {
+    export interface CommandlineInput extends NodeInput, MetalIdentifyInput, StreamInput {
         version: string;
-        filePath?: string;
-        nodeUrl?: string,
     }
 
     export const parseInput = (argv: string[]) => {
@@ -21,6 +21,8 @@ export namespace VerifyInput {
             signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
             type: MetadataType.Account,
         };
+
+        const paths = new Array<string>();
 
         for (let i = 0; i < argv.length; i++) {
             const token = argv[i];
@@ -117,53 +119,56 @@ export namespace VerifyInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
                     }
 
-                    if (!input.filePath) {
-                        // [file_path]
-                        input.filePath = token;
-                    } else if (!input.metalId) {
-                        // [metal_id] [file_path]
-                        input.metalId = input.filePath;
-                        input.filePath = token;
-                    }
+                    paths.push(token);
                     break;
                 }
             }
+        }
+
+        if (!input.key) {
+            // [metal_id] [input_path]
+            input.metalId = paths[0];
+            input.filePath = paths[1];
+        } else {
+            // [input_path]
+            input.filePath = paths[0];
         }
 
         return input;
     };
 
     // Initializing CLI environment
-    export const validateInput = async (input: CommandlineInput) => {
-        if (!input.nodeUrl) {
-            throw new Error("Node URL wasn't specified. [--node-url node_url] or NODE_URL is required.");
-        }
-
+    export const validateInput = async (input: Readonly<CommandlineInput>) => {
         // We'll not announce any TXs this command.
-        await initCliEnv(input.nodeUrl, 0);
+        await initCliEnv(input, 0);
 
-        if (!input.filePath) {
-            throw new Error("[input_file] wasn't specified.")
-        }
-        if (!fs.existsSync(input.filePath)) {
-            throw new Error(`${input.filePath}: File not found.`);
-        }
-
-        return validateMetalIdentifyInput(input);
+        return validateMetalIdentifyInput(
+            await validateStreamInput(input, true)
+        );
     };
 
     export const printUsage = () => {
-        console.error(
-            `  With Metal ID          $ verify [options] metal_id input_file\n` +
-            `  Account Metal          $ verify [options] -k metadata_key input_file\n` +
-            `  Mosaic Metal           $ verify [options] -m mosaic_id -k metadata_key input_file\n` +
-            `  Namespace Metal        $ verify [options] -n namespace_name -k metadata_key input_file\n` +
+        Logger.info(
+            `  With Metal ID          $ verify [options] metal_id [input_path]\n` +
+            `  Account Metal          $ verify [options] -k metadata_key [input_path]\n` +
+            `  Mosaic Metal           $ verify [options] -m mosaic_id -k metadata_key [input_path]\n` +
+            `  Namespace Metal        $ verify [options] -n namespace_name -k metadata_key [input_path]\n` +
             `Options:\n` +
+            `  input_path             Specify input_path of payload file (default:stdin)\n` +
             `  -h, --help             Show command line usage\n` +
             `  -k metadata_key,\n` +
             `  --key value            Specify metadata_key\n` +
@@ -179,10 +184,16 @@ export namespace VerifyInput {
             `  -t public_key,\n` +
             `  --tgt-pub-key value    Specify target_account via public_key\n` +
             `  --tgt-addr value       Specify target_account via address\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Verify CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

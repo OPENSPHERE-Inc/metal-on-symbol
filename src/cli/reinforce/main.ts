@@ -1,7 +1,5 @@
-import {VERSION} from "./version";
 import {ReinforceInput} from "./input";
 import assert from "assert";
-import fs from "fs";
 import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
 import {ReinforceOutput} from "./output";
 import {SymbolService} from "../../services";
@@ -20,19 +18,18 @@ import {
 import {Utils} from "../../libs";
 import moment from "moment/moment";
 import {MetalService} from "../../services";
-import PromptSync from "prompt-sync";
-import {PACKAGE_VERSION} from "../../package_version";
 import { Base64 } from "js-base64";
+import {Logger} from "../../libs";
+import {readStreamInput} from "../stream";
+import prompts from "prompts";
 
 
 export namespace ReinforceCLI {
 
-    const prompt = PromptSync();
-
     const extractMetadataKeys = async (
         type: MetadataType,
-        sourceAccount: PublicAccount,
-        targetAccount: PublicAccount,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
         additive?: string
@@ -40,8 +37,8 @@ export namespace ReinforceCLI {
         const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
         const { txs } = await MetalService.createForgeTxs(
             type,
-            sourceAccount,
-            targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             targetId,
             payload,
             additiveBytes,
@@ -51,14 +48,14 @@ export namespace ReinforceCLI {
 
     const retrieveBatches = async (intermediateTxs: IntermediateTxs) => {
         const { networkType } = await SymbolService.getNetwork();
-        const signerAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
+        const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
 
         return intermediateTxs.txs.map((tx) => {
             const signedTx = new SignedTransaction(
                 // Convert base64 to HEX
                 Convert.uint8ToHex(Base64.toUint8Array(tx.payload)),
                 tx.hash,
-                signerAccount.publicKey,
+                signerPubAccount.publicKey,
                 TransactionType.AGGREGATE_COMPLETE,
                 networkType
             );
@@ -79,7 +76,7 @@ export namespace ReinforceCLI {
     };
 
     const reinforceMetal = async (
-        input: ReinforceInput.CommandlineInput,
+        input: Readonly<ReinforceInput.CommandlineInput>,
         intermediateTxs: IntermediateTxs,
         payload: Uint8Array,
     ): Promise<ReinforceOutput.CommandlineOutput> => {
@@ -89,14 +86,14 @@ export namespace ReinforceCLI {
             throw new Error(`Wrong network type ${intermediateTxs.networkType}`);
         }
 
-        const cosigners = [
-            ...(input.signer ? [ input.signer ] : []),
-            ...(input.cosigners || []),
+        const cosignerAccounts = [
+            ...(input.signerAccount ? [ input.signerAccount ] : []),
+            ...(input.cosignerAccounts || []),
         ];
-        const signerAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
+        const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
         const type = intermediateTxs.type;
-        const sourceAccount = PublicAccount.createFromPublicKey(intermediateTxs.sourcePublicKey, networkType);
-        const targetAccount = PublicAccount.createFromPublicKey(intermediateTxs.targetPublicKey, networkType);
+        const sourcePubAccount = PublicAccount.createFromPublicKey(intermediateTxs.sourcePublicKey, networkType);
+        const targetPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.targetPublicKey, networkType);
         const targetId = type === MetadataType.Mosaic && intermediateTxs.mosaicId
             ? new MosaicId(intermediateTxs.mosaicId)
             : type === MetadataType.Namespace && intermediateTxs.namespaceId
@@ -106,8 +103,8 @@ export namespace ReinforceCLI {
         // Construct reference txs and extract metadata keys.
         let metadataKeys = await extractMetadataKeys(
             type,
-            sourceAccount,
-            targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             targetId,
             payload,
             intermediateTxs.additive
@@ -117,15 +114,15 @@ export namespace ReinforceCLI {
         const batches = await retrieveBatches(intermediateTxs);
 
         // Validate transactions that was contained intermediate JSON.
-        console.log(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
+        Logger.debug(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
         for (const batch of batches) {
             if (!MetalService.validateBatch(
                 batch,
                 type,
-                sourceAccount.address,
-                targetAccount.address,
+                sourcePubAccount.address,
+                targetPubAccount.address,
                 targetId,
-                signerAccount.address,
+                signerPubAccount.address,
                 metadataKeys,
             )) {
                 throw new Error(`Intermediate TXs validation failed.`);
@@ -135,34 +132,40 @@ export namespace ReinforceCLI {
         // Add cosignatures of new cosigners
         batches.forEach((batch) => {
             batch.cosignatures.push(
-                ...cosigners.map(
+                ...cosignerAccounts.map(
                     (cosigner) => CosignatureTransaction.signTransactionHash(cosigner, batch.signedTx.hash)
                 )
             );
         });
 
         if (input.announce) {
-            console.log(
+            Logger.info(
                 `Announcing ${batches.length} aggregate TXs. ` +
                 `TX fee ${Utils.toXYM(intermediateTxs.totalFee)} XYM will be paid by ${intermediateTxs.command} originator.`
             );
-            if (!input.force) {
-                const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
-                if (decision.toLowerCase() !== "y") {
+            if (!input.force && !input.stdin) {
+                const decision = (await prompts({
+                    type: "confirm",
+                    name: "decision",
+                    initial: true,
+                    message: "Are you sure announce these TXs?",
+                    stdout: process.stderr,
+                })).decision;
+                if (!decision) {
                     throw new Error("Canceled by user.");
                 }
             }
 
             const startAt = moment.now();
-            const errors = await SymbolService.executeBatches(batches, signerAccount, input.maxParallels);
+            const errors = await SymbolService.executeBatches(batches, signerPubAccount, input.maxParallels);
             errors?.forEach(({txHash, error}) => {
-                console.error(`${txHash}: ${error}`);
+                Logger.error(`${txHash}: ${error}`);
             });
 
             if (errors) {
                 throw new Error(`Some errors occurred during announcing.`);
             } else {
-                console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+                Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
             }
         }
 
@@ -172,13 +175,13 @@ export namespace ReinforceCLI {
             key: intermediateTxs.key !== undefined ? UInt64.fromHex(intermediateTxs.key) : undefined,
             totalFee: UInt64.fromNumericString(intermediateTxs.totalFee),
             additive: intermediateTxs.additive,
-            sourceAccount: sourceAccount,
-            targetAccount: targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             ...(intermediateTxs.mosaicId ? { mosaicId: new MosaicId(intermediateTxs.mosaicId) } : {}),
             ...(intermediateTxs.namespaceId ? { namespaceId: new NamespaceId(intermediateTxs.namespaceId) } : {}),
             status: input.announce ? "reinforced" : "estimated",
             metalId: intermediateTxs.metalId,
-            signerAccount,
+            signerPubAccount,
             command: intermediateTxs.command,
             type,
             createdAt: new Date(intermediateTxs.createdAt),
@@ -187,12 +190,14 @@ export namespace ReinforceCLI {
     };
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: ReinforceInput.CommandlineInput;
         try {
             input = await ReinforceInput.validateInput(ReinforceInput.parseInput(argv));
         } catch (e) {
+            ReinforceInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             ReinforceInput.printUsage();
             if (e === "help") {
                 return;
@@ -205,12 +210,7 @@ export namespace ReinforceCLI {
         const intermediateTxs = readIntermediateFile(input.intermediatePath);
 
         // Read input file here.
-        assert(input.filePath);
-        console.log(`${input.filePath}: Reading...`);
-        const payload = fs.readFileSync(input.filePath);
-        if (!payload.length) {
-            throw new Error(`${input.filePath}: The file is empty.`);
-        }
+        const payload = await readStreamInput(input);
 
         const output = await reinforceMetal(input, intermediateTxs, payload);
         if (input.outputPath) {

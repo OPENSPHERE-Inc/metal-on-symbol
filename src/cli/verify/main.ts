@@ -1,24 +1,24 @@
 import {VerifyInput} from "./input";
 import assert from "assert";
-import fs from "fs";
 import {doVerify} from "../common";
-import {VERSION} from "./version";
 import {MetalService} from "../../services";
 import {VerifyOutput} from "./output";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {SymbolService} from "../../services";
-import {PACKAGE_VERSION} from "../../package_version";
+import {readStreamInput} from "../stream";
 
 
 export namespace VerifyCLI {
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Verify CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: VerifyInput.CommandlineInput;
         try {
             input = await VerifyInput.validateInput(VerifyInput.parseInput(argv));
         } catch (e) {
+            VerifyInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             VerifyInput.printUsage();
             if (e === "help") {
                 return;
@@ -27,15 +27,10 @@ export namespace VerifyCLI {
         }
 
         // Read input file contents here.
-        assert(input.filePath);
-        console.log(`${input.filePath}: Reading...`);
-        const payload = fs.readFileSync(input.filePath);
-        if (!payload.length) {
-            throw new Error(`${input.filePath}: The file is empty.`);
-        }
+        const payload = await readStreamInput(input);
 
-        let sourceAddress = input.sourceAddress || input.signer?.address;
-        let targetAddress = input.targetAddress || input.signer?.address;
+        let sourceAddress = input.sourceAddress || input.signerAccount?.address;
+        let targetAddress = input.targetAddress || input.signerAccount?.address;
         let type = input.type;
         let key = input.key;
         let targetId = [undefined, input.mosaicId, input.namespaceId][type];

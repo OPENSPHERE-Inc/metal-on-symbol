@@ -4,25 +4,24 @@ import fs from "fs";
 import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {ScrapOutput} from "./output";
 import {MetalService} from "../../services";
-import {VERSION} from "./version";
 import {SymbolService} from "../../services";
 import {buildAndExecuteBatches, designateCosigners} from "../common";
 import {writeIntermediateFile} from "../intermediate";
-import {PACKAGE_VERSION} from "../../package_version";
+import {Logger} from "../../libs";
 
 
 export namespace ScrapCLI {
 
     const scrapMetal = async (
-        input: ScrapInput.CommandlineInput,
+        input: Readonly<ScrapInput.CommandlineInput>,
         payload?: Uint8Array,
     ): Promise<ScrapOutput.CommandlineOutput> => {
         const { networkType } = await SymbolService.getNetwork();
-        assert(input.signer);
+        assert(input.signerAccount);
 
-        const signerAccount = input.signer.publicAccount;
-        let sourceAccount = input.sourceAccount || input.sourceSigner?.publicAccount || signerAccount;
-        let targetAccount = input.targetAccount || input.targetSigner?.publicAccount || signerAccount;
+        const signerPubAccount = input.signerAccount.publicAccount;
+        let sourcePubAccount = input.sourcePubAccount || input.sourceSignerAccount?.publicAccount || signerPubAccount;
+        let targetPubAccount = input.targetPubAccount || input.targetSignerAccount?.publicAccount || signerPubAccount;
         let type = input.type;
         let key = input.key;
         let metalId = input.metalId;
@@ -41,10 +40,10 @@ export namespace ScrapCLI {
             }
 
             // We cannot retrieve publicKey at this time. Only can do address check.
-            if (!sourceAccount.address.equals(metadataEntry?.sourceAddress)) {
+            if (!sourcePubAccount.address.equals(metadataEntry?.sourceAddress)) {
                 throw new Error(`Source address mismatched.`);
             }
-            if (!targetAccount.address.equals(metadataEntry?.targetAddress)) {
+            if (!targetPubAccount.address.equals(metadataEntry?.targetAddress)) {
                 throw new Error(`Target address mismatched.`);
             }
         } else {
@@ -60,27 +59,27 @@ export namespace ScrapCLI {
             targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
             metalId = MetalService.calculateMetalId(
                 type,
-                sourceAccount.address,
-                targetAccount.address,
+                sourcePubAccount.address,
+                targetPubAccount.address,
                 targetId,
                 key,
             );
         }
 
-        console.log(`Scanning on-chain chunks of the metal ${metalId}`);
+        Logger.debug(`Scanning on-chain chunks of the metal ${metalId}`);
         const txs = (payload)
             ? await MetalService.createDestroyTxs(
                 type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
                 payload,
                 additiveBytes,
             )
             : await MetalService.createScrapTxs(
                 type,
-                sourceAccount,
-                targetAccount,
+                sourcePubAccount,
+                targetPubAccount,
                 targetId,
                 key,
             );
@@ -88,21 +87,21 @@ export namespace ScrapCLI {
             throw new Error(`Scrap metal TXs creation failed.`);
         }
 
-        const { designatedCosigners, hasEnoughCosigners } = designateCosigners(
-            signerAccount,
-            sourceAccount,
-            targetAccount,
-            input.sourceSigner,
-            input.targetSigner,
-            input.cosigners,
+        const { designatedCosignerAccounts, hasEnoughCosigners } = designateCosigners(
+            signerPubAccount,
+            sourcePubAccount,
+            targetPubAccount,
+            input.sourceSignerAccount,
+            input.targetSignerAccount,
+            input.cosignerAccounts,
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
         const { batches, totalFee } = txs.length
             ? await buildAndExecuteBatches(
                 txs,
-                input.signer,
-                designatedCosigners,
+                input.signerAccount,
+                designatedCosignerAccounts,
                 input.feeRatio,
                 input.maxParallels,
                 canAnnounce,
@@ -116,13 +115,13 @@ export namespace ScrapCLI {
             batches,
             key,
             totalFee,
-            sourceAccount: sourceAccount,
-            targetAccount: targetAccount,
+            sourcePubAccount,
+            targetPubAccount,
             ...(type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
             ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
             status: canAnnounce ? "scrapped" : "estimated",
             metalId,
-            signerAccount,
+            signerPubAccount,
             additive: Convert.uint8ToUtf8(additiveBytes || MetalService.DEFAULT_ADDITIVE),
             type,
             createdAt: new Date(),
@@ -130,12 +129,14 @@ export namespace ScrapCLI {
     };
 
     export const main = async (argv: string[]) => {
-        console.log(`Metal Scrap CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: ScrapInput.CommandlineInput;
         try {
             input = await ScrapInput.validateInput(ScrapInput.parseInput(argv));
         } catch (e) {
+            ScrapInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             ScrapInput.printUsage();
             if (e === "help") {
                 return;
@@ -146,7 +147,7 @@ export namespace ScrapCLI {
         let payload: Uint8Array | undefined;
         if (input.filePath) {
             // Read input file contents here.
-            console.log(`${input.filePath}: Reading...`);
+            Logger.debug(`${input.filePath}: Reading...`);
             payload = fs.readFileSync(input.filePath);
             if (!payload.length) {
                 throw new Error(`${input.filePath}: The file is empty.`);

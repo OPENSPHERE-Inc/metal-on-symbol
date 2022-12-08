@@ -1,6 +1,7 @@
 import {Account, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {AddressesInput, validateAddressesInput} from "./accounts";
 import {SymbolService} from "../services";
+import {Logger} from "../libs";
 
 
 export interface MetalIdentifyInput extends AddressesInput {
@@ -12,33 +13,33 @@ export interface MetalIdentifyInput extends AddressesInput {
     signerPrivateKey?: string;
 
     // Filled by validateMetalIdentify
-    signer?: Account;
+    signerAccount?: Account;
 }
 
-export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(input: T) => {
-    const addressesInput = await validateAddressesInput(input);
+export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(_input: Readonly<T>) => {
+    let input: T = await validateAddressesInput(_input);
 
     const { networkType } = await SymbolService.getNetwork();
 
-    if (addressesInput.signerPrivateKey) {
-        addressesInput.signer = Account.createFromPrivateKey(addressesInput.signerPrivateKey, networkType);
-        console.log(`Singer Address is ${addressesInput.signer.address.plain()}`);
+    if (input.signerPrivateKey) {
+        input.signerAccount = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
+        Logger.info(`Singer Address is ${input.signerAccount.address.plain()}`);
     }
-    if (!addressesInput.metalId && !addressesInput.signer && !addressesInput.sourceAddress) {
+    if (!input.metalId && !input.signerAccount && !input.sourceAddress) {
         throw new Error(
             "[source_account] must be specified via [--src-pub-key value], " +
             "[--src-addr value] or [--priv-key value]"
         );
     }
-    if (!addressesInput.metalId && !addressesInput.signer && !addressesInput.targetAddress) {
+    if (!input.metalId && !input.signerAccount && !input.targetAddress) {
         throw new Error(
             "[target_account] must be specified via [--tgt-pub-key value], " +
             "[--tgt-addr value] or [--priv-key value]"
         );
     }
-    if (!addressesInput.metalId && !addressesInput.key) {
+    if (!input.metalId && !input.key) {
         throw new Error("[metadata_key] must be specified via [--key value]");
     }
 
-    return addressesInput;
+    return input;
 };

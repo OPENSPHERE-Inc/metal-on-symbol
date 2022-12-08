@@ -1,7 +1,6 @@
-import {Account} from "symbol-sdk";
-import fs from "fs";
+import {Account, PublicAccount} from "symbol-sdk";
+import {VERSION} from "../forge/version";
 import {initCliEnv, isValueOption, NodeInput} from "../common";
-import {VERSION} from "./version";
 import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
@@ -9,48 +8,47 @@ import prompts from "prompts";
 import {PACKAGE_VERSION} from "../../package_version";
 
 
-export namespace ReinforceInput {
+export namespace DecryptInput {
 
     export interface CommandlineInput extends NodeInput, StreamInput {
         version: string;
-        announce: boolean;
-        cosignerPrivateKeys?: string[];
+        encryptSenderPublicKey?: string;
+        encryptRecipientPrivateKey?: string;
         force: boolean;
-        intermediatePath?: string;
-        maxParallels: number;
         outputPath?: string;
-        signerPrivateKey?: string;
 
-        // Filled by validateInput
-        cosignerAccounts?: Account[];
-        signerAccount?: Account;
+        // Filled by validator
+        encryptRecipientAccount?: Account;
+        encryptSenderPubAccount?: PublicAccount;
+        stdout?: boolean;
     }
 
     export const parseInput = (argv: string[]) => {
         const input: CommandlineInput = {
             version: VERSION,
-            maxParallels: 10,
             force: false,
             nodeUrl: process.env.NODE_URL,
-            signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
-            announce: false,
+            encryptRecipientPrivateKey: process.env.SIGNER_PRIVATE_KEY,
         };
 
         for (let i = 0; i < argv.length; i++) {
             const token = argv[i];
             switch (token) {
-                case "-a":
-                case "--announce": {
-                    input.announce = true;
+                case "--priv-key": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${value} must has private_key as a value.`);
+                    }
+                    input.encryptRecipientPrivateKey = value;
                     break;
                 }
 
-                case "--cosigner": {
+                case "--from": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw new Error(`${token} must has cosigner's private_key as a value.`);
+                        throw new Error(`${value} must has public_key as a value.`);
                     }
-                    input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), value ];
+                    input.encryptSenderPublicKey = value;
                     break;
                 }
 
@@ -70,7 +68,6 @@ export namespace ReinforceInput {
                     if (!isValueOption(value)) {
                         throw new Error(`${value} must has node_url as a value.`);
                     }
-
                     input.nodeUrl = value;
                     break;
                 }
@@ -82,24 +79,6 @@ export namespace ReinforceInput {
                         throw new Error(`${token} must has output_path as a value.`);
                     }
                     input.outputPath = value;
-                    break;
-                }
-
-                case "--parallels": {
-                    const value = argv[++i];
-                    if (!isValueOption(value)) {
-                        throw new Error(`${token} must has number as a value.`);
-                    }
-                    input.maxParallels = Number(value);
-                    break;
-                }
-
-                case "--priv-key": {
-                    const value = argv[++i];
-                    if (!isValueOption(value)) {
-                        throw new Error(`${token} must has signer's private_key as a value.`);
-                    }
-                    input.signerPrivateKey = value;
                     break;
                 }
 
@@ -118,9 +97,7 @@ export namespace ReinforceInput {
                     }
 
                     // We'll use only first one.
-                    if (!input.intermediatePath) {
-                        input.intermediatePath = token;
-                    } else if (!input.filePath) {
+                    if (!input.filePath) {
                         input.filePath = token;
                     }
                     break;
@@ -139,63 +116,55 @@ export namespace ReinforceInput {
 
         input = await validateStreamInput(input, !input.force);
 
-        if (!input.intermediatePath) {
-            throw new Error("[intermediate_txs.json] wasn't specified.");
-        }
-        if (!fs.existsSync(input.intermediatePath)) {
-            throw new Error(`${input.intermediatePath}: File not found.`);
-        }
-
-        const { networkType } = await SymbolService.getNetwork();
-
-        if (!input.signerPrivateKey && !input.force && !input.stdin) {
-            input.signerPrivateKey = (await prompts({
+        if (!input.encryptRecipientPrivateKey && !input.force && !input.stdin) {
+            input.encryptRecipientPrivateKey = (await prompts({
                 type: "password",
                 name: "private_key",
-                message: "Cosigner's Private Key [enter:skip]?",
+                message: "Recipient's Private Key?",
                 stdout: process.stderr,
             })).private_key;
         }
-        if (input.signerPrivateKey) {
-            input.signerAccount = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-            Logger.info(`Signer Address is ${input.signerAccount.address.plain()}`);
+
+        const { networkType } = await SymbolService.getNetwork();
+        if (input.encryptRecipientPrivateKey) {
+            input.encryptRecipientAccount = Account.createFromPrivateKey(input.encryptRecipientPrivateKey, networkType);
+        } else {
+            throw new Error(
+                "Recipient's private key wasn't specified. [--priv-key value] or SIGNER_PRIVATE_KEY are required."
+            );
         }
 
-        input.cosignerAccounts = input.cosignerPrivateKeys?.map(
-            (privateKey) => {
-                const cosigner = Account.createFromPrivateKey(privateKey, networkType)
-                Logger.info(`Additional Cosigner Address is ${cosigner.address.plain()}`);
-                return cosigner;
-            }
-        );
+        if (input.encryptSenderPublicKey) {
+            input.encryptSenderPubAccount = PublicAccount.createFromPublicKey(
+                input.encryptSenderPublicKey,
+                networkType
+            );
+        }
 
         return input;
     };
 
     export const printUsage = () => {
         Logger.info(
-            `Usage: reinforce [options] intermediate_txs.json input_path\n` +
+            `Usage: decrypt [options] [input_path]\n` +
             `Options:\n` +
-            `  -a, --announce         Announce completely signed TXs\n` +
-            `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
+            `  input_path             Specify input_path of plain file (default:stdin)\n` +
             `  -f, --force            Do not show any prompts\n` +
+            `  --from public_key      Specify encryption sender's public_key (default:recipient)\n` +
             `  -h, --help             Show command line usage\n` +
             `  --node-url node_url    Specify network node_url\n` +
-            `  -o output_path.json,\n` +
-            `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
-            `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
-            `  --priv-key value       Specify cosigner's private_key (Same as single of [--cosigner])\n` +
+            `  -o output_path,\n` +
+            `  --out value            Specify output_path that will be saved encrypted binary (default:stdout)\n` +
+            `  --priv-key value       Specify encryption recipient's private_key\n` +
             `  --verbose              Show verbose logs\n` +
             `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
-            `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
+            `  SIGNER_PRIVATE_KEY     Specify recipient's private_key\n`
         );
     };
 
     export const printVersion = () => {
-        Logger.info(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
+        Logger.info(`Metal Decrypt CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
-
 }
-

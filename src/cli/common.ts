@@ -1,87 +1,94 @@
-import {SymbolService} from "../services";
+import {MetalService, SymbolService} from "../services";
 import {
     Account,
     Address,
     InnerTransaction,
     MetadataType,
     MosaicId,
-    NamespaceId, PublicAccount,
+    NamespaceId,
+    PublicAccount,
     UInt64
 } from "symbol-sdk";
-import {Utils} from "../libs";
+import {Logger, Utils} from "../libs";
 import Long from "long";
 import moment from "moment";
-import {MetalService} from "../services";
-import PromptSync from "prompt-sync";
+import prompts from "prompts";
 
 
-const prompt = PromptSync();
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 
-export const initCliEnv = async (nodeUrl: string, feeRatio: number) => {
+export interface NodeInput {
+    nodeUrl?: string;
+}
+
+export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRatio: number) => {
+    if (!input.nodeUrl) {
+        throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
+    }
+
     SymbolService.init({
-        node_url: nodeUrl,
+        node_url: input.nodeUrl,
         fee_ratio: feeRatio,
         logging: true,
         deadline_hours: 5,
     });
 
     const { networkType } = await SymbolService.getNetwork();
-    console.log(`Using Node URL: ${nodeUrl} (network_type:${networkType})`);
+    Logger.debug(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
 };
 
 export const designateCosigners = (
-    signerAccount: PublicAccount,
-    sourceAccount: PublicAccount,
-    targetAccount: PublicAccount,
-    sourceSigner?: Account,
-    targetSigner?: Account,
-    cosigners?: Account[]
+    signerPubAccount: PublicAccount,
+    sourcePubAccount: PublicAccount,
+    targetPubAccount: PublicAccount,
+    sourceSignerAccount?: Account,
+    targetSignerAccount?: Account,
+    cosignerAccounts?: Account[]
 ) => {
-    const designatedCosigners = new Array<Account>(...(cosigners || []));
-    if (!signerAccount.equals(sourceAccount) && sourceSigner) {
-        designatedCosigners.push(sourceSigner);
+    const designatedCosignerAccounts = new Array<Account>(...(cosignerAccounts || []));
+    if (!signerPubAccount.equals(sourcePubAccount) && sourceSignerAccount) {
+        designatedCosignerAccounts.push(sourceSignerAccount);
     }
-    if (!signerAccount.equals(targetAccount) && targetSigner) {
-        designatedCosigners.push(targetSigner);
+    if (!signerPubAccount.equals(targetPubAccount) && targetSignerAccount) {
+        designatedCosignerAccounts.push(targetSignerAccount);
     }
 
     const hasEnoughCosigners = (
-        signerAccount.equals(sourceAccount) ||
-        !!sourceSigner ||
-        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === sourceAccount.publicKey).shift()
+        signerPubAccount.equals(sourcePubAccount) ||
+        !!sourceSignerAccount ||
+        !!designatedCosignerAccounts.filter((cosigner) => cosigner.publicKey === sourcePubAccount.publicKey).shift()
     ) && (
-        signerAccount.equals(targetAccount) ||
-        !!targetSigner ||
-        !!designatedCosigners.filter((cosigner) => cosigner.publicKey === targetAccount.publicKey).shift()
+        signerPubAccount.equals(targetPubAccount) ||
+        !!targetSignerAccount ||
+        !!designatedCosignerAccounts.filter((cosigner) => cosigner.publicKey === targetPubAccount.publicKey).shift()
     );
 
     if (!hasEnoughCosigners) {
-        console.warn("You need more cosigner(s) to announce TXs.");
+        Logger.warn("You need more cosigner(s) to announce TXs.");
     }
 
     return {
         hasEnoughCosigners,
-        designatedCosigners,
+        designatedCosignerAccounts,
     };
 };
 
 export const buildAndExecuteBatches = async (
     txs: InnerTransaction[],
-    signer: Account,
-    cosigners: Account[],
+    signerAccount: Account,
+    cosignerAccounts: Account[],
     feeRatio: number,
     maxParallels: number,
     canAnnounce: boolean,
-    usePrompt: boolean,
+    showPrompt: boolean,
 ) => {
     const { networkProperties } = await SymbolService.getNetwork();
     const batchSize = Number(networkProperties.plugins.aggregate?.maxTransactionsPerAggregate || 100);
 
     const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
         txs,
-        signer,
-        cosigners,
+        signerAccount,
+        cosignerAccounts,
         feeRatio,
         batchSize,
     );
@@ -90,27 +97,33 @@ export const buildAndExecuteBatches = async (
     );
 
     if (canAnnounce) {
-        console.log(
+        Logger.info(
             `Announcing ${batches.length} aggregate TXs ` +
             `with fee ${Utils.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-        if (usePrompt) {
-            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
-            if (decision.toLowerCase() !== "y") {
+        if (showPrompt) {
+            const decision = (await prompts({
+                type: "confirm",
+                name: "decision",
+                message: "Are you sure announce these TXs?",
+                initial: true,
+                stdout: process.stderr,
+            })).decision;
+            if (!decision) {
                 throw new Error("Canceled by user.");
             }
         }
 
         const startAt = moment.now();
-        const errors = await SymbolService.executeBatches(batches, signer, maxParallels);
+        const errors = await SymbolService.executeBatches(batches, signerAccount, maxParallels);
         errors?.forEach(({txHash, error}) => {
-            console.error(`${txHash}: ${error}`);
+            Logger.error(`${txHash}: ${error}`);
         });
 
         if (errors) {
             throw new Error(`Some errors occurred during announcing.`);
         } else {
-            console.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+            Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
         }
     }
 
@@ -128,12 +141,8 @@ export const doVerify = async (
     key: UInt64,
     targetId?: MosaicId | NamespaceId,
 ) => {
-    console.log(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
-        type === MetadataType.Mosaic
-            ? `Mosaic:${targetId?.toHex()}`
-            : type === MetadataType.Namespace
-                ? `Namespace:${targetId?.toHex()}`
-                : `Account:${targetAddress.plain()}`
+    Logger.debug(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
+        [ `Account:${targetAddress.plain()}`, `Mosaic:${targetId?.toHex()}`, `Namespace:${targetId?.toHex()}` ][type]
     }`);
     const { mismatches, maxLength } = await MetalService.verify(
         payload,
@@ -146,6 +155,6 @@ export const doVerify = async (
     if (mismatches) {
         throw new Error(`Verify error: Mismatch rate is ${mismatches / maxLength * 100}%`);
     } else {
-        console.log(`Verify succeeded: No mismatches found.`);
+        Logger.info(`Verify succeeded: No mismatches found.`);
     }
 };
