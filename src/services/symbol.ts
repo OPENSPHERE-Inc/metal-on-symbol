@@ -94,7 +94,7 @@ export namespace SymbolService {
         error: (message?: any, ...args: any[]) => config.logging && Logger.error(message, ...args),
         log: (message?: any, ...args: any[]) => config.logging && Logger.log(message, ...args),
         debug: (message?: any, ...args: any[]) => config.logging && Logger.debug(message, ...args),
-        warn: (message?: any, ...args: any[]) => config.logging && Logger.error(message, ...args),
+        warn: (message?: any, ...args: any[]) => config.logging && Logger.warn(message, ...args),
     };
 
     export const getNetwork = async () => {
@@ -405,7 +405,7 @@ export namespace SymbolService {
                         .subscribe({
                             next: async (value) => {
                                 const error = `Received error status: ${value.code}`;
-                                logger.error(error);
+                                logger.debug(error);
                                 resolve({ txHash, error });
                             },
                             error: (e) => {
@@ -445,7 +445,7 @@ export namespace SymbolService {
                 if (status?.code?.startsWith("Failure")) {
                     // Transaction Failed
                     const error = `Received error status: ${status.code}`;
-                    logger.error(error);
+                    logger.debug(error);
                     resolve({ txHash, error: error });
                 } else if ((["confirmed", "all"].includes(group) && await getConfirmedTx(txHash)) ||
                     (["partial", "all"].includes(group) && await getPartialTx(txHash))
@@ -635,6 +635,7 @@ export namespace SymbolService {
         }
     };
 
+    // Encrypt data with AES-GCM
     export const encryptBinary = (plainData: Uint8Array, sender: Account, recipientPubAccount: PublicAccount) => {
         // FIXME: This has overhead of hex <-> uint8 conversion.
         return Convert.hexToUint8(
@@ -647,6 +648,7 @@ export namespace SymbolService {
         );
     };
 
+    // Decrypt data with AES-GCM
     export const decryptBinary = (encryptedData: Uint8Array, senderPubAccount: PublicAccount, recipient: Account) => {
         // FIXME: This has overhead of hex <-> uint8 conversion.
         return Convert.hexToUint8(

@@ -1,10 +1,8 @@
 import {Account, Address, PublicAccount} from "symbol-sdk";
 import {SymbolService} from "../services";
-import PromptSync from "prompt-sync";
 import {Logger} from "../libs";
+import prompts from "prompts";
 
-
-const prompt = PromptSync();
 
 export interface AccountsInput {
     cosignerPrivateKeys?: string[];
@@ -23,13 +21,18 @@ export interface AccountsInput {
 
 export const validateAccountsInput = async <T extends AccountsInput>(
     _input: Readonly<T>,
-    noPrompt: boolean = false,
+    showPrompt: boolean = true,
 ) => {
     let input: T = { ..._input };
     const { networkType } = await SymbolService.getNetwork();
 
-    if (!input.signerPrivateKey && !noPrompt) {
-        input.signerPrivateKey = prompt("Signer Private Key? ", "", { echo: "*" });
+    if (!input.signerPrivateKey && showPrompt) {
+        input.signerPrivateKey = (await prompts({
+            type: "password",
+            name: "private_key",
+            message: "Signer's Private Key?",
+            stdout: process.stderr,
+        })).private_key;
     }
     if (!input.signerPrivateKey) {
         throw new Error(
@@ -37,7 +40,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
         );
     }
     input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-    Logger.log(`Signer Address is ${input.signer.address.plain()}`);
+    Logger.info(`Signer Address is ${input.signer.address.plain()}`);
 
 
     if (input.sourcePublicKey) {
@@ -55,7 +58,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     }
 
     if (input.sourceAccount || input.sourceSigner) {
-        Logger.log(`Source Address is ${(input.sourceAccount || input.sourceSigner)?.address.plain()}`)
+        Logger.info(`Source Address is ${(input.sourceAccount || input.sourceSigner)?.address.plain()}`)
     }
 
     if (input.targetPublicKey) {
@@ -73,13 +76,13 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     }
 
     if (input.targetAccount || input.targetSigner) {
-        Logger.log(`Target Address is ${(input.targetAccount || input.targetSigner)?.address.plain()}`)
+        Logger.info(`Target Address is ${(input.targetAccount || input.targetSigner)?.address.plain()}`)
     }
 
     input.cosigners = input.cosignerPrivateKeys?.map(
         (privateKey) => {
             const cosigner = Account.createFromPrivateKey(privateKey, networkType)
-            Logger.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+            Logger.info(`Additional Cosigner Address is ${cosigner.address.plain()}`);
             return cosigner;
         }
     );

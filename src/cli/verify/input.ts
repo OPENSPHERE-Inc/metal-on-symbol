@@ -5,6 +5,7 @@ import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace VerifyInput {
@@ -118,6 +119,15 @@ export namespace VerifyInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -152,7 +162,7 @@ export namespace VerifyInput {
     };
 
     export const printUsage = () => {
-        Logger.error(
+        Logger.info(
             `  With Metal ID          $ verify [options] metal_id [input_path]\n` +
             `  Account Metal          $ verify [options] -k metadata_key [input_path]\n` +
             `  Mosaic Metal           $ verify [options] -m mosaic_id -k metadata_key [input_path]\n` +
@@ -174,10 +184,16 @@ export namespace VerifyInput {
             `  -t public_key,\n` +
             `  --tgt-pub-key value    Specify target_account via public_key\n` +
             `  --tgt-addr value       Specify target_account via address\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Verify CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

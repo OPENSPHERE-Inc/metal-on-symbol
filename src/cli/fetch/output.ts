@@ -17,7 +17,7 @@ export namespace FetchOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        Logger.log(
+        Logger.info(
             `\n  --- Fetch Summary ---\n` +
             `  Metal ID: ${output.metalId}\n` +
             `  Type: ${output.mosaicId ? "Mosaic" : output.namespaceId ? "Namespace" : "Account" }\n` +

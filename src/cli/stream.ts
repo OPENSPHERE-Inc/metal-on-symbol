@@ -1,10 +1,8 @@
 import assert from "assert";
 import {Logger} from "../libs";
 import fs from "fs";
-import PromptSync from "prompt-sync";
+import prompts from "prompts";
 
-
-const prompt = PromptSync();
 
 export interface StreamInput {
     filePath?: string;
@@ -25,12 +23,16 @@ export const validateStreamInput = async <T extends StreamInput>(_input: Readonl
     input.stdin = !input.filePath;
 
     if (input.outputPath && fs.existsSync(input.outputPath)) {
+        const confirmPrompt = async () => (await prompts({
+            type: "confirm",
+            name: "decision",
+            message: `${input.outputPath}: Are you sure overwrite this?`,
+            initial: false,
+            stdout: process.stderr,
+        })).decision;
         if (input.stdin) {
             throw new Error(`${input.outputPath}: Already exists.`);
-        } else if (
-            showPrompt &&
-            prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y"
-        ) {
+        } else if (showPrompt && await confirmPrompt()) {
             throw new Error(`Canceled by user.`);
         }
     }
@@ -43,14 +45,14 @@ export const validateStreamInput = async <T extends StreamInput>(_input: Readonl
 export const readStreamInput = async <T extends StreamInput>(input: Readonly<T>) => {
     assert(input.filePath || input.stdin);
     if (input.filePath) {
-        Logger.log(`${input.filePath}: Reading...`);
+        Logger.debug(`${input.filePath}: Reading...`);
         const payload = fs.readFileSync(input.filePath);
         if (!payload.length) {
             throw new Error(`${input.filePath}: The file is empty.`);
         }
         return payload;
     } else {
-        Logger.log(`stdin: Reading...`);
+        Logger.debug(`stdin: Reading...`);
         const payload = await new Promise<Uint8Array>((resolve) => {
             const chunks = new Array<Uint8Array>();
             process.stdin.resume();

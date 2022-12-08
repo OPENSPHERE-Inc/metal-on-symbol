@@ -17,7 +17,7 @@ export namespace VerifyOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        Logger.log(
+        Logger.info(
             `\n  --- Verify Summary ---\n` +
             `  Metal ID: ${output.metalId}\n` +
             `  Type: ${output.mosaicId ? "Mosaic" : output.namespaceId ? "Namespace" : "Account" }\n` +

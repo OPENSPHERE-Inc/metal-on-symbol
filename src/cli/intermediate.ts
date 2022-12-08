@@ -84,11 +84,11 @@ export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, file
         updatedAt: new Date().toISOString(),
     };
     fs.writeFileSync(filePath, JSON.stringify(intermediateTxs),"utf-8");
-    Logger.log(`${filePath}: JSON data saved.`);
+    Logger.debug(`${filePath}: JSON data saved.`);
 };
 
 export const readIntermediateFile = (filePath: string) => {
-    Logger.log(`${filePath}: Reading...`);
+    Logger.debug(`${filePath}: Reading...`);
     const intermediateJson = fs.readFileSync(filePath, "utf-8");
     if (!intermediateJson.length) {
         throw new Error(`${filePath}: The file is empty.`);

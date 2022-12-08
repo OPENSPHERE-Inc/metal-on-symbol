@@ -1,22 +1,21 @@
-import {VERSION} from "./version";
-import {PACKAGE_VERSION} from "../../package_version";
 import assert from "assert";
 import {DecryptInput} from "./input";
 import {SymbolService} from "../../services";
 import {DecryptOutput} from "./output";
-import {Logger} from "../../libs";
 import {readStreamInput, writeStreamOutput} from "../stream";
 
 
 export namespace DecryptCLI {
 
     export const main = async (argv: string[]) => {
-        Logger.log(`Metal Decrypt CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: DecryptInput.CommandlineInput;
         try {
             input = await DecryptInput.validateInput(DecryptInput.parseInput(argv));
         } catch (e) {
+            DecryptInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             DecryptInput.printUsage();
             if (e === "help") {
                 return;

@@ -2,15 +2,14 @@ import {Account} from "symbol-sdk";
 import fs from "fs";
 import {initCliEnv, isValueOption, NodeInput} from "../common";
 import {VERSION} from "./version";
-import PromptSync from "prompt-sync";
 import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
+import prompts from "prompts";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace ReinforceInput {
-
-    const prompt = PromptSync();
 
     export interface CommandlineInput extends NodeInput, StreamInput {
         version: string;
@@ -104,6 +103,15 @@ export namespace ReinforceInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -141,17 +149,22 @@ export namespace ReinforceInput {
         const { networkType } = await SymbolService.getNetwork();
 
         if (!input.signerPrivateKey && !input.force && !input.stdin) {
-            input.signerPrivateKey = prompt("Cosigner Private Key [Enter:skip]? ", "", { echo: "*" });
+            input.signerPrivateKey = (await prompts({
+                type: "password",
+                name: "private_key",
+                message: "Cosigner's Private Key [enter:skip]?",
+                stdout: process.stderr,
+            })).private_key;
         }
         if (input.signerPrivateKey) {
             input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-            Logger.log(`Signer Address is ${input.signer.address.plain()}`);
+            Logger.info(`Signer Address is ${input.signer.address.plain()}`);
         }
 
         input.cosigners = input.cosignerPrivateKeys?.map(
             (privateKey) => {
                 const cosigner = Account.createFromPrivateKey(privateKey, networkType)
-                Logger.log(`Additional Cosigner Address is ${cosigner.address.plain()}`);
+                Logger.info(`Additional Cosigner Address is ${cosigner.address.plain()}`);
                 return cosigner;
             }
         );
@@ -160,7 +173,7 @@ export namespace ReinforceInput {
     };
 
     export const printUsage = () => {
-        Logger.error(
+        Logger.info(
             `Usage: reinforce [options] intermediate_txs.json input_path\n` +
             `Options:\n` +
             `  -a, --announce         Announce completely signed TXs\n` +
@@ -172,10 +185,16 @@ export namespace ReinforceInput {
             `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify cosigner's private_key (Same as single of [--cosigner])\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

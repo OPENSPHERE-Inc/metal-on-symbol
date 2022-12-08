@@ -2,12 +2,10 @@ import {Convert, MetadataType, UInt64} from "symbol-sdk";
 import assert from "assert";
 import {ForgeInput} from "./input";
 import {ForgeOutput} from "./output";
-import {VERSION} from "./version";
 import {SymbolService} from "../../services";
 import {MetalService} from "../../services";
 import {buildAndExecuteBatches, designateCosigners, doVerify} from "../common";
 import {writeIntermediateFile} from "../intermediate";
-import {PACKAGE_VERSION} from "../../package_version";
 import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
 
@@ -50,7 +48,7 @@ export namespace ForgeCLI {
             targetId,
             key,
         );
-        Logger.log(`Computed Metal ID is ${metalId}`);
+        Logger.debug(`Computed Metal ID is ${metalId}`);
 
         if (input.checkCollision && !input.recover) {
             // Check collision (Don't on recover mode)
@@ -86,7 +84,7 @@ export namespace ForgeCLI {
                 input.feeRatio,
                 input.maxParallels,
                 canAnnounce,
-                !input.force,
+                !input.force && !input.stdin,
             )
             : { batches: [], totalFee: UInt64.fromUint(0) };
 
@@ -122,12 +120,14 @@ export namespace ForgeCLI {
     };
 
     export const main = async (argv: string[]) => {
-        Logger.log(`Metal Forge CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: ForgeInput.CommandlineInput;
         try {
             input = await ForgeInput.validateInput(ForgeInput.parseInput(argv));
         } catch (e) {
+            ForgeInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             ForgeInput.printUsage();
             if (e === "help") {
                 return;

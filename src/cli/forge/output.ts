@@ -12,7 +12,7 @@ export namespace ForgeOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        Logger.log(
+        Logger.info(
             `\n  --- Summary of Forging ${
                 output.status === "estimated" ? "(Estimate)" : "(Receipt)"
             } ---\n` +

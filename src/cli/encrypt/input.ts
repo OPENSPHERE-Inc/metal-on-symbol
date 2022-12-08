@@ -1,15 +1,14 @@
 import {Account, PublicAccount} from "symbol-sdk";
 import {VERSION} from "../forge/version";
 import {initCliEnv, isValueOption, NodeInput} from "../common";
-import PromptSync from "prompt-sync";
 import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
+import prompts from "prompts";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace EncryptInput {
-
-    const prompt = PromptSync();
 
     export interface CommandlineInput extends NodeInput, StreamInput {
         version: string;
@@ -82,6 +81,15 @@ export namespace EncryptInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -107,8 +115,13 @@ export namespace EncryptInput {
 
         input = await validateStreamInput(input, !input.force);
 
-        if (!input.encryptSenderPrivateKey && !input.force && !input.stdout && !input.stdin) {
-            input.encryptSenderPrivateKey = prompt("Sender's Private Key? ", "", { echo: "*" });
+        if (!input.encryptSenderPrivateKey && !input.force && !input.stdin) {
+            input.encryptSenderPrivateKey = (await prompts({
+                type: "password",
+                name: "private_key",
+                message: "Sender's Private Key?",
+                stdout: process.stderr,
+            })).private_key;
         }
 
         const { networkType } = await SymbolService.getNetwork();
@@ -131,7 +144,7 @@ export namespace EncryptInput {
     };
 
     export const printUsage = () => {
-        Logger.error(
+        Logger.info(
             `Usage: encrypt [options] [input_path]\n` +
             `Options:\n` +
             `  input_path             Specify input_path of encrypted file (default:stdin)\n` +
@@ -142,9 +155,15 @@ export namespace EncryptInput {
             `  --out value            Specify output_path that will be saved encrypted binary (default:stdout)\n` +
             `  --priv-key value       Specify encryption sender's private_key\n` +
             `  --to public_key        Specify encryption recipient's public_key (default:sender)\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify sender's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Encrypt CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 }

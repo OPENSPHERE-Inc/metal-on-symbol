@@ -4,13 +4,12 @@ import fs from "fs";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../accounts";
 import {SymbolService} from "../../services";
-import PromptSync from "prompt-sync";
 import {Logger} from "../../libs";
+import prompts from "prompts";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace ScrapInput {
-
-    const prompt = PromptSync();
 
     export interface CommandlineInput extends NodeInput, AccountsInput {
         version: string;
@@ -206,6 +205,15 @@ export namespace ScrapInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -240,8 +248,15 @@ export namespace ScrapInput {
             throw new Error(`[--key value] or [metal_id] is required.`)
         }
 
-        if (input.outputPath && !input.force && fs.existsSync(input.outputPath)) {
-            if (prompt(`${input.outputPath}: Are you sure overwrite this [y/(n)]? `).toLowerCase() !== "y") {
+        if (input.outputPath && fs.existsSync(input.outputPath) && !input.force) {
+            const decision = (await prompts({
+                type: "confirm",
+                name: "decision",
+                message: `${input.outputPath}: Are you sure overwrite this?`,
+                initial: false,
+                stdout: process.stderr,
+            })).decision;
+            if (!decision) {
                 throw new Error(`Canceled by user.`);
             }
         }
@@ -253,11 +268,11 @@ export namespace ScrapInput {
             input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
 
-        return validateAccountsInput(input, input.force);
+        return validateAccountsInput(input, !input.force);
     };
 
     export const printUsage = () => {
-        Logger.error(
+        Logger.info(
             `Usages:\n` +
             `  With Metal ID          $ scrap [options] metal_id\n` +
             `  Account Metal          $ scrap [options] -k metadata_key\n` +
@@ -290,11 +305,17 @@ export namespace ScrapInput {
             `  -t public_key,\n` +
             `  --tgt-pub-key value    Specify target_account via public_key\n` +
             `  --tgt-priv-key value   Specify target_account via private_key\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  FEE_RATIO              Specify fee_ratio with decimal (0.0 ~ 1.0)\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Scrap CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

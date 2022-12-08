@@ -402,6 +402,95 @@ metal reinforce  -a  intermediate-final.json  test/e92m3.jpg
 > Metal で Aggregate Bonded を使うことは現実的でないですが、
 > 技術的には実装可能だと思います（ウォレットに、Aggregate Bonded への連署を自動化する機能追加など）
 
+### 2.8. ペイロードの暗号化
+
+Metal はプロトコルレベルでの暗号化をサポートしませんが、
+Metal CLI にはペイロードを暗号化及び復号化するためのユーティリティコマンドが用意されています。
+
+Metal CLI による暗号化は、今のところ転送トランザクションメッセージの暗号化を流用して行われます。
+これは差出人と受取人が一対一で固定される方式です。
+
+> Metal はペイロードのデータ形式を関知しないので、
+> 暗号化に限らず、どの様な形式でもペイロードをエンコード・デコードできます
+> （全て、受取人がデコード手段を知っている前提です）
+
+#### ・暗号化
+
+> `metal encrypt -h` で簡単なコマンドラインヘルプを参照できます。
+
+```shell
+metal encrypt [options] [input_path]
+```
+
+暗号化してファイルに出力するには以下のように実行してください。
+
+```shell
+metal encrypt  -o encrypted.out  test_data/e92m3.jpg
+```
+
+プライベートキーが聞かれるので入力してください。差出人・受取人共に自分で暗号化され、
+`encrypted.out`（実際のファイル名はなんでも良いです）に出力されます。
+
+受取人を自分以外にしたい場合は、
+
+```shell
+metal encrypt  --to someones_public_key  -o encrypted.out  test_data/e92m3.jpg
+```
+
+上記のように `--to someones_public_key` で受取人のパブリックキーを指定してください。
+
+Metal のペイロードを暗号化したい場合は、上記の出力 `encrypted.out` を元に Forge してください。
+
+Encrypt コマンドは `-o` オプションを指定しないと、標準出力へ暗号文を出力します。
+以下はこれを利用して、Forge まで一気にやってしまう方法です。
+尚、Forge コマンドも入力ファイルを指定しない場合は標準入力からデータを取り込みます。
+
+```shell
+metal encrypt  --priv-key your_private_key  --to someones_public_key  test_data/e92m3.jpg  |  metal forge  --priv-key your_privatge_key
+```
+
+> 確認ダイアログも表示されず、アナウンスまでノンストップで行われることに注意してください。
+> 手数料の確認だけを行うには `forge` に `-e` オプションを付けてください。
+
+受取人がデータを復号化するには、受取人自身のプライベートキーと **差出人のパブリックキー** が必要になります。
+相手には Metal ID の他に自身のパブリックキーを伝達しましょう。
+
+**暗号化したペイロードで Forge すると、以降、「元ファイル」はすべて暗号化後の物を指すことに注意してください。**
+
+#### ・復号化
+
+> `metal decrypt -h` で簡単なコマンドラインヘルプを参照できます。
+
+```shell
+metal decrypt [options] [input_path]
+```
+
+暗号化されたデータを復号化してファイルに出力するには以下のように実行してください。
+
+```shell
+metal decrypt  -o plain.out  encrypted.out
+```
+
+プライベートキーが聞かれるので入力してください。差出人・受取人共に自分で復号化され、
+`plain.out`（実際のファイル名はなんでも良いです）に出力されます。
+
+差出人が自分以外である場合は、
+
+```shell
+metal decrypt  --from someones_public_key  -o plain.out  encrypted.out
+```
+
+上記のように `--from someones_public_key` で差出人のパブリックキーを指定してください。
+パブリックキーは差出人より送付してもらってください。
+
+Decrypt コマンドは入力ファイルを指定しないと標準入力からデータを取り込みます。
+これを利用して Fetch から復号まで一気にやってしまう方法です。
+尚、Fetch コマンドも `-o` オプションで出力ファイルを指定しない場合、標準出力へデータを吐き出します。
+
+```shell
+metal fetch  metal_id  |  metal decrypt  --from someones_public_key  --priv-key your_private_key  -o plain.out
+```
+
 ## 3. （開発者向け）ビルド
 
 git でリポジトリをクローンしてディレクトリに移動
@@ -1331,6 +1420,38 @@ const compositeHash = MetalService.restoreMetadataHash(metalId);
 **戻り値**
 
 - `string` - `Composite Hash` 値の64文字 HEX
+
+#### ・暗号化 (AES-GCM)
+
+```typescript
+const encryptedData = SymbolService.encryptBinary(plainData, senderAccount, recipientPubAccount);
+```
+
+**引数**
+
+- `plainData: Uint8Array` - 平文のデータ（バイナリ）
+- `senderAccount: Account` - 送信者のアカウント
+- `recipientPubAccount: PublicAccount` - 受信者のパブリックアカウント
+
+**戻り値**
+
+- `Uint8Array` - 暗号データ（バイナリ）
+
+#### ・復号化 (AES-GCM)
+
+```typescript
+const plainData = SymbolService.decryptBinary(encryptedData, senderPubAccount, recipientAccount);
+```
+
+**引数**
+
+- `encryptData: Uint8Array` - 暗号データ（バイナリ）
+- `senderPubAccount: PublicAccount` - 送信者のパブリックアカウント
+- `recipientAccount: Account` - 受信者のアカウント
+
+**戻り値**
+
+- `Uint8Array` - 平文データ（バイナリ）
 
 ### 6.9. サンプルコード
 

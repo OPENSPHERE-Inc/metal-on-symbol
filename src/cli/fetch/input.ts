@@ -5,6 +5,7 @@ import {VERSION} from "./version";
 import {MetalIdentifyInput, validateMetalIdentifyInput} from "../metal_id";
 import {Logger} from "../../libs";
 import {validateStreamInput} from "../stream";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace FetchInput {
@@ -159,6 +160,15 @@ export namespace FetchInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -187,7 +197,7 @@ export namespace FetchInput {
     };
 
     export const printUsage = () => {
-        Logger.error(
+        Logger.info(
             `Usages:\n` +
             `  With Metal ID          $ fetch [options] metal_id\n` +
             `  Account Metal          $ fetch [options] -k metadata_key\n` +
@@ -213,10 +223,16 @@ export namespace FetchInput {
             `  -t public_key,\n` +
             `  --tgt-pub-key value    Specify target_account via public_key (default:signer)\n` +
             `  --tgt-addr value       Specify target_account via address (default:signer)\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Fetch CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

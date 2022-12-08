@@ -4,11 +4,9 @@ import fs from "fs";
 import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {ScrapOutput} from "./output";
 import {MetalService} from "../../services";
-import {VERSION} from "./version";
 import {SymbolService} from "../../services";
 import {buildAndExecuteBatches, designateCosigners} from "../common";
 import {writeIntermediateFile} from "../intermediate";
-import {PACKAGE_VERSION} from "../../package_version";
 import {Logger} from "../../libs";
 
 
@@ -68,7 +66,7 @@ export namespace ScrapCLI {
             );
         }
 
-        Logger.log(`Scanning on-chain chunks of the metal ${metalId}`);
+        Logger.debug(`Scanning on-chain chunks of the metal ${metalId}`);
         const txs = (payload)
             ? await MetalService.createDestroyTxs(
                 type,
@@ -131,12 +129,14 @@ export namespace ScrapCLI {
     };
 
     export const main = async (argv: string[]) => {
-        Logger.log(`Metal Scrap CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: ScrapInput.CommandlineInput;
         try {
             input = await ScrapInput.validateInput(ScrapInput.parseInput(argv));
         } catch (e) {
+            ScrapInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             ScrapInput.printUsage();
             if (e === "help") {
                 return;
@@ -147,7 +147,7 @@ export namespace ScrapCLI {
         let payload: Uint8Array | undefined;
         if (input.filePath) {
             // Read input file contents here.
-            Logger.log(`${input.filePath}: Reading...`);
+            Logger.debug(`${input.filePath}: Reading...`);
             payload = fs.readFileSync(input.filePath);
             if (!payload.length) {
                 throw new Error(`${input.filePath}: The file is empty.`);

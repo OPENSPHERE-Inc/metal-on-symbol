@@ -12,10 +12,9 @@ import {
 import {Logger, Utils} from "../libs";
 import Long from "long";
 import moment from "moment";
-import PromptSync from "prompt-sync";
+import prompts from "prompts";
 
 
-const prompt = PromptSync();
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 
 export interface NodeInput {
@@ -35,7 +34,7 @@ export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRat
     });
 
     const { networkType } = await SymbolService.getNetwork();
-    Logger.log(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
+    Logger.debug(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
 };
 
 export const designateCosigners = (
@@ -81,7 +80,7 @@ export const buildAndExecuteBatches = async (
     feeRatio: number,
     maxParallels: number,
     canAnnounce: boolean,
-    usePrompt: boolean,
+    showPrompt: boolean,
 ) => {
     const { networkProperties } = await SymbolService.getNetwork();
     const batchSize = Number(networkProperties.plugins.aggregate?.maxTransactionsPerAggregate || 100);
@@ -98,13 +97,19 @@ export const buildAndExecuteBatches = async (
     );
 
     if (canAnnounce) {
-        Logger.log(
+        Logger.info(
             `Announcing ${batches.length} aggregate TXs ` +
             `with fee ${Utils.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-        if (usePrompt) {
-            const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
-            if (decision.toLowerCase() !== "y") {
+        if (showPrompt) {
+            const decision = (await prompts({
+                type: "confirm",
+                name: "decision",
+                message: "Are you sure announce these TXs?",
+                initial: true,
+                stdout: process.stderr,
+            })).decision;
+            if (!decision) {
                 throw new Error("Canceled by user.");
             }
         }
@@ -118,7 +123,7 @@ export const buildAndExecuteBatches = async (
         if (errors) {
             throw new Error(`Some errors occurred during announcing.`);
         } else {
-            Logger.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+            Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
         }
     }
 
@@ -136,7 +141,7 @@ export const doVerify = async (
     key: UInt64,
     targetId?: MosaicId | NamespaceId,
 ) => {
-    Logger.log(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
+    Logger.debug(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
         type === MetadataType.Mosaic
             ? `Mosaic:${targetId?.toHex()}`
             : type === MetadataType.Namespace
@@ -154,6 +159,6 @@ export const doVerify = async (
     if (mismatches) {
         throw new Error(`Verify error: Mismatch rate is ${mismatches / maxLength * 100}%`);
     } else {
-        Logger.log(`Verify succeeded: No mismatches found.`);
+        Logger.info(`Verify succeeded: No mismatches found.`);
     }
 };

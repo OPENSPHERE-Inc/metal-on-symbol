@@ -1,4 +1,3 @@
-import {VERSION} from "./version";
 import {ReinforceInput} from "./input";
 import assert from "assert";
 import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
@@ -19,16 +18,13 @@ import {
 import {Utils} from "../../libs";
 import moment from "moment/moment";
 import {MetalService} from "../../services";
-import PromptSync from "prompt-sync";
-import {PACKAGE_VERSION} from "../../package_version";
 import { Base64 } from "js-base64";
 import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
+import prompts from "prompts";
 
 
 export namespace ReinforceCLI {
-
-    const prompt = PromptSync();
 
     const extractMetadataKeys = async (
         type: MetadataType,
@@ -118,7 +114,7 @@ export namespace ReinforceCLI {
         const batches = await retrieveBatches(intermediateTxs);
 
         // Validate transactions that was contained intermediate JSON.
-        Logger.log(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
+        Logger.debug(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
         for (const batch of batches) {
             if (!MetalService.validateBatch(
                 batch,
@@ -143,13 +139,19 @@ export namespace ReinforceCLI {
         });
 
         if (input.announce) {
-            Logger.log(
+            Logger.info(
                 `Announcing ${batches.length} aggregate TXs. ` +
                 `TX fee ${Utils.toXYM(intermediateTxs.totalFee)} XYM will be paid by ${intermediateTxs.command} originator.`
             );
-            if (!input.force) {
-                const decision = prompt("Are you sure announce these TXs [(y)/n]? ", "y");
-                if (decision.toLowerCase() !== "y") {
+            if (!input.force && !input.stdin) {
+                const decision = (await prompts({
+                    type: "confirm",
+                    name: "decision",
+                    initial: true,
+                    message: "Are you sure announce these TXs?",
+                    stdout: process.stderr,
+                })).decision;
+                if (!decision) {
                     throw new Error("Canceled by user.");
                 }
             }
@@ -163,7 +165,7 @@ export namespace ReinforceCLI {
             if (errors) {
                 throw new Error(`Some errors occurred during announcing.`);
             } else {
-                Logger.log(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+                Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
             }
         }
 
@@ -188,12 +190,14 @@ export namespace ReinforceCLI {
     };
 
     export const main = async (argv: string[]) => {
-        Logger.log(`Metal Reinforce CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: ReinforceInput.CommandlineInput;
         try {
             input = await ReinforceInput.validateInput(ReinforceInput.parseInput(argv));
         } catch (e) {
+            ReinforceInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             ReinforceInput.printUsage();
             if (e === "help") {
                 return;

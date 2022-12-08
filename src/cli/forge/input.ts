@@ -5,6 +5,7 @@ import {AccountsInput, validateAccountsInput} from "../accounts";
 import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
+import {PACKAGE_VERSION} from "../../package_version";
 
 
 export namespace ForgeInput {
@@ -215,6 +216,15 @@ export namespace ForgeInput {
                     break;
                 }
 
+                case "--verbose": {
+                    Logger.init({ log_level: Logger.LogLevel.DEBUG });
+                    break;
+                }
+
+                case "--version": {
+                    throw "version";
+                }
+
                 default: {
                     if (token.startsWith("-")) {
                         throw new Error(`Unknown option ${token}`);
@@ -250,11 +260,11 @@ export namespace ForgeInput {
             input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
 
-        return validateAccountsInput(input, input.force || input.stdin);
+        return validateAccountsInput(input, !input.force && !input.stdin);
     };
 
     export const printUsage = () => {
-        Logger.error(
+        Logger.info(
             `Usage: forge [options] [input_path]\n` +
             `Options:\n` +
             `  input_path             Specify input_path of payload file (default:stdin)\n` +
@@ -283,11 +293,17 @@ export namespace ForgeInput {
             `  --tgt-pub-key value    Specify target_account via public_key\n` +
             `  --tgt-priv-key value   Specify target_account via private_key\n` +
             `  -v, --verify           Invoke verify after announce (Ignore on estimation mode)\n` +
+            `  --verbose              Show verbose logs\n` +
+            `  --version              Show command version\n` +
             `Environment Variables:\n` +
             `  FEE_RATIO              Specify fee_ratio with decimal (0.0 ~ 1.0)\n` +
             `  NODE_URL               Specify network node_url\n` +
             `  SIGNER_PRIVATE_KEY     Specify signer's private_key\n`
         );
+    };
+
+    export const printVersion = () => {
+        Logger.info(`Metal Forge CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
     };
 
 }

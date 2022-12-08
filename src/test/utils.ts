@@ -13,6 +13,7 @@ import {
 } from "symbol-sdk";
 import {v4 as uuidv4} from "uuid";
 import {MetalService} from "../services";
+import {Logger} from "../libs";
 
 
 export const initTestEnv = () => {
@@ -20,6 +21,8 @@ export const initTestEnv = () => {
     assert(process.env.FEE_RATIO);
     assert(process.env.BATCH_SIZE);
     assert(process.env.MAX_PARALLELS);
+
+    Logger.init({ log_level: Logger.LogLevel.DEBUG });
 
     const config = {
         node_url: process.env.NODE_URL,

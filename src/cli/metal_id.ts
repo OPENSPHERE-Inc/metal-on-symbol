@@ -23,7 +23,7 @@ export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(_
 
     if (input.signerPrivateKey) {
         input.signer = Account.createFromPrivateKey(input.signerPrivateKey, networkType);
-        Logger.log(`Singer Address is ${input.signer.address.plain()}`);
+        Logger.info(`Singer Address is ${input.signer.address.plain()}`);
     }
     if (!input.metalId && !input.signer && !input.sourceAddress) {
         throw new Error(

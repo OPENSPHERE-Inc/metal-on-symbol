@@ -1,25 +1,24 @@
 import {VerifyInput} from "./input";
 import assert from "assert";
 import {doVerify} from "../common";
-import {VERSION} from "./version";
 import {MetalService} from "../../services";
 import {VerifyOutput} from "./output";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {SymbolService} from "../../services";
-import {PACKAGE_VERSION} from "../../package_version";
-import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
 
 
 export namespace VerifyCLI {
 
     export const main = async (argv: string[]) => {
-        Logger.log(`Metal Verify CLI version ${VERSION} (${PACKAGE_VERSION})\n`);
-
         let input: VerifyInput.CommandlineInput;
         try {
             input = await VerifyInput.validateInput(VerifyInput.parseInput(argv));
         } catch (e) {
+            VerifyInput.printVersion();
+            if (e === "version") {
+                return;
+            }
             VerifyInput.printUsage();
             if (e === "help") {
                 return;

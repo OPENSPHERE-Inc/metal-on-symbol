@@ -17,12 +17,12 @@ import {DecryptCLI} from "./decrypt";
 Logger.init({ force_stderr: true });
 
 const printUsage = () => {
-    Logger.error(
+    Logger.info(
         `Metal CLI version ${VERSION} (${PACKAGE_VERSION})\n\n` +
         `Usage:        $ metal command [options]\n` +
         `Commands:\n` +
-        `  decrypt     Decrypt file via AES-GCM algorithm\n` +
-        `  encrypt     Encrypt file via AES-GCM algorithm\n` +
+        `  decrypt     Decrypt file with AES-GCM algorithm\n` +
+        `  encrypt     Encrypt file with AES-GCM algorithm\n` +
         `  fetch       Fetch on-chain metal and decode into file.\n` +
         `  forge       Upload the metal onto blockchain.\n` +
         `  reinforce   Cosigning forge/scrap intermediate transactions for multisig resolution.\n` +

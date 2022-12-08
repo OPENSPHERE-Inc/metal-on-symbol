@@ -13,7 +13,7 @@ export namespace ReinforceOutput {
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
-        Logger.log(
+        Logger.info(
             `\n  --- Summary of Reinforcement ${
                 output.status === "estimated" ? "(Estimate)" : "(Receipt)"
             } ---\n` +
