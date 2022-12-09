@@ -169,7 +169,7 @@ export NODE_URL=https://example.jp:3001
 > `metal forge -h` で簡単なコマンドラインヘルプを参照できます。
 
 ```shell
-metal forge [options] input_file
+metal forge [options] input_path
 ```
 
 #### A. アカウントに Forge する例
@@ -246,26 +246,26 @@ metal fetch [options] metal_id
 ```
 
 `metal_id` で特定される Metal を取得し、ファイルにダウンロードします。
-オプションを何も指定しないと `[metal_id]` という名前のファイルがカレントディレクトに作成されます。
+オプションを何も指定しないと標準出力（通常はコンソール画面）にデータが出力されます。
 プロトコル的に、ファイル名は Metal へ保存されないからです。
 
-出力にファイル名を付けたい場合は、
+出力に名前を付けてファイル保存したい場合は、
 
 ```shell
-metal fetch  -o output_file  metal_id
+metal fetch  -o output_path  metal_id
 ```
 
-上記の `output_file` に出力ファイルパスを入れてください。
+上記の `output_path` に出力ファイルパスを入れてください。
 
 ### 2.5. Verify（照合）
 
 > `metal verify -h` で簡単なコマンドラインヘルプを参照できます。
 
 ```shell
-metal verify [options] metal_id input_file
+metal verify [options] metal_id input_path
 ```
 
-`metal_id` で特定される Metal と、`input_file` で指定されるファイルとを比較します。
+`metal_id` で特定される Metal と、`input_path` で指定されるファイルとを比較します。
 
 エラーなく `Verify succeeded` と表示されれば成功です。
 
