@@ -32,7 +32,7 @@ export const validateStreamInput = async <T extends StreamInput>(_input: Readonl
         })).decision;
         if (input.stdin) {
             throw new Error(`${input.outputPath}: Already exists.`);
-        } else if (showPrompt && await confirmPrompt()) {
+        } else if (showPrompt && !await confirmPrompt()) {
             throw new Error(`Canceled by user.`);
         }
     }
