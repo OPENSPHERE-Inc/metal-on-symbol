@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
