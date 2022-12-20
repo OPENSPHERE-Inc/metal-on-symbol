@@ -1,1 +1,1 @@
-export { SymbolService, SignedAggregateTx, MetadataTransaction, SymbolTest, SymbolServiceConfig } from "symbol-service";
+export { SymbolService, SignedAggregateTx, MetadataTransaction, SymbolTest, SymbolServiceConfig } from "@opensphere-inc/symbol-service";
