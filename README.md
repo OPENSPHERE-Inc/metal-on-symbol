@@ -800,12 +800,13 @@ yarn add symbol-sdk
 ```
 
 ネットワークプロパティを取得したりするため、Symbol ノードにアクセスする前提となります。
-使用する際は、最初に必ず SymbolService の初期化をしてください。
+使用する際は、最初に必ず SymbolService と MetalService の初期化をしてください。
 
 ```typescript
 import {SymbolService} from "metal-on-symbol";
 
-SymbolService.init(config);
+const symbolService = new SymbolService(config);
+const metalService = new MetalService(symbolService);
 ```
 
 **引数**
@@ -822,7 +823,10 @@ SymbolService.init(config);
 サンプルコード
 
 ```typescript
-SymbolService.init({ node_url: "https://example.jp:3001" });
+import {MetalService} from "./metal";
+
+const symbolService = new SymbolService({node_url: "https://example.jp:3001"});
+const metalService = new MetalService(symbolService);
 ```
 
 ### 6.2. Forge
@@ -832,7 +836,7 @@ SymbolService.init({ node_url: "https://example.jp:3001" });
 ```typescript
 import {MetalService} from "metal-on-symbol";
 
-const { txs, key, additive } = await MetalService.createForgeTxs(
+const { txs, key, additive } = await metalService.createForgeTxs(
     type, 
     sourcePubAccount,
     targetPubAccount,
@@ -867,7 +871,7 @@ const { txs, key, additive } = await MetalService.createForgeTxs(
 複数のバッチ（アグリゲートトランザクション）に分け、その全てに署名を行います。
 
 ```typescript
-const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+const batches = await symbolService.buildSignedAggregateCompleteTxBatches(
     txs,
     signerAccount,
     cosignerAccounts,
@@ -878,7 +882,7 @@ const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
 
 **引数**
 
-- `txs: InnerTransaction[]` - `MetalService.createForgeTxs` で生成したトランザクションの配列
+- `txs: InnerTransaction[]` - `metalService.createForgeTxs` で生成したトランザクションの配列
 - `signerAccount: Account` - 署名するアカウント
 - `cosignerAccounts: Account[]` - 連署するアカウントの配列（`signerAccount` および `sourcePubAccount`、`targetPubAccount`、`targetId` 
   の作成者・所有者が一致しない場合は、 登場人物全員の署名が必要です）
@@ -887,7 +891,7 @@ const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
 
 **戻り値**
 
-- `SymbolService.SignedAggregateTx[]` - 署名済みバッチ配列
+- `SignedAggregateTx[]` - 署名済みバッチ配列
   - `signedTx: SignedTransaction` - 署名済みのアグリゲートトランザクション（ただし、連署は含まれない）
   - `cosignatures: CosignaturesSignedTransaction[]` - 連署シグネチャーの配列
   - `maxFee: UInt64` - 計算されたトランザクション手数料。配列の全てを合計すると全体でかかる手数料になります。
@@ -896,12 +900,12 @@ const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
 以下の関数では、全てのトランザクションが承認されるか、最初にエラーが発生するまでウェイトします。
 
 ```typescript
-const errors = await SymbolService.executeBatches(batches, signerAccount, maxParallels);
+const errors = await symbolService.executeBatches(batches, signerAccount, maxParallels);
 ```
 
 **引数**
 
-- `batches: SymbolService.SignedAggregateTx[]` - 署名済みバッチ配列
+- `batches: SignedAggregateTx[]` - 署名済みバッチ配列
 - `signerAccount: Account | PublicAccount` - 署名したアカウント。トランザクションを監視する為に指定します。従って `PublicAccount` でも可です。
 - `maxParallels: number` - **(Optional)** トランザクションアナウンス並列数を上書き（1～。省略すると初期化時の値）
 
@@ -913,15 +917,15 @@ const errors = await SymbolService.executeBatches(batches, signerAccount, maxPar
   - `txHash: string` - トランザクションハッシュ（HEX）
   - `error: string` - エラーメッセージ
 
-> #### バッチ（SymbolService.SignedAggregateTx）を独自にアナウンスしたい
+> #### バッチ（SignedAggregateTx）を独自にアナウンスしたい
 >
-> 組み込みの `SymbolService.executeBatches` を使わずに、
-> `SymbolService.buildSignedAggregateCompleteTxBatches` で署名したトランザクション `SymbolService.SignedAggregateTx` を、
+> 組み込みの `symbolService.executeBatches` を使わずに、
+> `symbolService.buildSignedAggregateCompleteTxBatches` で署名したトランザクション `SignedAggregateTx` を、
 > 独自のアナウンススタックで処理したい場合は以下のように統合できます。
 >
 > ```typescript
-> const { signedTx, cosignatures } = batch;  // SymbolService.SignedAggregateTx
-> const completeSignedTx = await SymbolService.createSignedTxWithCosignatures(
+> const { signedTx, cosignatures } = batch;  // SignedAggregateTx
+> const completeSignedTx = symbolService.createSignedTxWithCosignatures(
 >     batch.signedTx,
 >     batch.cosignatures
 > );
@@ -942,6 +946,7 @@ const errors = await SymbolService.executeBatches(batches, signerAccount, maxPar
 最後に `Metal ID` を以下のように計算してください。
 
 ```typescript
+// Static method
 const metalId = MetalService.calculateMetalId(
     type,
     sourceAddress,
@@ -975,7 +980,7 @@ const forgeMetal = async (
     cosignerAccounts: Account[],
     additive?: Uint8Array,
 ) => {
-    const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
+    const { key, txs, additive: newAdditive } = await metalService.createForgeTxs(
         type,
         sourcePubAccount,
         targetPubAccount,
@@ -983,12 +988,12 @@ const forgeMetal = async (
         payload,
         additive,
     );
-    const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+    const batches = await symbolService.buildSignedAggregateCompleteTxBatches(
         txs,
         signerAccount,
         cosignerAccounts,
     );
-    const errors = await SymbolService.executeBatches(batches, signerAccount);
+    const errors = await symbolService.executeBatches(batches, signerAccount);
     if (errors) {
         throw Error("Transaction error.");
     }
@@ -1015,7 +1020,7 @@ const forgeMetal = async (
 まず既に上がったメタデータを収集します。
 
 ```typescript
-const metadataPool = await SymbolService.searchMetadata(
+const metadataPool = await symbolService.searchMetadata(
     type, 
     {
         source: sourcePubAccount,
@@ -1036,7 +1041,7 @@ const metadataPool = await SymbolService.searchMetadata(
 
 - `Metadata[]` - メタデータリスト
 
-得られたメタデータリストを `MetalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
+得られたメタデータリストを `metalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
 あとは同じようにトランザクションへ署名してアナウンスしてください。
 
 [サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge_recover.ts)
@@ -1052,14 +1057,14 @@ const forgeMetal = async (
     cosignerAccounts: Account[],
     additive?: Uint8Array,
 ) => {
-    const metadataPool = await SymbolService.searchMetadata(
+    const metadataPool = await symbolService.searchMetadata(
         type, 
         {
             source: sourcePubAccount,
             target: targetPubAccount,
             targetId
         });
-    const { key, txs, additive: newAdditive } = await MetalService.createForgeTxs(
+    const { key, txs, additive: newAdditive } = await metalService.createForgeTxs(
         type,
         sourcePubAccount,
         targetPubAccount,
@@ -1079,7 +1084,7 @@ const forgeMetal = async (
 `Metal ID` が分かっている場合は、以下のようにメタルを取得します。
 
 ```typescript
-const result = await MetalService.fetchByMetalId(metalId);
+const result = await metalService.fetchByMetalId(metalId);
 ```
 
 **引数**
@@ -1104,7 +1109,7 @@ const result = await MetalService.fetchByMetalId(metalId);
 `Metal ID` が分からなくても、先頭チャンクのメタデータを特定できれば Metal を取得できます。
 
 ```typescript
-const payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+const payload = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
 ```
 
 **引数**
@@ -1128,7 +1133,7 @@ const payload = await MetalService.fetch(type, sourceAddress, targetAddress, tar
 まず、先頭チャンクメタデータを取得します。
 
 ```typescript
-const metadata = (await MetalService.getFirstChunk(metalId)).metadataEntry;
+const metadata = (await metalService.getFirstChunk(metalId)).metadataEntry;
 const { metadataType: type, targetId, scopedMetadataKey: key } = metadata;
 ```
 
@@ -1145,7 +1150,7 @@ const { metadataType: type, targetId, scopedMetadataKey: key } = metadata;
 次に、Scrap トランザクション群を生成します。
 
 ```typescript
-const txs = await MetalService.createScrapTxs(
+const txs = await metalService.createScrapTxs(
     type,
     sourcePubAccount,
     targetPubAccount,
@@ -1186,8 +1191,8 @@ const scrapMetal = async (
     signerAccount: Account,
     cosignerAccounts: Account[]
 ) => {
-    const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
-    const txs = await MetalService.createScrapTxs(
+    const metadataEntry = (await metalService.getFirstChunk(metalId)).metadataEntry;
+    const txs = await metalService.createScrapTxs(
         metadataEntry.metadataType,
         sourcePubAccount,
         targetPubAccount,
@@ -1197,12 +1202,12 @@ const scrapMetal = async (
     if (!txs) {
         throw Error("Transaction creation error.");
     }
-    const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+    const batches = await symbolService.buildSignedAggregateCompleteTxBatches(
         txs,
         signerAccount,
         cosignerAccounts,
     );
-    const errors = await SymbolService.executeBatches(batches, signerAccount);
+    const errors = await symbolService.executeBatches(batches, signerAccount);
     if (errors) {
         throw Error("Transaction error.");
     }
@@ -1221,7 +1226,7 @@ const scrapMetal = async (
 この場合、以下のように、Scrap トランザクション群を生成します。
 
 ```typescript
-const txs = await MetalService.createDestroyTxs(
+const txs = await metalService.createDestroyTxs(
     type,
     sourcePubAccount,
     targetPubAccount,
@@ -1262,7 +1267,7 @@ const destroyMetal = async (
     signerAccount: Account,
     cosignerAccounts: Account[]
 ) => {
-    const txs = await MetalService.createDestroyTxs(
+    const txs = await metalService.createDestroyTxs(
         type,
         sourcePubAccount,
         targetPubAccount,
@@ -1284,7 +1289,7 @@ const destroyMetal = async (
 まず、`Metal ID` で先頭チャンクメタデータを取得してください。
 
 ```typescript
-const metadata = (await MetalService.getFirstChunk(metalId)).metadataEntry;
+const metadata = (await metalService.getFirstChunk(metalId)).metadataEntry;
 const {
     metadataType: type,
     sourceAddress,
@@ -1297,7 +1302,7 @@ const {
 次に、先頭チャンクメタデータから得られた情報と、手元ファイルのデータを照合します。
 
 ```typescript
-const { mismatches, maxLength } = await MetalService.verify(
+const { mismatches, maxLength } = await metalService.verify(
     payload,
     type,
     sourceAddress,
@@ -1336,8 +1341,8 @@ const verifyMetal = async (
         targetAddress,
         targetId, 
         scopedMetadataKey: key,
-    } = (await MetalService.getFirstChunk(metalId)).metadataEntry;
-    const { mismatches, maxLength } = await MetalService.verify(
+    } = (await metalService.getFirstChunk(metalId)).metadataEntry;
+    const { mismatches, maxLength } = await metalService.verify(
         payload,
         type,
         sourceAddress,
@@ -1354,6 +1359,7 @@ const verifyMetal = async (
 自前のコードでオンチェーンのメタデータを取得した場合は、デコードだけ行うことも可能です。
 
 ```typescript
+// Static method
 const payloadBase64 = MetalService.decode(key, metadataPool);
 ```
 
@@ -1380,6 +1386,7 @@ const payload = Base64.toUint8Array(payloadBase64);
 #### ・チャンクメタデータ Key の生成
 
 ```typescript
+// Static method
 const key = MetalService.generateMetadataKey(input);
 ```
 
@@ -1394,6 +1401,7 @@ const key = MetalService.generateMetadataKey(input);
 #### ・チェックサムの計算
 
 ```typescript
+// Static method
 const checksum = MetalService.generateChecksum(input);
 ```
 
@@ -1410,6 +1418,7 @@ const checksum = MetalService.generateChecksum(input);
 #### ・Metal ID から Composite Hash の復元
 
 ```typescript
+// Static method
 const compositeHash = MetalService.restoreMetadataHash(metalId);
 ```
 
@@ -1424,6 +1433,7 @@ const compositeHash = MetalService.restoreMetadataHash(metalId);
 #### ・暗号化 (AES-GCM)
 
 ```typescript
+// Static method
 const encryptedData = SymbolService.encryptBinary(plainData, senderAccount, recipientPubAccount);
 ```
 
@@ -1440,6 +1450,7 @@ const encryptedData = SymbolService.encryptBinary(plainData, senderAccount, reci
 #### ・復号化 (AES-GCM)
 
 ```typescript
+// Static method
 const plainData = SymbolService.decryptBinary(encryptedData, senderPubAccount, recipientAccount);
 ```
 
