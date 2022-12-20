@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.2.0",
+  "version": "0.2.0-alpha.0",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -39,7 +39,7 @@
     "prompts": "^2.4.2",
     "rxjs": "^7.5.7",
     "symbol-sdk": "^2.0.3",
-    "symbol-service": "file:./symbol-service",
+    "symbol-service": "./symbol-service",
     "uuid": "^9.0.0"
   },
   "jest": {
