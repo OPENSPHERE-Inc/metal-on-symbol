@@ -1,7 +1,6 @@
 import {Account, PublicAccount} from "symbol-sdk";
 import {VERSION} from "../forge/version";
-import {initCliEnv, isValueOption, NodeInput} from "../common";
-import {SymbolService} from "../../services";
+import {initCliEnv, isValueOption, NodeInput, symbolService} from "../common";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
 import prompts from "prompts";
@@ -124,7 +123,7 @@ export namespace EncryptInput {
             })).private_key;
         }
 
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
         if (input.encryptSenderPrivateKey) {
             input.encryptSenderAccount = Account.createFromPrivateKey(input.encryptSenderPrivateKey, networkType);
         } else {

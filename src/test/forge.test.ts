@@ -20,7 +20,7 @@ describe("Forge CLI", () => {
         assert(process.env.TEST_INPUT_FILE);
         inputFile = process.env.TEST_INPUT_FILE;
 
-        const assets = await MetalTest.generateAssets();
+        const assets = await SymbolTest.generateAssets();
         targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;

@@ -2,31 +2,32 @@ import {ReinforceInput} from "./input";
 import assert from "assert";
 import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
 import {ReinforceOutput} from "./output";
-import {SymbolService} from "../../services";
+import {MetadataTransaction, SymbolService} from "../../services";
 import {
+    AggregateTransaction,
     Convert,
     CosignatureSignedTransaction,
     CosignatureTransaction,
+    Deadline,
+    InnerTransaction,
     MetadataType,
     MosaicId,
     NamespaceId,
     PublicAccount,
     SignedTransaction,
-    TransactionType,
     UInt64
 } from "symbol-sdk";
-import {Utils} from "../../libs";
 import moment from "moment/moment";
-import {MetalService} from "../../services";
-import { Base64 } from "js-base64";
 import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
 import prompts from "prompts";
+import {metalService, symbolService} from "../common";
 
 
 export namespace ReinforceCLI {
 
-    const extractMetadataKeys = async (
+    const buildReferenceTxPool = async (
+        command: "forge" | "scrap",
         type: MetadataType,
         sourcePubAccount: PublicAccount,
         targetPubAccount: PublicAccount,
@@ -35,42 +36,85 @@ export namespace ReinforceCLI {
         additive?: string
     ) => {
         const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
-        const { txs } = await MetalService.createForgeTxs(
-            type,
-            sourcePubAccount,
-            targetPubAccount,
-            targetId,
-            payload,
-            additiveBytes,
+        const txs = command === "forge"
+            ? (await metalService.createForgeTxs(
+                type,
+                sourcePubAccount,
+                targetPubAccount,
+                targetId,
+                payload,
+                additiveBytes,
+            )).txs
+            : await metalService.createDestroyTxs(
+                type,
+                sourcePubAccount,
+                targetPubAccount,
+                targetId,
+                payload,
+                additiveBytes,
+            );
+        return txs.reduce(
+            (acc, curr) => acc.set((curr as MetadataTransaction).scopedMetadataKey.toHex(), curr),
+            new Map<string, InnerTransaction>()
         );
-        return txs.map((tx) => (tx as SymbolService.MetadataTransaction).scopedMetadataKey.toHex());
     };
 
-    const retrieveBatches = async (intermediateTxs: IntermediateTxs) => {
-        const { networkType } = await SymbolService.getNetwork();
+    const retrieveBatches = async (intermediateTxs: IntermediateTxs, referenceTxPool: Map<string, InnerTransaction>) => {
+        const { networkType, networkGenerationHash } = await symbolService.getNetwork();
+        const networkGenerationHashBytes = Array.from(Convert.hexToUint8(networkGenerationHash));
         const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
 
         return intermediateTxs.txs.map((tx) => {
-            const signedTx = new SignedTransaction(
-                // Convert base64 to HEX
-                Convert.uint8ToHex(Base64.toUint8Array(tx.payload)),
-                tx.hash,
-                signerPubAccount.publicKey,
-                TransactionType.AGGREGATE_COMPLETE,
-                networkType
+            // Collect inner transactions
+            const innerTxs = tx.keys.map((key) => {
+                const referenceTx = referenceTxPool.get(key);
+                if (!referenceTx) {
+                    throw new Error("Input file is wrong or broken.");
+                }
+                return referenceTx;
+            });
+
+            // Rebuild aggregate transaction with signature
+            const aggregateTx = AggregateTransaction.createComplete(
+                Deadline.createFromAdjustedValue(tx.deadline),
+                innerTxs,
+                networkType,
+                [],
+                new UInt64(tx.maxFee),
+                tx.signature,
+                signerPubAccount,
             );
 
-            const cosignatures = [ ...tx.cosignatures.map(
-                (cosignature) => new CosignatureSignedTransaction(
+            const recalculatedHash = AggregateTransaction.createTransactionHash(
+                aggregateTx.serialize(),
+                networkGenerationHashBytes
+            );
+            if (recalculatedHash !== tx.hash) {
+                throw new Error("Transaction's hash was mismatched.");
+            }
+
+            // Cast signed transaction
+            const signedTx = new SignedTransaction(
+                // Inner transaction's deadline will be removed.
+                aggregateTx.serialize(),
+                tx.hash,
+                signerPubAccount.publicKey,
+                aggregateTx.type,
+                aggregateTx.networkType
+            );
+
+            const cosignatures = [
+                ...tx.cosignatures.map((cosignature) => new CosignatureSignedTransaction(
                     cosignature.parentHash,
                     cosignature.signature,
-                    cosignature.signerPublicKey)
-            ) ];
+                    cosignature.signerPublicKey
+                ))
+            ];
 
             return {
                 signedTx,
                 cosignatures,
-                maxFee: UInt64.fromNumericString(tx.maxFee),
+                maxFee: new UInt64(tx.maxFee),
             };
         });
     };
@@ -80,7 +124,7 @@ export namespace ReinforceCLI {
         intermediateTxs: IntermediateTxs,
         payload: Uint8Array,
     ): Promise<ReinforceOutput.CommandlineOutput> => {
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
 
         if (networkType !== intermediateTxs.networkType) {
             throw new Error(`Wrong network type ${intermediateTxs.networkType}`);
@@ -100,8 +144,9 @@ export namespace ReinforceCLI {
                 ? SymbolService.createNamespaceId(intermediateTxs.namespaceId)
                 : undefined;
 
-        // Construct reference txs and extract metadata keys.
-        let metadataKeys = await extractMetadataKeys(
+        // Construct reference txs
+        const referenceTxPool = await buildReferenceTxPool(
+            intermediateTxs.command,
             type,
             sourcePubAccount,
             targetPubAccount,
@@ -111,23 +156,7 @@ export namespace ReinforceCLI {
         );
 
         // Retrieve signed txs that can cosign and announce
-        const batches = await retrieveBatches(intermediateTxs);
-
-        // Validate transactions that was contained intermediate JSON.
-        Logger.debug(`Validating intermediate TXs of ${intermediateTxs.metalId}`);
-        for (const batch of batches) {
-            if (!MetalService.validateBatch(
-                batch,
-                type,
-                sourcePubAccount.address,
-                targetPubAccount.address,
-                targetId,
-                signerPubAccount.address,
-                metadataKeys,
-            )) {
-                throw new Error(`Intermediate TXs validation failed.`);
-            }
-        }
+        const batches = await retrieveBatches(intermediateTxs, referenceTxPool);
 
         // Add cosignatures of new cosigners
         batches.forEach((batch) => {
@@ -141,7 +170,8 @@ export namespace ReinforceCLI {
         if (input.announce) {
             Logger.info(
                 `Announcing ${batches.length} aggregate TXs. ` +
-                `TX fee ${Utils.toXYM(intermediateTxs.totalFee)} XYM will be paid by ${intermediateTxs.command} originator.`
+                `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
+                `will be paid by ${intermediateTxs.command} originator.`
             );
             if (!input.force && !input.stdin) {
                 const decision = (await prompts({
@@ -157,7 +187,7 @@ export namespace ReinforceCLI {
             }
 
             const startAt = moment.now();
-            const errors = await SymbolService.executeBatches(batches, signerPubAccount, input.maxParallels);
+            const errors = await symbolService.executeBatches(batches, signerPubAccount, input.maxParallels);
             errors?.forEach(({txHash, error}) => {
                 Logger.error(`${txHash}: ${error}`);
             });
@@ -173,7 +203,7 @@ export namespace ReinforceCLI {
             networkType,
             batches,
             key: intermediateTxs.key !== undefined ? UInt64.fromHex(intermediateTxs.key) : undefined,
-            totalFee: UInt64.fromNumericString(intermediateTxs.totalFee),
+            totalFee: new UInt64(intermediateTxs.totalFee),
             additive: intermediateTxs.additive,
             sourcePubAccount,
             targetPubAccount,

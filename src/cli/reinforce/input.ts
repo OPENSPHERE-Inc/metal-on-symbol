@@ -1,8 +1,7 @@
 import {Account} from "symbol-sdk";
 import fs from "fs";
-import {initCliEnv, isValueOption, NodeInput} from "../common";
+import {initCliEnv, isValueOption, NodeInput, symbolService} from "../common";
 import {VERSION} from "./version";
-import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
 import {StreamInput, validateStreamInput} from "../stream";
 import prompts from "prompts";
@@ -146,7 +145,7 @@ export namespace ReinforceInput {
             throw new Error(`${input.intermediatePath}: File not found.`);
         }
 
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
 
         if (!input.signerPrivateKey && !input.force && !input.stdin) {
             input.signerPrivateKey = (await prompts({

@@ -1,4 +1,4 @@
-# Metal on Symbol PoC
+# Metal on Symbol
 
 ## 1. 概要
 

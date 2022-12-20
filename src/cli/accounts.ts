@@ -1,7 +1,7 @@
 import {Account, Address, PublicAccount} from "symbol-sdk";
-import {SymbolService} from "../services";
 import {Logger} from "../libs";
 import prompts from "prompts";
+import {symbolService} from "./common";
 
 
 export interface AccountsInput {
@@ -24,7 +24,7 @@ export const validateAccountsInput = async <T extends AccountsInput>(
     showPrompt: boolean = true,
 ) => {
     let input: T = { ..._input };
-    const { networkType } = await SymbolService.getNetwork();
+    const { networkType } = await symbolService.getNetwork();
 
     if (!input.signerPrivateKey && showPrompt) {
         input.signerPrivateKey = (await prompts({
@@ -105,7 +105,7 @@ export const validateAddressesInput = async <T extends AddressesInput>(
     _input: Readonly<T>,
 ) => {
     let input: T = { ..._input };
-    const { networkType } = await SymbolService.getNetwork();
+    const { networkType } = await symbolService.getNetwork();
 
     if (input.sourcePublicKey) {
         input.sourcePubAccount = PublicAccount.createFromPublicKey(input.sourcePublicKey, networkType);

@@ -1,7 +1,7 @@
 import {Account, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {AddressesInput, validateAddressesInput} from "./accounts";
-import {SymbolService} from "../services";
 import {Logger} from "../libs";
+import {symbolService} from "./common";
 
 
 export interface MetalIdentifyInput extends AddressesInput {
@@ -19,7 +19,7 @@ export interface MetalIdentifyInput extends AddressesInput {
 export const validateMetalIdentifyInput = async <T extends MetalIdentifyInput>(_input: Readonly<T>) => {
     let input: T = await validateAddressesInput(_input);
 
-    const { networkType } = await SymbolService.getNetwork();
+    const { networkType } = await symbolService.getNetwork();
 
     if (input.signerPrivateKey) {
         input.signerAccount = Account.createFromPrivateKey(input.signerPrivateKey, networkType);

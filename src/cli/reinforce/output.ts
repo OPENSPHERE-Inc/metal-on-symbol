@@ -1,8 +1,8 @@
-import {Utils} from "../../libs";
 import Long from "long";
 import {IntermediateOutput} from "../intermediate";
 import moment from "moment";
 import {Logger} from "../../libs";
+import {SymbolService} from "../../services";
 
 
 export namespace ReinforceOutput {
@@ -28,7 +28,7 @@ export namespace ReinforceOutput {
             `  Additive: ${output.additive}\n` +
             `  Data size: ${output.payload.length}\n` +
             `  # of Aggregate TXs: ${output.batches.length}\n` +
-            `  TX Fee: ${Utils.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
+            `  TX Fee: ${SymbolService.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
             `  Signer Address: ${output.signerPubAccount.address.plain()}\n` +
             `  Network Type: ${output.networkType}\n` +
             `  Timestamp: ${moment(output.createdAt).format("YYYY-MM-DD HH:mm:ss")}\n`

@@ -9,13 +9,15 @@ import {
     PublicAccount,
     UInt64
 } from "symbol-sdk";
-import {Logger, Utils} from "../libs";
+import {Logger} from "../libs";
 import Long from "long";
 import moment from "moment";
 import prompts from "prompts";
 
 
 export const isValueOption = (token?: string) => !token?.startsWith("-");
+export let symbolService: SymbolService;
+export let metalService: MetalService;
 
 export interface NodeInput {
     nodeUrl?: string;
@@ -26,15 +28,16 @@ export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRat
         throw new Error("Node URL wasn't specified. [--node-url value] or NODE_URL is required.");
     }
 
-    SymbolService.init({
+    symbolService = new SymbolService({
         node_url: input.nodeUrl,
         fee_ratio: feeRatio,
-        logging: true,
         deadline_hours: 5,
     });
 
-    const { networkType } = await SymbolService.getNetwork();
+    const { networkType } = await symbolService.getNetwork();
     Logger.debug(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
+
+    metalService = new MetalService(symbolService);
 };
 
 export const designateCosigners = (
@@ -82,10 +85,10 @@ export const buildAndExecuteBatches = async (
     canAnnounce: boolean,
     showPrompt: boolean,
 ) => {
-    const { networkProperties } = await SymbolService.getNetwork();
+    const { networkProperties } = await symbolService.getNetwork();
     const batchSize = Number(networkProperties.plugins.aggregate?.maxTransactionsPerAggregate || 100);
 
-    const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(
+    const batches = await symbolService.buildSignedAggregateCompleteTxBatches(
         txs,
         signerAccount,
         cosignerAccounts,
@@ -99,7 +102,7 @@ export const buildAndExecuteBatches = async (
     if (canAnnounce) {
         Logger.info(
             `Announcing ${batches.length} aggregate TXs ` +
-            `with fee ${Utils.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
+            `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
         if (showPrompt) {
             const decision = (await prompts({
@@ -115,7 +118,7 @@ export const buildAndExecuteBatches = async (
         }
 
         const startAt = moment.now();
-        const errors = await SymbolService.executeBatches(batches, signerAccount, maxParallels);
+        const errors = await symbolService.executeBatches(batches, signerAccount, maxParallels);
         errors?.forEach(({txHash, error}) => {
             Logger.error(`${txHash}: ${error}`);
         });
@@ -144,7 +147,7 @@ export const doVerify = async (
     Logger.debug(`Verifying the metal key:${key.toHex()},Source:${sourceAddress.plain()},${
         [ `Account:${targetAddress.plain()}`, `Mosaic:${targetId?.toHex()}`, `Namespace:${targetId?.toHex()}` ][type]
     }`);
-    const { mismatches, maxLength } = await MetalService.verify(
+    const { mismatches, maxLength } = await metalService.verify(
         payload,
         type,
         sourceAddress,

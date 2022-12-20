@@ -2,9 +2,8 @@ import {Convert, MetadataType, UInt64} from "symbol-sdk";
 import assert from "assert";
 import {ForgeInput} from "./input";
 import {ForgeOutput} from "./output";
-import {SymbolService} from "../../services";
 import {MetalService} from "../../services";
-import {buildAndExecuteBatches, designateCosigners, doVerify} from "../common";
+import {buildAndExecuteBatches, designateCosigners, doVerify, metalService, symbolService} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
@@ -16,7 +15,7 @@ export namespace ForgeCLI {
         input: Readonly<ForgeInput.CommandlineInput>,
         payload: Uint8Array,
     ): Promise<ForgeOutput.CommandlineOutput> => {
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
         assert(input.signerAccount);
 
         const targetId = [ undefined, input.mosaicId, input.namespaceId ][input.type];
@@ -24,14 +23,14 @@ export namespace ForgeCLI {
         const sourcePubAccount = input.sourcePubAccount || input.sourceSignerAccount?.publicAccount || signerPubAccount;
         const targetPubAccount = input.targetPubAccount || input.targetSignerAccount?.publicAccount || signerPubAccount;
         const metadataPool = input.recover
-            ? await SymbolService.searchMetadata(input.type, {
+            ? await symbolService.searchMetadata(input.type, {
                 source: sourcePubAccount,
                 target: targetPubAccount,
                 targetId
             })
             : undefined;
 
-        const { key, txs, additive: additiveBytes } = await MetalService.createForgeTxs(
+        const { key, txs, additive: additiveBytes } = await metalService.createForgeTxs(
             input.type,
             sourcePubAccount,
             targetPubAccount,
@@ -52,7 +51,7 @@ export namespace ForgeCLI {
 
         if (input.checkCollision && !input.recover) {
             // Check collision (Don't on recover mode)
-            const collisions = await MetalService.checkCollision(
+            const collisions = await metalService.checkCollision(
                 txs,
                 input.type,
                 sourcePubAccount,
