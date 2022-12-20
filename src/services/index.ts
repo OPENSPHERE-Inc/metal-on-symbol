@@ -1,2 +1,2 @@
-export * from "./symbol";
 export * from "./metal";
+export * from "./symbol";

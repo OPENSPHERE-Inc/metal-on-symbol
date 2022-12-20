@@ -22,7 +22,7 @@ describe("Fetch CLI", () => {
         inputFile = process.env.TEST_INPUT_FILE;
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
 
-        const assets = await MetalTest.generateAssets();
+        const assets = await SymbolTest.generateAssets();
         targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
@@ -45,10 +45,10 @@ describe("Fetch CLI", () => {
             metalId,
         ]);
 
-        expect(output?.key).toStrictEqual(key);
+        expect(output?.key?.toDTO()).toStrictEqual(key.toDTO());
         expect(output?.type).toBe(MetadataType.Account);
-        expect(output?.sourceAddress).toStrictEqual(signerAccount.address);
-        expect(output?.targetAddress).toStrictEqual(targetAccount.address);
+        expect(output?.sourceAddress.toDTO()).toStrictEqual(signerAccount.address.toDTO());
+        expect(output?.targetAddress.toDTO()).toStrictEqual(targetAccount.address.toDTO());
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId).toBeUndefined();
         expect(output?.payload.buffer).toStrictEqual(testData.buffer);
@@ -74,10 +74,10 @@ describe("Fetch CLI", () => {
             metalId,
         ]);
 
-        expect(output?.key).toStrictEqual(key);
+        expect(output?.key?.toDTO()).toStrictEqual(key.toDTO());
         expect(output?.type).toBe(MetadataType.Mosaic);
-        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
-        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
+        expect(output?.sourceAddress.toDTO()).toStrictEqual(targetAccount.address.toDTO());
+        expect(output?.targetAddress.toDTO()).toStrictEqual(signerAccount.address.toDTO());
         expect(output?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(output?.namespaceId).toBeUndefined();
         expect(output?.payload.buffer).toStrictEqual(testData.buffer);
@@ -103,10 +103,10 @@ describe("Fetch CLI", () => {
             metalId,
         ]);
 
-        expect(output?.key).toStrictEqual(key);
+        expect(output?.key?.toDTO()).toStrictEqual(key.toDTO());
         expect(output?.type).toBe(MetadataType.Namespace);
-        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
-        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
+        expect(output?.sourceAddress.toDTO()).toStrictEqual(targetAccount.address.toDTO());
+        expect(output?.targetAddress.toDTO()).toStrictEqual(signerAccount.address.toDTO());
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(output?.payload.buffer).toStrictEqual(testData.buffer);
@@ -134,10 +134,10 @@ describe("Fetch CLI", () => {
             "-k", key.toHex(),
         ]);
 
-        expect(output?.metalId).toStrictEqual(metalId);
+        expect(output?.metalId).toBe(metalId);
         expect(output?.type).toBe(MetadataType.Account);
-        expect(output?.sourceAddress).toStrictEqual(signerAccount.address);
-        expect(output?.targetAddress).toStrictEqual(targetAccount.address);
+        expect(output?.sourceAddress.toDTO()).toStrictEqual(signerAccount.address.toDTO());
+        expect(output?.targetAddress.toDTO()).toStrictEqual(targetAccount.address.toDTO());
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId).toBeUndefined();
 
@@ -165,10 +165,10 @@ describe("Fetch CLI", () => {
             "-k", key.toHex(),
         ]);
 
-        expect(output?.metalId).toStrictEqual(metalId);
+        expect(output?.metalId).toBe(metalId);
         expect(output?.type).toBe(MetadataType.Mosaic);
-        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
-        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
+        expect(output?.sourceAddress.toDTO()).toStrictEqual(targetAccount.address.toDTO());
+        expect(output?.targetAddress.toDTO()).toStrictEqual(signerAccount.address.toDTO());
         expect(output?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(output?.namespaceId).toBeUndefined();
 
@@ -197,10 +197,10 @@ describe("Fetch CLI", () => {
             "--key", key.toHex(),
         ]);
 
-        expect(output?.metalId).toStrictEqual(metalId);
+        expect(output?.metalId).toBe(metalId);
         expect(output?.type).toBe(MetadataType.Namespace);
-        expect(output?.sourceAddress).toStrictEqual(targetAccount.address);
-        expect(output?.targetAddress).toStrictEqual(signerAccount.address);
+        expect(output?.sourceAddress.toDTO()).toStrictEqual(targetAccount.address.toDTO());
+        expect(output?.targetAddress.toDTO()).toStrictEqual(signerAccount.address.toDTO());
         expect(output?.mosaicId).toBeUndefined();
         expect(output?.namespaceId?.toHex()).toBe(namespaceId.toHex());
 

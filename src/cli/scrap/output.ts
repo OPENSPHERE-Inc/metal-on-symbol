@@ -1,7 +1,7 @@
-import {Utils} from "../../libs";
 import Long from "long";
 import {IntermediateOutput} from "../intermediate";
 import {Logger} from "../../libs";
+import {SymbolService} from "../../services";
 
 
 export namespace ScrapOutput {
@@ -24,7 +24,7 @@ export namespace ScrapOutput {
             `  Metadata Key: ${output.key?.toHex()}\n` +
             `  Additive: ${output.additive}\n` +
             `  # of Aggregate TXs: ${output.batches.length}\n` +
-            `  TX Fee: ${Utils.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
+            `  TX Fee: ${SymbolService.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
             `  Signer Address: ${output.signerPubAccount.address.plain()}\n` +
             `  Network Type: ${output.networkType}\n`
         );

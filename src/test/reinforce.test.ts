@@ -10,16 +10,16 @@ import {
     TransferTransaction,
     Mosaic,
     UInt64,
-    PlainMessage
+    PlainMessage,
 } from "symbol-sdk";
-import {initTestEnv, MetalTest, SymbolTest} from "./utils";
+import {initTestEnv, symbolService, SymbolTest} from "./utils";
 import assert from "assert";
 import {ForgeCLI, ScrapCLI} from "../cli";
 import {ReinforceCLI} from "../cli";
 import fs from "fs";
-import {MetalService, SymbolService} from "../services";
+import {MetalService} from "../services";
 import {writeIntermediateFile} from "../cli/intermediate";
-
+import {SignedAggregateTx} from "../../symbol-service";
 
 
 describe("Reinforce CLI", () => {
@@ -38,7 +38,7 @@ describe("Reinforce CLI", () => {
         assert(process.env.TEST_OUTPUT_FILE);
         outputFile = process.env.TEST_OUTPUT_FILE;
 
-        const assets = await MetalTest.generateAssets();
+        const assets = await SymbolTest.generateAssets();
         targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
@@ -49,6 +49,20 @@ describe("Reinforce CLI", () => {
             fs.unlinkSync(outputFile);
         }
     });
+
+    const compareBatches = (batches1?: SignedAggregateTx[], batches2?: SignedAggregateTx[]) => {
+        batches1?.forEach((batch, index) => {
+            expect(batch.signedTx.payload).toStrictEqual(batches2?.[index].signedTx.payload);
+            expect(batch.maxFee.toDTO()).toStrictEqual(batches2?.[index].maxFee.toDTO());
+            expect(batch.cosignatures.map(
+                ({ signature, signerPublicKey, parentHash}) =>
+                    ({ signature, signerPublicKey, parentHash }))
+            ).toStrictEqual(batches2?.[index].cosignatures.map(
+                ({ signature, signerPublicKey, parentHash}) =>
+                    ({ signature, signerPublicKey, parentHash }))
+            );
+        });
+    };
 
     it("Forge Account Metal", async() => {
         const { signerAccount } = await SymbolTest.getNamedAccounts();
@@ -76,16 +90,16 @@ describe("Reinforce CLI", () => {
             inputFile,
         ]);
 
+        compareBatches(estimateOutput?.batches, forgeOutput?.batches);
         expect(estimateOutput?.metalId).toBe(forgeOutput?.metalId);
         expect(estimateOutput?.command).toBe("forge");
         expect(estimateOutput?.status).toBe("estimated");
         expect(estimateOutput?.payload.buffer).toStrictEqual(forgeOutput?.payload.buffer);
-        expect(estimateOutput?.totalFee).toStrictEqual(forgeOutput?.totalFee);
-        expect(estimateOutput?.batches).toStrictEqual(forgeOutput?.batches);
+        expect(estimateOutput?.totalFee.toDTO()).toStrictEqual(forgeOutput?.totalFee.toDTO());
         expect(estimateOutput?.type).toBe(forgeOutput?.type);
         expect(estimateOutput?.sourcePubAccount).toStrictEqual(forgeOutput?.sourcePubAccount);
         expect(estimateOutput?.targetPubAccount).toStrictEqual(forgeOutput?.targetPubAccount);
-        expect(estimateOutput?.key).toStrictEqual(forgeOutput?.key);
+        expect(estimateOutput?.key?.toDTO()).toStrictEqual(forgeOutput?.key?.toDTO());
         expect(estimateOutput?.mosaicId?.toHex()).toBe(forgeOutput?.mosaicId);
         expect(estimateOutput?.namespaceId?.toHex()).toBe(forgeOutput?.namespaceId?.toHex());
         expect(estimateOutput?.additive).toBe(forgeOutput?.additive);
@@ -124,15 +138,15 @@ describe("Reinforce CLI", () => {
             inputFile,
         ]);
 
+        compareBatches(estimateOutput?.batches, scrapOutput?.batches);
         expect(estimateOutput?.metalId).toBe(scrapOutput?.metalId);
         expect(estimateOutput?.command).toBe("scrap");
         expect(estimateOutput?.status).toBe("estimated");
-        expect(estimateOutput?.totalFee).toStrictEqual(scrapOutput?.totalFee);
-        expect(estimateOutput?.batches).toStrictEqual(scrapOutput?.batches);
+        expect(estimateOutput?.totalFee.toDTO()).toStrictEqual(scrapOutput?.totalFee.toDTO());
         expect(estimateOutput?.type).toBe(scrapOutput?.type);
         expect(estimateOutput?.sourcePubAccount).toStrictEqual(scrapOutput?.sourcePubAccount);
         expect(estimateOutput?.targetPubAccount).toStrictEqual(scrapOutput?.targetPubAccount);
-        expect(estimateOutput?.key).toStrictEqual(scrapOutput?.key);
+        expect(estimateOutput?.key?.toDTO()).toStrictEqual(scrapOutput?.key?.toDTO());
         expect(estimateOutput?.mosaicId?.toHex()).toBe(scrapOutput?.mosaicId);
         expect(estimateOutput?.namespaceId?.toHex()).toBe(scrapOutput?.namespaceId?.toHex());
         expect(estimateOutput?.additive).toBe(scrapOutput?.additive);
@@ -187,7 +201,7 @@ describe("Reinforce CLI", () => {
                 outputFile,
                 inputFile,
             ]);
-        }).rejects.toThrowError("Intermediate TXs validation failed.");
+        }).rejects.toThrowError("Input file is wrong or broken.");
 
         // Manipulated sourceAccount
         writeIntermediateFile({
@@ -201,7 +215,7 @@ describe("Reinforce CLI", () => {
                 outputFile,
                 inputFile,
             ]);
-        }).rejects.toThrowError("Intermediate TXs validation failed.");
+        }).rejects.toThrowError("Transaction's hash was mismatched.");
 
         // Manipulated targetAccount
         writeIntermediateFile({
@@ -215,7 +229,7 @@ describe("Reinforce CLI", () => {
                 outputFile,
                 inputFile,
             ]);
-        }).rejects.toThrowError("Intermediate TXs validation failed.");
+        }).rejects.toThrowError("Transaction's hash was mismatched.");
 
         // Manipulated mosaicId
         const forgeOutput3 = await ForgeCLI.main([
@@ -241,7 +255,7 @@ describe("Reinforce CLI", () => {
                 outputFile,
                 inputFile,
             ]);
-        }).rejects.toThrowError("Intermediate TXs validation failed.");
+        }).rejects.toThrowError("Transaction's hash was mismatched.");
 
         // Manipulated namespaceId
         const forgeOutput4 = await ForgeCLI.main([
@@ -267,10 +281,10 @@ describe("Reinforce CLI", () => {
                 outputFile,
                 inputFile,
             ]);
-        }).rejects.toThrowError("Intermediate TXs validation failed.");
+        }).rejects.toThrowError("Transaction's hash was mismatched.");
 
         // Contamination
-        const { epochAdjustment, networkCurrencyMosaicId, networkType } = await SymbolService.getNetwork();
+        const { epochAdjustment, networkCurrencyMosaicId, networkType } = await symbolService.getNetwork();
         const txs = [
             TransferTransaction.create(
                 Deadline.create(epochAdjustment),
@@ -280,19 +294,14 @@ describe("Reinforce CLI", () => {
                 networkType,
             ).toAggregate(targetAccount.publicAccount)
         ];
-        const batches = await SymbolService.buildSignedAggregateCompleteTxBatches(txs, signerAccount);
-
-        writeIntermediateFile({
-            ...forgeOutput1,
-            batches: [ ...forgeOutput1.batches, ...batches ],
-        }, outputFile);
+        const batches = await symbolService.buildSignedAggregateCompleteTxBatches(txs, signerAccount);
 
         await expect(async () => {
-            await ReinforceCLI.main([
-                "-f",
-                outputFile,
-                inputFile,
-            ]);
-        }).rejects.toThrowError("Intermediate TXs validation failed.");
+            writeIntermediateFile({
+                ...forgeOutput1,
+                batches: [ ...forgeOutput1.batches, ...batches ],
+            }, outputFile);
+        }).rejects.toThrowError("The transaction type must be account/mosaic/namespace metadata.");
+
     }, 600000);
 });

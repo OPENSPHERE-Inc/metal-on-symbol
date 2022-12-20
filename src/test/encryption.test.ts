@@ -45,8 +45,8 @@ describe("Encrypt/Decrypt CLI", () => {
         ]);
 
         expect(output?.payload).toBeDefined();
-        expect(output?.senderPubAccount).toStrictEqual(signerAccount.publicAccount);
-        expect(output?.recipientPubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(output?.senderPubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
+        expect(output?.recipientPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
         expect(fs.existsSync(encryptedFile)).toBeTruthy();
 
         const plain = fs.readFileSync(inputFile);
@@ -68,8 +68,8 @@ describe("Encrypt/Decrypt CLI", () => {
         ]);
 
         expect(output?.payload).toBeDefined();
-        expect(output?.senderPubAccount).toStrictEqual(signerAccount.publicAccount);
-        expect(output?.recipientPubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(output?.senderPubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
+        expect(output?.recipientPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
         expect(fs.existsSync(encryptedFile)).toBeTruthy();
 
         const plain = fs.readFileSync(inputFile);

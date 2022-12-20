@@ -3,9 +3,9 @@ import assert from "assert";
 import {MetalService} from "../../services";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {FetchOutput} from "./output";
-import {SymbolService} from "../../services";
 import {Logger} from "../../libs";
 import {writeStreamOutput} from "../stream";
+import {metalService, symbolService} from "../common";
 
 
 export namespace FetchCLI {
@@ -35,7 +35,7 @@ export namespace FetchCLI {
 
         if (input.metalId) {
             Logger.debug(`Fetching metal ${input.metalId}`);
-            const result = await MetalService.fetchByMetalId(input.metalId);
+            const result = await metalService.fetchByMetalId(input.metalId);
             if (!result) {
                 throw new Error(`The metal fetch failed.`);
             }
@@ -60,14 +60,14 @@ export namespace FetchCLI {
                         ? `namespace:${targetId?.toHex()}`
                         : `account:${targetAddress.plain()}`
             }`);
-            payload = await MetalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+            payload = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
         }
 
         if (!input.noSave) {
             writeStreamOutput(payload, input.outputPath);
         }
 
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
         const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
         const output: FetchOutput.CommandlineOutput = {
             type,

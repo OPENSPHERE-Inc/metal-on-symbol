@@ -1,10 +1,9 @@
 import {VerifyInput} from "./input";
 import assert from "assert";
-import {doVerify} from "../common";
+import {doVerify, metalService, symbolService} from "../common";
 import {MetalService} from "../../services";
 import {VerifyOutput} from "./output";
 import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {SymbolService} from "../../services";
 import {readStreamInput} from "../stream";
 
 
@@ -37,7 +36,7 @@ export namespace VerifyCLI {
 
         if (input.metalId) {
             // Obtain type, sourceAddress, targetAddress, key and targetId here.
-            const metadataEntry = (await MetalService.getFirstChunk(input.metalId)).metadataEntry;
+            const metadataEntry = (await metalService.getFirstChunk(input.metalId)).metadataEntry;
             type = metadataEntry.metadataType
             sourceAddress = metadataEntry.sourceAddress;
             targetAddress = metadataEntry.targetAddress;
@@ -59,7 +58,7 @@ export namespace VerifyCLI {
             targetId,
         );
 
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
         const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
         const output: VerifyOutput.CommandlineOutput = {
             type,

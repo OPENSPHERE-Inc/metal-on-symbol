@@ -23,7 +23,7 @@ describe("Scrap CLI", () => {
         inputFile = process.env.TEST_INPUT_FILE;
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
 
-        const assets = await MetalTest.generateAssets();
+        const assets = await SymbolTest.generateAssets();
         targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
@@ -51,8 +51,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Account);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(signerAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
@@ -91,8 +91,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Mosaic);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
@@ -131,8 +131,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Namespace);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId).toBeUndefined()
         expect(estimateOutput?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(estimateOutput?.status).toBe("estimated");
@@ -171,8 +171,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Account);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(signerAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
@@ -212,8 +212,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Mosaic);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId?.toHex()).toBe(mosaicId.toHex());
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(estimateOutput?.status).toBe("estimated");
@@ -255,8 +255,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Namespace);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(targetAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(signerAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId).toBeUndefined()
         expect(estimateOutput?.namespaceId?.toHex()).toBe(namespaceId.toHex());
         expect(estimateOutput?.status).toBe("estimated");
@@ -299,8 +299,8 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.metalId).toBeDefined();
         expect(estimateOutput?.metalId).toBe(metalId);
         expect(estimateOutput?.type).toBe(MetadataType.Account);
-        expect(estimateOutput?.sourcePubAccount).toStrictEqual(signerAccount.publicAccount);
-        expect(estimateOutput?.targetPubAccount).toStrictEqual(targetAccount.publicAccount);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
         expect(additiveBytes).toStrictEqual(generatedAdditiveBytes);

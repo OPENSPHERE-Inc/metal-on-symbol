@@ -1,0 +1,3 @@
+[submodule "symbol-service"]
+	path = symbol-service
+	url = https://github.com/OPENSPHERE-Inc/symbol-service.git

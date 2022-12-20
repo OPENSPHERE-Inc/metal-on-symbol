@@ -4,8 +4,7 @@ import fs from "fs";
 import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
 import {ScrapOutput} from "./output";
 import {MetalService} from "../../services";
-import {SymbolService} from "../../services";
-import {buildAndExecuteBatches, designateCosigners} from "../common";
+import {buildAndExecuteBatches, designateCosigners, metalService, symbolService} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 import {Logger} from "../../libs";
 
@@ -16,7 +15,7 @@ export namespace ScrapCLI {
         input: Readonly<ScrapInput.CommandlineInput>,
         payload?: Uint8Array,
     ): Promise<ScrapOutput.CommandlineOutput> => {
-        const { networkType } = await SymbolService.getNetwork();
+        const { networkType } = await symbolService.getNetwork();
         assert(input.signerAccount);
 
         const signerPubAccount = input.signerAccount.publicAccount;
@@ -29,7 +28,7 @@ export namespace ScrapCLI {
         let additiveBytes = input.additiveBytes;
 
         if (metalId) {
-            const metadataEntry = (await MetalService.getFirstChunk(metalId)).metadataEntry;
+            const metadataEntry = (await metalService.getFirstChunk(metalId)).metadataEntry;
             // Obtain type, key and targetId here.
             type = metadataEntry.metadataType
             key = metadataEntry.scopedMetadataKey;
@@ -68,7 +67,7 @@ export namespace ScrapCLI {
 
         Logger.debug(`Scanning on-chain chunks of the metal ${metalId}`);
         const txs = (payload)
-            ? await MetalService.createDestroyTxs(
+            ? await metalService.createDestroyTxs(
                 type,
                 sourcePubAccount,
                 targetPubAccount,
@@ -76,7 +75,7 @@ export namespace ScrapCLI {
                 payload,
                 additiveBytes,
             )
-            : await MetalService.createScrapTxs(
+            : await metalService.createScrapTxs(
                 type,
                 sourcePubAccount,
                 targetPubAccount,

@@ -1,2 +1,1 @@
-export * from "./utils";
-export * from "./logger";
+export { Logger } from "symbol-service";
