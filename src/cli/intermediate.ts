@@ -9,9 +9,8 @@ import {
     UInt64
 } from "symbol-sdk";
 import {Logger} from "../libs";
-import {SignedAggregateTx} from "../services";
+import {SignedAggregateTx, MetadataTransaction} from "../services";
 import fs from "fs";
-import {MetadataTransaction} from "../../symbol-service";
 
 
 export const VERSION = "2.0";

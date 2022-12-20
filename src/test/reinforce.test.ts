@@ -17,9 +17,8 @@ import assert from "assert";
 import {ForgeCLI, ScrapCLI} from "../cli";
 import {ReinforceCLI} from "../cli";
 import fs from "fs";
-import {MetalService} from "../services";
+import {MetalService, SignedAggregateTx} from "../services";
 import {writeIntermediateFile} from "../cli/intermediate";
-import {SignedAggregateTx} from "../../symbol-service";
 
 
 describe("Reinforce CLI", () => {

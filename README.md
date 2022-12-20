@@ -813,14 +813,14 @@ const metalService = new MetalService(symbolService);
 
 - `config: SymbolServiceConfig` - コンフィグを指定
   - `node_url: string` - (Required) ノードURL
-  - `logging: boolean` - **(Optional)** ログ出力（デフォルト true）
   - `fee_ratio: number` - **(Optional)** トランザクション手数料率 (0.0 ～ 1.0, デフォルト 0.0）
   - `deadline_hours: number` - **(Optional)** トランザクション有効期限（デフォルト 5 時間）
   - `batch_size: number` - **(Optional)** Aggregate インナートランザクション最大数（デフォルト 100）
   - `max_parallels: number` - **(Optional)** トランザクションアナウンス並列数（デフォルト 10）
   - `repo_factory_config: RepositoryFactoryConfig` - **(Optional)** Symbol SDK の RepositoryFactoryHttp コンストラクタに渡すコンフィグ  
-
-サンプルコード
+  - `repo_factory: RepositoryFactoryHttp` - **(Optional)** RepositoryFactoryHttp インスタンスそのもの
+    
+**サンプルコード**
 
 ```typescript
 import {MetalService} from "./metal";
@@ -967,7 +967,7 @@ const metalId = MetalService.calculateMetalId(
 
 - `string` - 計算された `Metal ID`
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge.ts)**
 
 ```typescript
 const forgeMetal = async (
@@ -1044,7 +1044,7 @@ const metadataPool = await symbolService.searchMetadata(
 得られたメタデータリストを `metalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
 あとは同じようにトランザクションへ署名してアナウンスしてください。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge_recover.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/forge_recover.ts)**
 
 ```typescript
 const forgeMetal = async (
@@ -1102,7 +1102,7 @@ const result = await metalService.fetchByMetalId(metalId);
 
 `Metal ID` が見つからない場合は例外をスローします。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch.ts)**
 
 #### 先頭チャンクメタデータで Fetch
 
@@ -1124,7 +1124,7 @@ const payload = await metalService.fetch(type, sourceAddress, targetAddress, tar
 
 - `Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch_by_key.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch_by_key.ts)**
 
 ### 6.5. Scrap
 
@@ -1181,7 +1181,7 @@ const txs = await metalService.createScrapTxs(
 
 後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/scrap.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/scrap.ts)**
 
 ```typescript
 const scrapMetal = async (
@@ -1254,7 +1254,7 @@ const txs = await metalService.createDestroyTxs(
 
 後は Forge と同様に生成されたトランザクションに署名してアナウンスしてください。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/scrap_by_payload.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/scrap_by_payload.ts)**
 
 ```typescript
 const destroyMetal = async (
@@ -1328,7 +1328,7 @@ const { mismatches, maxLength } = await metalService.verify(
 - `mismatches: number` - ミスマッチしたバイト数。ゼロならデータ完全一致
 - `maxLength: number` - 元ファイル、オンチェーンの何れか、サイズが大きい方のバイト数
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/verify.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/verify.ts)**
 
 ```typescript
 const verifyMetal = async (
@@ -1374,7 +1374,7 @@ const payloadBase64 = MetalService.decode(key, metadataPool);
 
 - `string` - base64 文字列。チャンクが壊れていても途中までの文字列が返ります。
 
-[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/decode.ts)
+**[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/decode.ts)**
 
 ```typescript
 const payloadBase64 = MetalService.decode(key, metadataPool);
