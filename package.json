@@ -58,9 +58,6 @@
     "testMatch": [
       "**/test/**/*.test.ts"
     ],
-    "testPathIgnorePatterns": [
-      "symbol-service"
-    ],
     "testEnvironment": "node"
   },
   "scripts": {
@@ -76,10 +73,7 @@
     "encrypt": "node dist/cli/main.js encrypt",
     "decrypt": "node dist/cli/main.js decrypt",
     "build-pack": "yarn build && yarn pack",
-    "build-publish": "yarn build && yarn publish",
-    "pull-submod": "cd symbol-service && git pull origin master",
-    "build-submod": "cd symbol-service && yarn && yarn build",
-    "upgrade-submod": "yarn pull-submod && yarn build-submod && yarn upgrade symbol-service"
+    "build-publish": "yarn build && yarn publish"
   },
   "bin": {
     "metal": "./dist/cli/main.js"
