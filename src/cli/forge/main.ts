@@ -1,9 +1,16 @@
-import {Convert, MetadataType, UInt64} from "symbol-sdk";
+import {Convert, MetadataType} from "symbol-sdk";
 import assert from "assert";
 import {ForgeInput} from "./input";
 import {ForgeOutput} from "./output";
 import {MetalService} from "../../services";
-import {buildAndExecuteBatches, designateCosigners, doVerify, metalService, symbolService} from "../common";
+import {
+    buildAndExecuteBatches,
+    buildAndExecuteUndeadBatches, deadlineMinHours,
+    designateCosigners,
+    doVerify,
+    metalService,
+    symbolService
+} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
@@ -39,6 +46,7 @@ export namespace ForgeCLI {
             input.additiveBytes,
             metadataPool,
         );
+        assert(txs.length);
 
         const metalId = MetalService.calculateMetalId(
             input.type,
@@ -75,17 +83,28 @@ export namespace ForgeCLI {
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
-        const { batches, totalFee } = txs.length
-            ? await buildAndExecuteBatches(
+        const { batches, undeadBatches, totalFee } = input.deadlineHours > deadlineMinHours
+            ? await buildAndExecuteUndeadBatches(
                 txs,
                 input.signerAccount,
                 designatedCosignerAccounts,
                 input.feeRatio,
+                input.requiredCosignatures || designatedCosignerAccounts.length,
+                input.deadlineHours,
                 input.maxParallels,
                 canAnnounce,
                 !input.force && !input.stdin,
             )
-            : { batches: [], totalFee: UInt64.fromUint(0) };
+            : await buildAndExecuteBatches(
+                txs,
+                input.signerAccount,
+                designatedCosignerAccounts,
+                input.feeRatio,
+                input.requiredCosignatures || designatedCosignerAccounts.length,
+                input.maxParallels,
+                canAnnounce,
+                !input.force && !input.stdin,
+            );
 
         if (input.verify && key && canAnnounce) {
             await doVerify(
@@ -102,6 +121,7 @@ export namespace ForgeCLI {
             command: "forge",
             networkType,
             batches,
+            undeadBatches,
             key,
             totalFee,
             additive: Convert.uint8ToUtf8(additiveBytes),

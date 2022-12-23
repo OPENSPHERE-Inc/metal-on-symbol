@@ -1,5 +1,5 @@
 import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
-import {initCliEnv, isValueOption, NodeInput} from "../common";
+import {deadlineMinHours, initCliEnv, isValueOption, NodeInput} from "../common";
 import fs from "fs";
 import {VERSION} from "./version";
 import {AccountsInput, validateAccountsInput} from "../accounts";
@@ -14,6 +14,7 @@ export namespace ScrapInput {
     export interface CommandlineInput extends NodeInput, AccountsInput {
         version: string;
         additive?: string;
+        deadlineHours: number;
         estimate: boolean;
         feeRatio: number;
         filePath?: string;
@@ -24,6 +25,7 @@ export namespace ScrapInput {
         mosaicId?: MosaicId;
         namespaceId?: NamespaceId;
         outputPath?: string;
+        requiredCosignatures?: number;
         type?: MetadataType;
 
         // Filled by validator
@@ -40,6 +42,7 @@ export namespace ScrapInput {
             maxParallels: 10,
             force: false,
             feeRatio: Number(process.env.FEE_RATIO || 0),
+            deadlineHours: deadlineMinHours,
         };
 
         for (let i = 0; i < argv.length; i++) {
@@ -60,6 +63,15 @@ export namespace ScrapInput {
                         throw new Error(`${token} must has cosigner's private_key as a value.`);
                     }
                     input.cosignerPrivateKeys = [ ...(input.cosignerPrivateKeys || []), value ];
+                    break;
+                }
+
+                case "--deadline": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${token} must has hours (integer) as a value.`);
+                    }
+                    input.deadlineHours = Math.floor(Number(value));
                     break;
                 }
 
@@ -136,6 +148,16 @@ export namespace ScrapInput {
 
                     input.type = MetadataType.Namespace;
                     input.namespaceId = SymbolService.createNamespaceId(value);
+                    break;
+                }
+
+                case "--num-cosigs": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${value} must has number as a value.`);
+                    }
+
+                    input.requiredCosignatures = Math.floor(Number(value));
                     break;
                 }
 
@@ -267,6 +289,12 @@ export namespace ScrapInput {
             }
             input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
+        if (input.deadlineHours < deadlineMinHours) {
+            throw new Error(`[--deadline hours] must be ${deadlineMinHours} hours or longer.`);
+        }
+        if (input.requiredCosignatures !== undefined && input.requiredCosignatures === 0) {
+            throw new Error("[--num-cosigs value] must not be zero.");
+        }
 
         return validateAccountsInput(input, !input.force);
     };
@@ -281,6 +309,7 @@ export namespace ScrapInput {
             `Options:\n` +
             `  --additive value       Specify additive with 4 ascii characters (e.g. "A123", default:0000)\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
+            `  --deadline hours       Specify intermediate TX deadline in hours (default:5, must be 5 hours or longer)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
             `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
             `                         Higher ratio may get fast TX but higher cost\n` +
@@ -295,8 +324,9 @@ export namespace ScrapInput {
             `  -n namespace_name,\n` +
             `  --namespace value      Specify namespace_name and demand Namespace Metal\n` +
             `  --node-url node_url    Specify network node_url\n` +
+            `  --num-cosigs value     Specify number of required cosignatures for precise fee estimation\n` +
             `  -o output_path.json,\n` +
-            `  --out value            Specify JSON file output_path.json that will contain serialized TXs\n` +
+            `  --out value            Specify JSON file output_path.json that will contain intermediate TX\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
             `  -s public_key,\n` +
