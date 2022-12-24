@@ -15,6 +15,7 @@ import {AggregateUndeadTransaction, UndeadSignature} from "@opensphere-inc/symbo
 
 
 export const VERSION = "2.1";
+export const SUPPORTED_VERSION = /^2\.[0-1]$/;
 
 export interface IntermediateTxs {
     version: string;
@@ -149,7 +150,7 @@ export const readIntermediateFile = (filePath: string) => {
     }
 
     const intermediateTxs = JSON.parse(intermediateJson) as IntermediateTxs;
-    if (intermediateTxs.version !== VERSION) {
+    if (!intermediateTxs.version.match(SUPPORTED_VERSION)) {
         throw new Error(`${filePath}: Unsupported version ${intermediateTxs.version}`);
     }
 

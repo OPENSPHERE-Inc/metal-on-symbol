@@ -135,30 +135,12 @@ export namespace ReinforceCLI {
                 return referenceTx;
             });
 
-            // Insert lock metadata
-            const nonce = new UInt64(tx.nonce);
-            innerTxs.push(await symbolService.createMetadataTx(
-                MetadataType.Account,
+            return necromancyService.retrieveTx(
+                innerTxs,
                 signerPubAccount,
-                signerPubAccount,
-                undefined,
-                nonce,
-                "1",
-            ));
-
-            return new AggregateUndeadTransaction(
-                intermediateTxs.signerPublicKey,
-                // Rebuild reference aggregate tx
-                // Clear inner transaction's deadline (because it's garbage)
-                AggregateTransaction.createComplete(
-                    Deadline.createEmtpy(),
-                    innerTxs,
-                    networkType,
-                    [],
-                    new UInt64(tx.maxFee),
-                ),
                 tx.signatures,
-                nonce,
+                new UInt64(tx.maxFee),
+                new UInt64(tx.nonce),
             );
         }));
     };

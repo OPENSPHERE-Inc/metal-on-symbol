@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -30,7 +30,7 @@
     "typescript": "^4.9.3"
   },
   "dependencies": {
-    "@opensphere-inc/symbol-service": "^1.1.4",
+    "@opensphere-inc/symbol-service": "^1.1.5",
     "bs58": "^5.0.0",
     "dotenv": "^16.0.3",
     "js-base64": "^3.7.3",
