@@ -1,10 +1,16 @@
 import {ScrapInput} from "./input";
 import assert from "assert";
 import fs from "fs";
-import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
+import {Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {ScrapOutput} from "./output";
 import {MetalService} from "../../services";
-import {buildAndExecuteBatches, designateCosigners, metalService, symbolService} from "../common";
+import {
+    buildAndExecuteBatches,
+    buildAndExecuteUndeadBatches, deadlineMinHours,
+    designateCosigners,
+    metalService,
+    symbolService
+} from "../common";
 import {writeIntermediateFile} from "../intermediate";
 import {Logger} from "../../libs";
 
@@ -82,8 +88,8 @@ export namespace ScrapCLI {
                 targetId,
                 key,
             );
-        if (!txs) {
-            throw new Error(`Scrap metal TXs creation failed.`);
+        if (!txs?.length) {
+            throw new Error(`There is nothing to scrap.`);
         }
 
         const { designatedCosignerAccounts, hasEnoughCosigners } = designateCosigners(
@@ -96,22 +102,34 @@ export namespace ScrapCLI {
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
-        const { batches, totalFee } = txs.length
-            ? await buildAndExecuteBatches(
+        const { batches, undeadBatches, totalFee } = input.deadlineHours > deadlineMinHours
+            ? await buildAndExecuteUndeadBatches(
                 txs,
                 input.signerAccount,
                 designatedCosignerAccounts,
                 input.feeRatio,
+                input.requiredCosignatures || designatedCosignerAccounts.length,
+                input.deadlineHours,
                 input.maxParallels,
                 canAnnounce,
                 !input.force,
             )
-            : { batches: [], totalFee: UInt64.fromUint(0) };
+            : await buildAndExecuteBatches(
+                txs,
+                input.signerAccount,
+                designatedCosignerAccounts,
+                input.feeRatio,
+                input.requiredCosignatures || designatedCosignerAccounts.length,
+                input.maxParallels,
+                canAnnounce,
+                !input.force,
+            );
 
         return {
             command: "scrap",
             networkType,
             batches,
+            undeadBatches,
             key,
             totalFee,
             sourcePubAccount,

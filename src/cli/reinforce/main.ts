@@ -4,6 +4,7 @@ import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../i
 import {ReinforceOutput} from "./output";
 import {MetadataTransaction, SymbolService} from "../../services";
 import {
+    Account,
     AggregateTransaction,
     Convert,
     CosignatureSignedTransaction,
@@ -17,11 +18,10 @@ import {
     SignedTransaction,
     UInt64
 } from "symbol-sdk";
-import moment from "moment/moment";
 import {Logger} from "../../libs";
 import {readStreamInput} from "../stream";
-import prompts from "prompts";
-import {metalService, symbolService} from "../common";
+import {announceBatches, metalService, necromancyService, symbolService} from "../common";
+import {AggregateUndeadTransaction, SignedAggregateTx} from "@opensphere-inc/symbol-service";
 
 
 export namespace ReinforceCLI {
@@ -64,6 +64,7 @@ export namespace ReinforceCLI {
         const networkGenerationHashBytes = Array.from(Convert.hexToUint8(networkGenerationHash));
         const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
 
+        assert(intermediateTxs.txs);
         return intermediateTxs.txs.map((tx) => {
             // Collect inner transactions
             const innerTxs = tx.keys.map((key) => {
@@ -119,6 +120,110 @@ export namespace ReinforceCLI {
         });
     };
 
+    const retrieveUndeadBatches = async (intermediateTxs: IntermediateTxs, referenceTxPool: Map<string, InnerTransaction>) => {
+        const {networkType} = await symbolService.getNetwork();
+        const signerPubAccount = PublicAccount.createFromPublicKey(intermediateTxs.signerPublicKey, networkType);
+
+        assert(intermediateTxs.undeadTxs);
+        return Promise.all(intermediateTxs.undeadTxs.map(async (tx) => {
+            // Collect inner transactions
+            const innerTxs = tx.keys.map((key) => {
+                const referenceTx = referenceTxPool.get(key);
+                if (!referenceTx) {
+                    throw new Error("Input file is wrong or broken.");
+                }
+                return referenceTx;
+            });
+
+            return necromancyService.retrieveTx(
+                innerTxs,
+                signerPubAccount,
+                tx.signatures,
+                new UInt64(tx.maxFee),
+                new UInt64(tx.nonce),
+            );
+        }));
+    };
+
+    interface ExecuteBatchesResult {
+        batches?: SignedAggregateTx[],
+        undeadBatches?: AggregateUndeadTransaction[],
+    }
+
+    const buildAndExecuteBatches = async (
+        intermediateTxs: IntermediateTxs,
+        referenceTxPool: Map<string, InnerTransaction>,
+        signerPubAccount: PublicAccount,
+        cosignerAccounts: Account[],
+        maxParallels: number,
+        canAnnounce: boolean,
+        showPrompt: boolean,
+    ): Promise<ExecuteBatchesResult> => {
+        // Retrieve signed txs that can cosign and announce
+        const batches = await retrieveBatches(intermediateTxs, referenceTxPool);
+
+        // Add cosignatures of new cosigners
+        batches.forEach((batch) => {
+            batch.cosignatures.push(
+                ...cosignerAccounts.map(
+                    (cosigner) => CosignatureTransaction.signTransactionHash(cosigner, batch.signedTx.hash)
+                )
+            );
+        });
+
+        if (canAnnounce) {
+            Logger.info(
+                `Announcing ${batches.length} aggregate TXs. ` +
+                `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
+                `will be paid by ${intermediateTxs.command} originator.`
+            );
+            await announceBatches(
+                batches,
+                signerPubAccount,
+                maxParallels,
+                showPrompt,
+            );
+        }
+
+        return {
+            batches,
+        };
+    };
+
+    const buildAndExecuteUndeadBatches = async (
+        intermediateTxs: IntermediateTxs,
+        referenceTxPool: Map<string, InnerTransaction>,
+        signerPubAccount: PublicAccount,
+        cosignerAccounts: Account[],
+        maxParallels: number,
+        canAnnounce: boolean,
+        showPrompt: boolean,
+    ): Promise<ExecuteBatchesResult> => {
+        // Retrieve signed txs that can cosign and announce
+        let undeadBatches = await retrieveUndeadBatches(intermediateTxs, referenceTxPool);
+
+        // Add cosignatures of new cosigners
+        undeadBatches = undeadBatches.map((undeadBatch) => necromancyService.cosignTx(undeadBatch, cosignerAccounts));
+
+        if (canAnnounce) {
+            Logger.info(
+                `Announcing ${undeadBatches.length} aggregate TXs. ` +
+                `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
+                `will be paid by ${intermediateTxs.command} originator.`
+            );
+            await announceBatches(
+                await necromancyService.pickAndCastTxBatches(undeadBatches),
+                signerPubAccount,
+                maxParallels,
+                showPrompt,
+            );
+        }
+
+        return {
+            undeadBatches,
+        };
+    };
+
     const reinforceMetal = async (
         input: Readonly<ReinforceInput.CommandlineInput>,
         intermediateTxs: IntermediateTxs,
@@ -155,53 +260,30 @@ export namespace ReinforceCLI {
             intermediateTxs.additive
         );
 
-        // Retrieve signed txs that can cosign and announce
-        const batches = await retrieveBatches(intermediateTxs, referenceTxPool);
-
-        // Add cosignatures of new cosigners
-        batches.forEach((batch) => {
-            batch.cosignatures.push(
-                ...cosignerAccounts.map(
-                    (cosigner) => CosignatureTransaction.signTransactionHash(cosigner, batch.signedTx.hash)
-                )
+        const { batches, undeadBatches } = intermediateTxs.undeadTxs
+            ? await buildAndExecuteUndeadBatches(
+                intermediateTxs,
+                referenceTxPool,
+                signerPubAccount,
+                cosignerAccounts,
+                input.maxParallels,
+                input.announce,
+                !input.force && !input.stdin
+            )
+            : await buildAndExecuteBatches(
+                intermediateTxs,
+                referenceTxPool,
+                signerPubAccount,
+                cosignerAccounts,
+                input.maxParallels,
+                input.announce,
+                !input.force && !input.stdin
             );
-        });
-
-        if (input.announce) {
-            Logger.info(
-                `Announcing ${batches.length} aggregate TXs. ` +
-                `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
-                `will be paid by ${intermediateTxs.command} originator.`
-            );
-            if (!input.force && !input.stdin) {
-                const decision = (await prompts({
-                    type: "confirm",
-                    name: "decision",
-                    initial: true,
-                    message: "Are you sure announce these TXs?",
-                    stdout: process.stderr,
-                })).decision;
-                if (!decision) {
-                    throw new Error("Canceled by user.");
-                }
-            }
-
-            const startAt = moment.now();
-            const errors = await symbolService.executeBatches(batches, signerPubAccount, input.maxParallels);
-            errors?.forEach(({txHash, error}) => {
-                Logger.error(`${txHash}: ${error}`);
-            });
-
-            if (errors) {
-                throw new Error(`Some errors occurred during announcing.`);
-            } else {
-                Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
-            }
-        }
 
         return {
             networkType,
             batches,
+            undeadBatches,
             key: intermediateTxs.key !== undefined ? UInt64.fromHex(intermediateTxs.key) : undefined,
             totalFee: new UInt64(intermediateTxs.totalFee),
             additive: intermediateTxs.additive,

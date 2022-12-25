@@ -11,9 +11,11 @@ import {
 import {Logger} from "../libs";
 import {SignedAggregateTx, MetadataTransaction} from "../services";
 import fs from "fs";
+import {AggregateUndeadTransaction, UndeadSignature} from "@opensphere-inc/symbol-service";
 
 
-export const VERSION = "2.0";
+export const VERSION = "2.1";
+export const SUPPORTED_VERSION = /^2\.[0-1]$/;
 
 export interface IntermediateTxs {
     version: string;
@@ -29,20 +31,27 @@ export interface IntermediateTxs {
     totalFee: number[];
     additive: string;
     signerPublicKey: string;
-    txs: {
+    txs?: {
+        // Extracted metadata keys
+        keys: string[];
+        maxFee: number[];
         // Tx deadline to retrieve transaction
         deadline: number;
         hash: string;
-        maxFee: number[];
         cosignatures: {
             parentHash: string;
             signature: string;
             signerPublicKey: string;
         }[];
-        // Extracted metadata keys
-        keys: string[];
         // Tx signature instead of tx payload to reduce file size
         signature: string;
+    }[];
+    undeadTxs?: {
+        // Extracted metadata keys
+        keys: string[];
+        maxFee: number[];
+        nonce: number[];
+        signatures: UndeadSignature[];
     }[];
     createdAt: string;
     updatedAt: string;
@@ -57,7 +66,8 @@ export interface IntermediateOutput {
     mosaicId?: MosaicId;
     namespaceId?: NamespaceId;
     networkType: NetworkType;
-    batches: SignedAggregateTx[];
+    batches?: SignedAggregateTx[];
+    undeadBatches?: AggregateUndeadTransaction[];
     signerPubAccount: PublicAccount;
     totalFee: UInt64;
     additive: string;
@@ -65,13 +75,24 @@ export interface IntermediateOutput {
     createdAt: Date;
 }
 
-const batchToIntermediateTx = (batch: SignedAggregateTx) => {
-    const tx = AggregateTransaction.createFromPayload(batch.signedTx.payload);
+const extractMetadataKey = (tx: AggregateTransaction) => {
     const metadataTypes = [
         TransactionType.ACCOUNT_METADATA,
         TransactionType.MOSAIC_METADATA,
         TransactionType.NAMESPACE_METADATA
     ];
+    return tx.innerTransactions.map(
+        (innerTx) => {
+            if (!metadataTypes.includes(innerTx.type)) {
+                throw new Error("The transaction type must be account/mosaic/namespace metadata.");
+            }
+            return (innerTx as MetadataTransaction).scopedMetadataKey.toHex();
+        }
+    );
+};
+
+const batchToIntermediateTx = (batch: SignedAggregateTx) => {
+    const tx = AggregateTransaction.createFromPayload(batch.signedTx.payload);
     return {
         hash: batch.signedTx.hash,
         maxFee: batch.maxFee.toDTO(),
@@ -81,17 +102,21 @@ const batchToIntermediateTx = (batch: SignedAggregateTx) => {
             signerPublicKey: cosignature.signerPublicKey,
         })),
         deadline: tx.deadline.adjustedValue,
-        keys: tx.innerTransactions.map(
-            (innerTx) => {
-                if (!metadataTypes.includes(innerTx.type)) {
-                    throw new Error("The transaction type must be account/mosaic/namespace metadata.");
-                }
-                return (innerTx as MetadataTransaction).scopedMetadataKey.toHex();
-            }
-        ),
+        keys: extractMetadataKey(tx),
         signature: tx.signature || "",
     };
 };
+
+const batchToIntermediateUndeadTx = (batch: AggregateUndeadTransaction) => {
+    const nonceHex = batch.nonce.toHex();
+    return {
+        // Exclude lock metadata transaction.
+        keys: extractMetadataKey(batch.aggregateTx).filter((key) => key !== nonceHex),
+        maxFee: batch.aggregateTx.maxFee.toDTO(),
+        nonce: batch.nonce.toDTO(),
+        signatures: batch.signatures,
+    };
+}
 
 export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, filePath: string) => {
     const intermediateTxs: IntermediateTxs = {
@@ -108,7 +133,8 @@ export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, file
         totalFee: output.totalFee.toDTO(),
         additive: output.additive,
         signerPublicKey: output.signerPubAccount.publicKey,
-        txs: output.batches.map((batch) => batchToIntermediateTx(batch)),
+        txs: output.batches?.map((batch) => batchToIntermediateTx(batch)),
+        undeadTxs: output.undeadBatches?.map((batch) => batchToIntermediateUndeadTx(batch)),
         createdAt: output.createdAt.toISOString(),
         updatedAt: new Date().toISOString(),
     };
@@ -124,7 +150,7 @@ export const readIntermediateFile = (filePath: string) => {
     }
 
     const intermediateTxs = JSON.parse(intermediateJson) as IntermediateTxs;
-    if (intermediateTxs.version !== VERSION) {
+    if (!intermediateTxs.version.match(SUPPORTED_VERSION)) {
         throw new Error(`${filePath}: Unsupported version ${intermediateTxs.version}`);
     }
 

@@ -23,7 +23,7 @@ export namespace ScrapOutput {
             (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
             `  Additive: ${output.additive}\n` +
-            `  # of Aggregate TXs: ${output.batches.length}\n` +
+            `  # of Aggregate TXs: ${output.batches?.length || output.undeadBatches?.length}\n` +
             `  TX Fee: ${SymbolService.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
             `  Signer Address: ${output.signerPubAccount.address.plain()}\n` +
             `  Network Type: ${output.networkType}\n`

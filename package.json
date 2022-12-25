@@ -1,6 +1,6 @@
 {
   "name": "metal-on-symbol",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "Metal on Symbol PoC",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -30,7 +30,7 @@
     "typescript": "^4.9.3"
   },
   "dependencies": {
-    "@opensphere-inc/symbol-service": "^1.0.9",
+    "@opensphere-inc/symbol-service": "^1.1.5",
     "bs58": "^5.0.0",
     "dotenv": "^16.0.3",
     "js-base64": "^3.7.3",
@@ -58,9 +58,6 @@
     "testMatch": [
       "**/test/**/*.test.ts"
     ],
-    "testPathIgnorePatterns": [
-      "symbol-service"
-    ],
     "testEnvironment": "node"
   },
   "scripts": {
@@ -76,10 +73,7 @@
     "encrypt": "node dist/cli/main.js encrypt",
     "decrypt": "node dist/cli/main.js decrypt",
     "build-pack": "yarn build && yarn pack",
-    "build-publish": "yarn build && yarn publish",
-    "pull-submod": "cd symbol-service && git pull origin master",
-    "build-submod": "cd symbol-service && yarn && yarn build",
-    "upgrade-submod": "yarn pull-submod && yarn build-submod && yarn upgrade symbol-service"
+    "build-publish": "yarn build && yarn publish"
   },
   "bin": {
     "metal": "./dist/cli/main.js"

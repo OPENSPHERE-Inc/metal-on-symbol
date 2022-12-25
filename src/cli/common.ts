@@ -13,11 +13,15 @@ import {Logger} from "../libs";
 import Long from "long";
 import moment from "moment";
 import prompts from "prompts";
+import {AggregateUndeadTransaction, NecromancyService, SignedAggregateTx} from "@opensphere-inc/symbol-service";
 
 
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 export let symbolService: SymbolService;
 export let metalService: MetalService;
+export let necromancyService: NecromancyService;
+export const deadlineMinHours = 5;
+export const deadlineMarginHours = 1;
 
 export interface NodeInput {
     nodeUrl?: string;
@@ -31,13 +35,17 @@ export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRat
     symbolService = new SymbolService({
         node_url: input.nodeUrl,
         fee_ratio: feeRatio,
-        deadline_hours: 5,
+        deadline_hours: deadlineMinHours,
     });
 
     const { networkType } = await symbolService.getNetwork();
     Logger.debug(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
 
     metalService = new MetalService(symbolService);
+    necromancyService = new NecromancyService(symbolService, {
+        deadlineUnitHours: symbolService.config.deadline_hours,
+        deadlineMarginHours: deadlineMarginHours,
+    });
 };
 
 export const designateCosigners = (
@@ -76,15 +84,54 @@ export const designateCosigners = (
     };
 };
 
+export const announceBatches = async (
+    batches: SignedAggregateTx[],
+    signerAccount: Account | PublicAccount,
+    maxParallels: number,
+    showPrompt: boolean
+) => {
+    if (showPrompt) {
+        const decision = (await prompts({
+            type: "confirm",
+            name: "decision",
+            message: "Are you sure announce these TXs?",
+            initial: true,
+            stdout: process.stderr,
+        })).decision;
+        if (!decision) {
+            throw new Error("Canceled by user.");
+        }
+    }
+
+    const startAt = moment.now();
+    const errors = await symbolService.executeBatches(batches, signerAccount, maxParallels);
+    errors?.forEach(({txHash, error}) => {
+        Logger.error(`${txHash}: ${error}`);
+    });
+
+    if (errors) {
+        throw new Error(`Some errors occurred during announcing.`);
+    } else {
+        Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
+    }
+};
+
+interface ExecuteBatchesResult {
+    totalFee: UInt64,
+    batches?: SignedAggregateTx[],
+    undeadBatches?: AggregateUndeadTransaction[],
+}
+
 export const buildAndExecuteBatches = async (
     txs: InnerTransaction[],
     signerAccount: Account,
     cosignerAccounts: Account[],
     feeRatio: number,
+    requiredCosignatures: number,
     maxParallels: number,
     canAnnounce: boolean,
     showPrompt: boolean,
-) => {
+): Promise<ExecuteBatchesResult> => {
     const { networkProperties } = await symbolService.getNetwork();
     const batchSize = Number(networkProperties.plugins.aggregate?.maxTransactionsPerAggregate || 100);
 
@@ -94,9 +141,12 @@ export const buildAndExecuteBatches = async (
         cosignerAccounts,
         feeRatio,
         batchSize,
+        requiredCosignatures,
     );
+
     const totalFee = batches.reduce(
-        (acc, curr) => acc.add(curr.maxFee), UInt64.fromUint(0)
+        (acc, curr) => acc.add(curr.maxFee),
+        UInt64.fromUint(0)
     );
 
     if (canAnnounce) {
@@ -104,34 +154,64 @@ export const buildAndExecuteBatches = async (
             `Announcing ${batches.length} aggregate TXs ` +
             `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-        if (showPrompt) {
-            const decision = (await prompts({
-                type: "confirm",
-                name: "decision",
-                message: "Are you sure announce these TXs?",
-                initial: true,
-                stdout: process.stderr,
-            })).decision;
-            if (!decision) {
-                throw new Error("Canceled by user.");
-            }
-        }
-
-        const startAt = moment.now();
-        const errors = await symbolService.executeBatches(batches, signerAccount, maxParallels);
-        errors?.forEach(({txHash, error}) => {
-            Logger.error(`${txHash}: ${error}`);
-        });
-
-        if (errors) {
-            throw new Error(`Some errors occurred during announcing.`);
-        } else {
-            Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
-        }
+       await announceBatches(
+           batches,
+           signerAccount,
+           maxParallels,
+           showPrompt
+       );
     }
 
     return {
         batches,
+        totalFee,
+    };
+};
+
+export const buildAndExecuteUndeadBatches = async (
+    txs: InnerTransaction[],
+    signerAccount: Account,
+    cosignerAccounts: Account[],
+    feeRatio: number,
+    requiredCosignatures: number,
+    deadlineHours: number,
+    maxParallels: number,
+    canAnnounce: boolean,
+    showPrompt: boolean,
+): Promise<ExecuteBatchesResult> => {
+    const { networkProperties } = await symbolService.getNetwork();
+    const batchSize = Number(networkProperties.plugins.aggregate?.maxTransactionsPerAggregate || 100) - 1;
+
+    const undeadBatches = await necromancyService.buildTxBatches(
+        deadlineHours,
+        txs,
+        signerAccount,
+        cosignerAccounts,
+        feeRatio,
+        batchSize,
+        requiredCosignatures,
+    );
+
+    const totalFee = undeadBatches.reduce(
+        (acc, curr) => acc.add(curr.aggregateTx.maxFee),
+        UInt64.fromUint(0)
+    );
+
+    if (canAnnounce) {
+        Logger.info(
+            `Announcing ${undeadBatches.length} aggregate TXs ` +
+            `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
+        );
+        await announceBatches(
+            await necromancyService.pickAndCastTxBatches(undeadBatches),
+            signerAccount,
+            maxParallels,
+            showPrompt
+        );
+    }
+
+    return {
+        undeadBatches,
         totalFee,
     };
 };
