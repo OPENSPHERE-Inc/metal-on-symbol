@@ -375,7 +375,8 @@ metal reinforce  -a  intermediate.json  test_data/e92m3.jpg
 > この期限内に全ての連署を集める必要があります。
 > 有効期限を過ぎると実行してもエラーとなります。
 > 
-> 有効期限を5時間を超えて設定したい場合は `--deadline hours` オプションを使用してください（48時間にする例: `--deadline 48`）
+> 有効期限を5時間を超えて設定したい場合は、
+> forge or scrap に `--deadline hours` オプションを使用してください（48時間にする例: `--deadline 48`）
 
 #### 手順3: 更に連署が必要な場合
 
