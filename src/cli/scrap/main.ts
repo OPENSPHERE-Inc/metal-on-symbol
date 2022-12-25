@@ -89,7 +89,7 @@ export namespace ScrapCLI {
                 key,
             );
         if (!txs?.length) {
-            throw new Error(`Scrap metal TXs creation failed.`);
+            throw new Error(`There is nothing to scrap.`);
         }
 
         const { designatedCosignerAccounts, hasEnoughCosigners } = designateCosigners(

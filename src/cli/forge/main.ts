@@ -46,7 +46,9 @@ export namespace ForgeCLI {
             input.additiveBytes,
             metadataPool,
         );
-        assert(txs.length);
+        if (!txs.length) {
+            throw new Error("There is nothing to forge.")
+        }
 
         const metalId = MetalService.calculateMetalId(
             input.type,
