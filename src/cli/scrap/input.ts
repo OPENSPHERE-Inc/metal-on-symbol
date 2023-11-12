@@ -41,7 +41,7 @@ export namespace ScrapInput {
             estimate: false,
             maxParallels: 10,
             force: false,
-            feeRatio: Number(process.env.FEE_RATIO || 0),
+            feeRatio: Number(process.env.FEE_RATIO || 0.35),
             deadlineHours: deadlineMinHours,
         };
 
@@ -148,6 +148,16 @@ export namespace ScrapInput {
 
                     input.type = MetadataType.Namespace;
                     input.namespaceId = SymbolService.createNamespaceId(value);
+                    break;
+                }
+
+                case "--node-url": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${value} must has node_url as a value.`);
+                    }
+
+                    input.nodeUrl = value;
                     break;
                 }
 
@@ -311,7 +321,7 @@ export namespace ScrapInput {
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  --deadline hours       Specify intermediate TX deadline in hours (default:5, must be 5 hours or longer)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
-            `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
+            `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.35)\n` +
             `                         Higher ratio may get fast TX but higher cost\n` +
             `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +

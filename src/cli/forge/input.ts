@@ -41,7 +41,7 @@ export namespace ForgeInput {
             checkCollision: false,
             maxParallels: 10,
             force: false,
-            feeRatio: Number(process.env.FEE_RATIO || 0),
+            feeRatio: Number(process.env.FEE_RATIO || 0.35),
             nodeUrl: process.env.NODE_URL,
             signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
             recover: false,
@@ -301,7 +301,7 @@ export namespace ForgeInput {
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  --deadline hours       Specify intermediate TX deadline in hours (default:5, must be 5 hours or longer)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
-            `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.0)\n` +
+            `  --fee-ratio value      Specify fee_ratio with decimal (0.0 ~ 1.0, default:0.35)\n` +
             `                         Higher ratio may get fast TX but higher cost\n` +
             `  -f, --force            Do not show any prompts\n` +
             `  -h, --help             Show command line usage\n` +

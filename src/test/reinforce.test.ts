@@ -20,6 +20,7 @@ import assert from "assert";
 import {ForgeCLI, ScrapCLI} from "../cli";
 import {ReinforceCLI} from "../cli";
 import fs from "fs";
+import path from "path"
 import {MetalService, SignedAggregateTx} from "../services";
 import {AggregateUndeadTransaction, MetadataTransaction} from "@opensphere-inc/symbol-service";
 import {writeIntermediateFile} from "../cli/intermediate";
@@ -45,6 +46,8 @@ describe("Reinforce CLI", () => {
         targetAccount = assets.account;
         mosaicId = assets.mosaicId;
         namespaceId = assets.namespaceId;
+
+        fs.mkdirSync(path.dirname(outputFile), { recursive: true });
     }, 600000);
 
     afterEach(() => {
