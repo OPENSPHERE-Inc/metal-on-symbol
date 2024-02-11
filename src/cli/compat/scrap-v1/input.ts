@@ -1,19 +1,19 @@
+import {Convert, MetadataType, MosaicId, NamespaceId, UInt64} from "symbol-sdk";
+import {deadlineMinHours, initCliEnv, isValueOption, NodeInput} from "../common";
 import fs from "fs";
+import {VERSION} from "./version";
+import {AccountsInput, validateAccountsInput} from "../../accounts";
+import {SymbolService} from "../../../services";
+import {Logger} from "../../../libs";
 import prompts from "prompts";
-import { MetadataType, MosaicId, NamespaceId, UInt64 } from "symbol-sdk";
-import { Logger } from "../../libs";
-import { PACKAGE_VERSION } from "../../package_version";
-import { SymbolService } from "../../services";
-import { AccountsInput, validateAccountsInput } from "../accounts";
-import { deadlineMinHours, initCliEnv, isValueOption, NodeInput } from "../common";
-import { VERSION } from "./version";
+import {PACKAGE_VERSION} from "../../../package_version";
 
 
-export namespace ScrapInput {
+export namespace ScrapInputV1 {
 
     export interface CommandlineInput extends NodeInput, AccountsInput {
         version: string;
-        additive?: number;
+        additive?: string;
         deadlineHours: number;
         estimate: boolean;
         feeRatio: number;
@@ -27,6 +27,9 @@ export namespace ScrapInput {
         outputPath?: string;
         requiredCosignatures?: number;
         type?: MetadataType;
+
+        // Filled by validator
+        additiveBytes?: Uint8Array;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -48,9 +51,9 @@ export namespace ScrapInput {
                 case "--additive": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw new Error(`${token} must be an number between 0 and 65535`);
+                        throw new Error(`${token} must has additive (4 ascii chars) as a value.`);
                     }
-                    input.additive = Number(value);
+                    input.additive = value;
                     break;
                 }
 
@@ -291,9 +294,10 @@ export namespace ScrapInput {
         }
 
         if (input.additive) {
-            if (!Number.isSafeInteger(input.additive) || input.additive < 0 || input.additive > 0xFFFF) {
-                throw new Error("[--additive value] must be an number between 0 and 65535");
+            if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
+                throw new Error("[--additive value] must be 4 ascii chars.");
             }
+            input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
         if (input.deadlineHours < deadlineMinHours) {
             throw new Error(`[--deadline hours] must be ${deadlineMinHours} hours or longer.`);
@@ -308,12 +312,12 @@ export namespace ScrapInput {
     export const printUsage = () => {
         Logger.info(
             `Usages:\n` +
-            `  With Metal ID          $ scrap [options] metal_id\n` +
-            `  Account Metal          $ scrap [options] -k metadata_key\n` +
-            `  Mosaic Metal           $ scrap [options] -m mosaic_id -k metadata_key\n` +
-            `  Namespace Metal        $ scrap [options] -n namespace_name -k metadata_key\n` +
+            `  With Metal ID          $ scrap-v1 [options] metal_id\n` +
+            `  Account Metal          $ scrap-v1 [options] -k metadata_key\n` +
+            `  Mosaic Metal           $ scrap-v1 [options] -m mosaic_id -k metadata_key\n` +
+            `  Namespace Metal        $ scrap-v1 [options] -n namespace_name -k metadata_key\n` +
             `Options:\n` +
-            `  --additive value       Specify additive with 0~65535 integer (e.g. 1234, default:0)\n` +
+            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123", default:0000)\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  --deadline hours       Specify intermediate TX deadline in hours (default:5, must be 5 hours or longer)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +

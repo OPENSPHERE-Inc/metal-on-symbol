@@ -1,11 +1,9 @@
-import dotenv from "dotenv";
-dotenv.config({ path: './.env.test' });
-
-import { ForgeCLI } from "../cli";
+import "./env";
 import assert from "assert";
-import {initTestEnv, MetalTest, SymbolTest} from "./utils";
-import {Account, Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {MetalService} from "../services";
+import { Account, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { ForgeCLI } from "../cli";
+import { MetalServiceV2 } from "../services";
+import { initTestEnv, MetalTest, SymbolTest } from "./utils";
 
 
 describe("Forge CLI", () => {
@@ -40,7 +38,6 @@ describe("Forge CLI", () => {
         expect(output?.metalId).toBeDefined();
         expect(output?.status).toBe("estimated");
         expect(output?.type).toBe(MetadataType.Account);
-
     }, 600000);
 
     it("Forge Metal into Account", async () => {
@@ -126,10 +123,10 @@ describe("Forge CLI", () => {
         ]);
 
         expect(outputNoAdditive?.metalId).toBeDefined();
-        expect(outputNoAdditive?.additive).toBe("0000");
+        expect(outputNoAdditive?.additive).toBe(0);
 
         // Forge metal with alt additive
-        const additive = Convert.uint8ToUtf8(MetalService.generateRandomAdditive());
+        const additive = MetalServiceV2.generateRandomAdditive();
         const outputWithAdditive = await ForgeCLI.main([
             "-f",
             "--priv-key", signerAccount.privateKey,
@@ -138,7 +135,7 @@ describe("Forge CLI", () => {
             "--tgt-priv-key", targetAccount.privateKey,
             "-c",
             "-v",
-            "--additive", additive,
+            "--additive", String(additive),
             inputFile,
         ]);
 

@@ -1,29 +1,28 @@
-import dotenv from "dotenv";
-dotenv.config({ path: './.env.test' });
-
-import {initTestEnv, metalService, MetalTest, symbolService, SymbolTest} from "./utils";
-import {MetalService, SymbolService} from "../services";
+import "./env";
+import { BinMetadata, BinMetadataEntry } from "@opensphere-inc/symbol-service";
+import assert from "assert";
 import fs from "fs";
+import Long from "long";
+import moment from "moment";
 import {
     Account,
-    AccountMetadataTransaction, Convert,
+    AccountMetadataTransaction,
     InnerTransaction,
-    Metadata, MetadataEntry,
+    Metadata,
     MetadataType,
     MosaicId,
     NamespaceId,
     UInt64
 } from "symbol-sdk";
-import Long from "long";
-import assert from "assert";
-import moment from "moment";
-import { Base64 } from "js-base64";
+import { MetalServiceV2, SymbolService } from "../services";
+import { MetalService } from "../services/compat";
+import { initTestEnv, metalServiceV2, MetalTest, symbolService, SymbolTest } from "./utils";
 
 
 describe("MetalService", () => {
     let targetAccount: Account;
     let metadataKey: UInt64;
-    let metalAdditive: Uint8Array;
+    let metalAdditive: number;
     let testData: Uint8Array;
     let dataChunks: number;
     let metadataPool: Metadata[];
@@ -36,7 +35,7 @@ describe("MetalService", () => {
 
         assert(process.env.TEST_INPUT_FILE);
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
-        dataChunks = Math.ceil(Base64.fromUint8Array(testData).length / 1000);
+        dataChunks = Math.ceil(testData.length / 1011);
 
         const assets = await SymbolTest.generateAssets();
         targetAccount = assets.account;
@@ -72,20 +71,20 @@ describe("MetalService", () => {
             sourceAccount.address,
             targetAccount.address,
             mosaicId,
-            MetalService.generateMetadataKey("test1keyhohohogehoge"),
+            MetalServiceV2.generateMetadataKey("test1keyhohohogehoge"),
         );
         console.log(`metadataHash=${metadataHash}`);
 
-        const metalId = MetalService.calculateMetalId(
+        const metalId = MetalServiceV2.calculateMetalId(
             MetadataType.Mosaic,
             sourceAccount.address,
             targetAccount.address,
             mosaicId,
-            MetalService.generateMetadataKey("test1keyhohohogehoge"),
+            MetalServiceV2.generateMetadataKey("test1keyhohohogehoge"),
         );
         console.log(`metalId=${metalId}`);
 
-        const restoredHash = MetalService.restoreMetadataHash(metalId);
+        const restoredHash = MetalServiceV2.restoreMetadataHash(metalId);
         console.log(`restoredHash=${restoredHash}`);
 
         expect(restoredHash).toBe(metadataHash);
@@ -93,12 +92,13 @@ describe("MetalService", () => {
 
     it("Forge account metal", async () => {
         const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
-        const { key, txs, additive } = await metalService.createForgeTxs(
+        const { key, txs, additive } = await metalServiceV2.createForgeTxs(
             MetadataType.Account,
             sourceAccount.publicAccount,
             targetAccount.publicAccount,
             undefined,
             testData,
+            MetalServiceV2.generateRandomAdditive(),
         );
 
         expect(key).toBeDefined();
@@ -106,7 +106,7 @@ describe("MetalService", () => {
 
         metadataKey = key;
         metalAdditive = additive;
-        metalId = MetalService.calculateMetalId(
+        metalId = MetalServiceV2.calculateMetalId(
             MetadataType.Account,
             sourceAccount.address,
             targetAccount.address,
@@ -114,7 +114,7 @@ describe("MetalService", () => {
             metadataKey,
         );
         console.log(`key=${key?.toHex()}`);
-        console.log(`additive=${Convert.uint8ToUtf8(additive)}`);
+        console.log(`additive=${additive}`);
         console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
@@ -128,7 +128,7 @@ describe("MetalService", () => {
 
     it("Fetch and decode account metal", async () => {
         const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
-        const result = await metalService.fetchByMetalId(metalId);
+        const result = await metalServiceV2.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
         expect(result?.payload.buffer).toStrictEqual(testData.buffer);
@@ -140,14 +140,14 @@ describe("MetalService", () => {
     }, 600000);
 
     it("Verify account metal", () => {
-        const result = MetalService.verifyMetadataKey(metadataKey, testData, metalAdditive);
+        const result = MetalServiceV2.verifyMetadataKey(metadataKey, testData, metalAdditive);
 
         expect(result).toBeTruthy();
     });
 
     it("Scrap account metal", async () => {
         const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
-        const txs = await metalService.createScrapTxs(
+        const txs = await metalServiceV2.createScrapTxs(
             MetadataType.Account,
             sourceAccount.publicAccount,
             targetAccount.publicAccount,
@@ -172,12 +172,13 @@ describe("MetalService", () => {
 
     it("Forge mosaic metal", async () => {
         const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
-        const { key, txs, additive } = await metalService.createForgeTxs(
+        const { key, txs, additive } = await metalServiceV2.createForgeTxs(
             MetadataType.Mosaic,
             targetAccount.publicAccount,
             creatorAccount.publicAccount,
             mosaicId,
             testData,
+            MetalServiceV2.generateRandomAdditive(),
         );
 
         expect(key).toBeDefined();
@@ -185,7 +186,7 @@ describe("MetalService", () => {
 
         metadataKey = key;
         metalAdditive = additive;
-        metalId = MetalService.calculateMetalId(
+        metalId = MetalServiceV2.calculateMetalId(
             MetadataType.Mosaic,
             targetAccount.address,
             creatorAccount.address,
@@ -193,7 +194,7 @@ describe("MetalService", () => {
             metadataKey,
         );
         console.log(`key=${key?.toHex()}`);
-        console.log(`additive=${Convert.uint8ToUtf8(additive)}`);
+        console.log(`additive=${additive}`);
         console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
@@ -207,7 +208,7 @@ describe("MetalService", () => {
 
     it("Fetch and decode mosaic metal", async () => {
         const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
-        const result = await metalService.fetchByMetalId(metalId);
+        const result = await metalServiceV2.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
         expect(result?.payload.buffer).toStrictEqual(testData.buffer);
@@ -219,14 +220,14 @@ describe("MetalService", () => {
     }, 600000);
 
     it("Verify mosaic metal", () => {
-        const result = MetalService.verifyMetadataKey(metadataKey, testData, metalAdditive);
+        const result = MetalServiceV2.verifyMetadataKey(metadataKey, testData, metalAdditive);
 
         expect(result).toBeTruthy();
     });
 
     it("Scrap mosaic metal", async () => {
         const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
-        const txs = await metalService.createScrapTxs(
+        const txs = await metalServiceV2.createScrapTxs(
             MetadataType.Mosaic,
             targetAccount.publicAccount,
             creatorAccount.publicAccount,
@@ -251,12 +252,13 @@ describe("MetalService", () => {
 
     it("Forge namespace metal", async () => {
         const { signerAccount: ownerAccount } = await SymbolTest.getNamedAccounts();
-        const { key, txs, additive } = await metalService.createForgeTxs(
+        const { key, txs, additive } = await metalServiceV2.createForgeTxs(
             MetadataType.Namespace,
             targetAccount.publicAccount,
             ownerAccount.publicAccount,
             namespaceId,
             testData,
+            MetalServiceV2.generateRandomAdditive(),
         );
 
         expect(key).toBeDefined();
@@ -264,7 +266,7 @@ describe("MetalService", () => {
 
         metadataKey = key;
         metalAdditive = additive;
-        metalId = MetalService.calculateMetalId(
+        metalId = MetalServiceV2.calculateMetalId(
             MetadataType.Namespace,
             targetAccount.address,
             ownerAccount.address,
@@ -272,7 +274,7 @@ describe("MetalService", () => {
             metadataKey,
         );
         console.log(`key=${key?.toHex()}`);
-        console.log(`additive=${Convert.uint8ToUtf8(additive)}`);
+        console.log(`additive=${additive}`);
         console.log(`metalId=${metalId}`);
         console.log(`txs.length=${txs.length}`);
 
@@ -286,7 +288,7 @@ describe("MetalService", () => {
 
     it("Fetch and decode namespace metal", async () => {
         const { signerAccount: ownerAccount } = await SymbolTest.getNamedAccounts();
-        const result = await metalService.fetchByMetalId(metalId);
+        const result = await metalServiceV2.fetchByMetalId(metalId);
 
         expect(result).toBeDefined();
         expect(result?.payload.buffer).toStrictEqual(testData.buffer);
@@ -299,7 +301,7 @@ describe("MetalService", () => {
 
     it("Scrap namespace metal", async () => {
         const { signerAccount: ownerAccount } = await SymbolTest.getNamedAccounts();
-        const txs = await metalService.createScrapTxs(
+        const txs = await metalServiceV2.createScrapTxs(
             MetadataType.Namespace,
             targetAccount.publicAccount,
             ownerAccount.publicAccount,
@@ -324,16 +326,17 @@ describe("MetalService", () => {
 
     it("Destroy mosaic metal", async () => {
         const { signerAccount: creatorAccount } = await SymbolTest.getNamedAccounts();
-        const { txs: forgeTxs, additive } = await metalService.createForgeTxs(
+        const { txs: forgeTxs, additive } = await metalServiceV2.createForgeTxs(
             MetadataType.Mosaic,
             targetAccount.publicAccount,
             creatorAccount.publicAccount,
             mosaicId,
             testData,
+            MetalServiceV2.generateRandomAdditive(),
         );
         await doBatches(forgeTxs, creatorAccount, [ targetAccount ]);
 
-        const destroyTxs = await metalService.createDestroyTxs(
+        const destroyTxs = await metalServiceV2.createDestroyTxs(
             MetadataType.Mosaic,
             targetAccount.publicAccount,
             creatorAccount.publicAccount,
@@ -360,10 +363,11 @@ describe("MetalService", () => {
             mosaicId,
             testData,
             signerAccount,
-            []
+            [],
+            MetalServiceV2.generateRandomAdditive(),
         ));
 
-        const metadataPool = await symbolService.searchMetadata(MetadataType.Mosaic, {
+        const metadataPool = await symbolService.searchBinMetadata(MetadataType.Mosaic, {
             source: signerAccount.publicAccount,
             target: signerAccount.publicAccount,
             targetId: mosaicId,
@@ -371,21 +375,21 @@ describe("MetalService", () => {
 
         // Break metadata value
         const brokenMetadataPool = [ ...metadataPool ];
-        brokenMetadataPool[5] = new Metadata(
+        brokenMetadataPool[5] = new BinMetadata(
             brokenMetadataPool[5].id,
-            new MetadataEntry(
+            new BinMetadataEntry(
                 brokenMetadataPool[5].metadataEntry.version,
                 brokenMetadataPool[5].metadataEntry.compositeHash,
                 brokenMetadataPool[5].metadataEntry.sourceAddress,
                 brokenMetadataPool[5].metadataEntry.targetAddress,
                 brokenMetadataPool[5].metadataEntry.scopedMetadataKey,
                 brokenMetadataPool[5].metadataEntry.metadataType,
-                "",
+                new Uint8Array(0),
                 brokenMetadataPool[5].metadataEntry.targetId
             )
         );
 
-        const txs1 = await metalService.createScrapTxs(
+        const txs1 = await metalServiceV2.createScrapTxs(
             MetadataType.Mosaic,
             signerAccount.publicAccount,
             signerAccount.publicAccount,
@@ -399,7 +403,7 @@ describe("MetalService", () => {
         // Break metadata chain
         brokenMetadataPool.splice(5, 1);
 
-        const txs2 = await metalService.createScrapTxs(
+        const txs2 = await metalServiceV2.createScrapTxs(
             MetadataType.Mosaic,
             signerAccount.publicAccount,
             signerAccount.publicAccount,
@@ -422,10 +426,11 @@ describe("MetalService", () => {
             namespaceId,
             testData,
             signerAccount,
-            []
+            [],
+            MetalServiceV2.generateRandomAdditive(),
         ));
 
-        const metadataPool = await symbolService.searchMetadata(MetadataType.Namespace, {
+        const metadataPool = await symbolService.searchBinMetadata(MetadataType.Namespace, {
             source: signerAccount.publicAccount,
             target: signerAccount.publicAccount,
             targetId: namespaceId,
@@ -433,21 +438,21 @@ describe("MetalService", () => {
 
         // Break metadata value
         const brokenMetadataPool = [ ...metadataPool ];
-        brokenMetadataPool[10] = new Metadata(
+        brokenMetadataPool[10] = new BinMetadata(
             brokenMetadataPool[10].id,
-            new MetadataEntry(
+            new BinMetadataEntry(
                 brokenMetadataPool[10].metadataEntry.version,
                 brokenMetadataPool[10].metadataEntry.compositeHash,
                 brokenMetadataPool[10].metadataEntry.sourceAddress,
                 brokenMetadataPool[10].metadataEntry.targetAddress,
                 brokenMetadataPool[10].metadataEntry.scopedMetadataKey,
                 brokenMetadataPool[10].metadataEntry.metadataType,
-                "",
+                new Uint8Array(0),
                 brokenMetadataPool[10].metadataEntry.targetId
             )
         );
 
-        const txs1 = await metalService.createScrapTxs(
+        const txs1 = await metalServiceV2.createScrapTxs(
             MetadataType.Namespace,
             signerAccount.publicAccount,
             signerAccount.publicAccount,
@@ -461,7 +466,7 @@ describe("MetalService", () => {
         // Break metadata chain
         brokenMetadataPool.splice(10, 1);
 
-        const txs2 = await metalService.createScrapTxs(
+        const txs2 = await metalServiceV2.createScrapTxs(
             MetadataType.Namespace,
             signerAccount.publicAccount,
             signerAccount.publicAccount,

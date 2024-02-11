@@ -1,8 +1,8 @@
 import assert from "assert";
 import fs from "fs";
 import { Convert, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
-import { Logger } from "../../libs";
-import { MetalServiceV2 } from "../../services";
+import { Logger } from "../../../libs";
+import { MetalService } from "../../../services/compat";
 import {
     buildAndExecuteBatches,
     buildAndExecuteUndeadBatches,
@@ -12,16 +12,16 @@ import {
     symbolService
 } from "../common";
 import { writeIntermediateFile } from "../intermediate";
-import { ScrapInput } from "./input";
-import { ScrapOutput } from "./output";
+import { ScrapInputV1 } from "./input";
+import { ScrapOutputV1 } from "./output";
 
 
-export namespace ScrapCLI {
+export namespace ScrapCLIV1 {
 
     const scrapMetal = async (
-        input: Readonly<ScrapInput.CommandlineInput>,
+        input: Readonly<ScrapInputV1.CommandlineInput>,
         payload?: Uint8Array,
-    ): Promise<ScrapOutput.CommandlineOutput> => {
+    ): Promise<ScrapOutputV1.CommandlineOutput> => {
         const { networkType } = await symbolService.getNetwork();
         assert(input.signerAccount);
 
@@ -32,7 +32,7 @@ export namespace ScrapCLI {
         let key = input.key;
         let metalId = input.metalId;
         let targetId: undefined | MosaicId | NamespaceId;
-        let additive = input.additive;
+        let additiveBytes = input.additiveBytes;
 
         if (metalId) {
             const metadataEntry = (await metalService.getFirstChunk(metalId)).metadataEntry;
@@ -40,13 +40,10 @@ export namespace ScrapCLI {
             type = metadataEntry.metadataType
             key = metadataEntry.scopedMetadataKey;
             targetId = metadataEntry.targetId;
-            const chunkData = MetalServiceV2.extractChunk(metadataEntry);
-            if (!chunkData) {
+            additiveBytes = MetalService.extractChunk(metadataEntry)?.additive;
+            if (!additiveBytes) {
                 throw new Error(`The chunk is broken.`);
-            } else if (chunkData.version !== 2) {
-                throw new Error("Version 1 Metal cannot be scrap. Please use 'scrap-v1' CLI instead.")
             }
-            additive = chunkData.additive;
 
             // We cannot retrieve publicKey at this time. Only can do address check.
             if (!sourcePubAccount.address.equals(metadataEntry?.sourceAddress)) {
@@ -58,7 +55,7 @@ export namespace ScrapCLI {
         } else {
             if (!key && payload) {
                 // Obtain metadata key here
-                key = MetalServiceV2.calculateMetadataKey(payload, input.additive);
+                key = MetalService.calculateMetadataKey(payload, input.additiveBytes);
             }
 
             assert(type !== undefined);
@@ -66,7 +63,7 @@ export namespace ScrapCLI {
 
             // Obtain targetId and metalId here
             targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
-            metalId = MetalServiceV2.calculateMetalId(
+            metalId = MetalService.calculateMetalId(
                 type,
                 sourcePubAccount.address,
                 targetPubAccount.address,
@@ -83,7 +80,7 @@ export namespace ScrapCLI {
                 targetPubAccount,
                 targetId,
                 payload,
-                additive,
+                additiveBytes,
             )
             : await metalService.createScrapTxs(
                 type,
@@ -143,22 +140,22 @@ export namespace ScrapCLI {
             status: canAnnounce ? "scrapped" : "estimated",
             metalId,
             signerPubAccount,
-            additive: additive || MetalServiceV2.DEFAULT_ADDITIVE,
+            additive: Convert.uint8ToUtf8(additiveBytes || MetalService.DEFAULT_ADDITIVE),
             type,
             createdAt: new Date(),
         };
     };
 
     export const main = async (argv: string[]) => {
-        let input: ScrapInput.CommandlineInput;
+        let input: ScrapInputV1.CommandlineInput;
         try {
-            input = await ScrapInput.validateInput(ScrapInput.parseInput(argv));
+            input = await ScrapInputV1.validateInput(ScrapInputV1.parseInput(argv));
         } catch (e) {
-            ScrapInput.printVersion();
+            ScrapInputV1.printVersion();
             if (e === "version") {
                 return;
             }
-            ScrapInput.printUsage();
+            ScrapInputV1.printUsage();
             if (e === "help") {
                 return;
             }
@@ -179,7 +176,7 @@ export namespace ScrapCLI {
         if (input.outputPath) {
             writeIntermediateFile(output, input.outputPath);
         }
-        ScrapOutput.printOutputSummary(output);
+        ScrapOutputV1.printOutputSummary(output);
 
         return output;
     };

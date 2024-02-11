@@ -12,7 +12,7 @@ export namespace ForgeInput {
 
     export interface CommandlineInput extends NodeInput, AccountsInput, StreamInput {
         version: string;
-        additive?: string;
+        additive?: number;
         checkCollision: boolean;
         cosignerPrivateKeys?: string[];
         deadlineHours: number;
@@ -27,9 +27,6 @@ export namespace ForgeInput {
         requiredCosignatures?: number;
         type: MetadataType;
         verify: boolean;
-
-        // Filled by validator
-        additiveBytes?: Uint8Array;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -54,9 +51,9 @@ export namespace ForgeInput {
                 case "--additive": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw new Error(`${token} must has additive (4 ascii chars) as a value.`);
+                        throw new Error(`${token} must be an number between 0 and 65535`);
                     }
-                    input.additive = value;
+                    input.additive = Number(value);
                     break;
                 }
 
@@ -275,11 +272,10 @@ export namespace ForgeInput {
 
         input = await validateStreamInput(input, !input.force);
 
-        if (input.additive) {
-            if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
-                throw new Error("[--additive value] must be 4 ascii chars.");
+        if (input.additive !== undefined) {
+            if (!Number.isSafeInteger(input.additive) || input.additive < 0 || input.additive > 0xFFFF) {
+                throw new Error("[--additive value] must be an number between 0 and 65535");
             }
-            input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
         if (input.deadlineHours < deadlineMinHours) {
             throw new Error(`[--deadline hours] must be ${deadlineMinHours} hours or longer.`);
@@ -296,7 +292,7 @@ export namespace ForgeInput {
             `Usage: forge [options] [input_path]\n` +
             `Options:\n` +
             `  input_path             Specify input_path of payload file (default:stdin)\n` +
-            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123", default:0000)\n` +
+            `  --additive value       Specify additive with 0~65535 integer (e.g. 1234, default:0)\n` +
             `  -c, --check-collision  Check key collision before announce (Also estimation mode allowed)\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  --deadline hours       Specify intermediate TX deadline in hours (default:5, must be 5 hours or longer)\n` +

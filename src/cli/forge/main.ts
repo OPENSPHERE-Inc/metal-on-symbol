@@ -1,19 +1,20 @@
-import {Convert, MetadataType} from "symbol-sdk";
 import assert from "assert";
-import {ForgeInput} from "./input";
-import {ForgeOutput} from "./output";
-import {MetalService} from "../../services";
+import { MetadataType } from "symbol-sdk";
+import { Logger } from "../../libs";
+import { MetalServiceV2 } from "../../services";
 import {
     buildAndExecuteBatches,
-    buildAndExecuteUndeadBatches, deadlineMinHours,
+    buildAndExecuteUndeadBatches,
+    deadlineMinHours,
     designateCosigners,
     doVerify,
     metalService,
     symbolService
 } from "../common";
-import {writeIntermediateFile} from "../intermediate";
-import {Logger} from "../../libs";
-import {readStreamInput} from "../stream";
+import { writeIntermediateFile } from "../intermediate";
+import { readStreamInput } from "../stream";
+import { ForgeInput } from "./input";
+import { ForgeOutput } from "./output";
 
 
 export namespace ForgeCLI {
@@ -30,27 +31,27 @@ export namespace ForgeCLI {
         const sourcePubAccount = input.sourcePubAccount || input.sourceSignerAccount?.publicAccount || signerPubAccount;
         const targetPubAccount = input.targetPubAccount || input.targetSignerAccount?.publicAccount || signerPubAccount;
         const metadataPool = input.recover
-            ? await symbolService.searchMetadata(input.type, {
+            ? await symbolService.searchBinMetadata(input.type, {
                 source: sourcePubAccount,
                 target: targetPubAccount,
                 targetId
             })
             : undefined;
 
-        const { key, txs, additive: additiveBytes } = await metalService.createForgeTxs(
+        const { key, txs, additive: actualAdditive } = await metalService.createForgeTxs(
             input.type,
             sourcePubAccount,
             targetPubAccount,
             targetId,
             payload,
-            input.additiveBytes,
+            input.additive,
             metadataPool,
         );
         if (!txs.length) {
             throw new Error("There is nothing to forge.")
         }
 
-        const metalId = MetalService.calculateMetalId(
+        const metalId = MetalServiceV2.calculateMetalId(
             input.type,
             sourcePubAccount.address,
             targetPubAccount.address,
@@ -126,7 +127,7 @@ export namespace ForgeCLI {
             undeadBatches,
             key,
             totalFee,
-            additive: Convert.uint8ToUtf8(additiveBytes),
+            additive: actualAdditive,
             sourcePubAccount,
             targetPubAccount,
             ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),

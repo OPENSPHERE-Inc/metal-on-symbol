@@ -1,12 +1,10 @@
-import dotenv from "dotenv";
-dotenv.config({ path: './.env.test' });
-
-import {Account, Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {initTestEnv, MetalTest, SymbolTest} from "./utils";
+import "./env";
 import assert from "assert";
 import fs from "fs";
-import {ScrapCLI } from "../cli";
-import {MetalService} from "../services";
+import { Account, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { ScrapCLI } from "../cli";
+import { MetalServiceV2 } from "../services";
+import { initTestEnv, MetalTest, SymbolTest } from "./utils";
 
 
 describe("Scrap CLI", () => {
@@ -276,8 +274,8 @@ describe("Scrap CLI", () => {
 
     it("Account Metal via input file with Alt additive", async () => {
         const { signerAccount } = await SymbolTest.getNamedAccounts();
-        const generatedAdditiveBytes = MetalService.generateRandomAdditive();
-        const { metalId, additiveBytes } = await MetalTest.forgeMetal(
+        const generatedAdditive = MetalServiceV2.generateRandomAdditive();
+        const { metalId, additive } = await MetalTest.forgeMetal(
             MetadataType.Account,
             signerAccount.publicAccount,
             targetAccount.publicAccount,
@@ -285,7 +283,7 @@ describe("Scrap CLI", () => {
             testData,
             signerAccount,
             [ targetAccount ],
-            generatedAdditiveBytes,
+            generatedAdditive,
         );
 
         const estimateOutput = await ScrapCLI.main([
@@ -293,7 +291,7 @@ describe("Scrap CLI", () => {
             "--priv-key", signerAccount.privateKey,
             "--tgt-pub-key", targetAccount.publicKey,
             "-i", inputFile,
-            "--additive", Convert.uint8ToUtf8(additiveBytes),
+            "--additive", String(additive),
         ]);
 
         expect(estimateOutput?.metalId).toBeDefined();
@@ -303,7 +301,7 @@ describe("Scrap CLI", () => {
         expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
         expect(estimateOutput?.mosaicId).toBeUndefined();
         expect(estimateOutput?.namespaceId).toBeUndefined();
-        expect(additiveBytes).toStrictEqual(generatedAdditiveBytes);
+        expect(additive).toStrictEqual(generatedAdditive);
         expect(estimateOutput?.status).toBe("estimated");
 
         const scrapOutput = await ScrapCLI.main([
@@ -311,7 +309,7 @@ describe("Scrap CLI", () => {
             "--priv-key", signerAccount.privateKey,
             "--tgt-priv-key", targetAccount.privateKey,
             "--in", inputFile,
-            "--additive", Convert.uint8ToUtf8(additiveBytes),
+            "--additive", String(additive),
             "--parallels", "1",
             "--fee-ratio", "0.35",
         ]);

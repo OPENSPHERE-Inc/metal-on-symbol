@@ -1,8 +1,4 @@
-import {ReinforceInput} from "./input";
 import assert from "assert";
-import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
-import {ReinforceOutput} from "./output";
-import {MetadataTransaction, SymbolService} from "../../services";
 import {
     Account,
     AggregateTransaction,
@@ -18,13 +14,16 @@ import {
     SignedTransaction,
     UInt64
 } from "symbol-sdk";
-import {Logger} from "../../libs";
-import {readStreamInput} from "../stream";
-import {announceBatches, metalService, necromancyService, symbolService} from "../common";
-import {AggregateUndeadTransaction, SignedAggregateTx} from "@opensphere-inc/symbol-service";
+import { Logger } from "../../../libs";
+import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, SymbolService } from "../../../services";
+import { readStreamInput } from "../../stream";
+import { announceBatches, metalService, necromancyService, symbolService } from "../common";
+import { IntermediateTxs, readIntermediateFile, writeIntermediateFile } from "../intermediate";
+import { ReinforceInputV1 } from "./input";
+import { ReinforceOutputV1 } from "./output";
 
 
-export namespace ReinforceCLI {
+export namespace ReinforceCLIV1 {
 
     const buildReferenceTxPool = async (
         command: "forge" | "scrap",
@@ -33,8 +32,9 @@ export namespace ReinforceCLI {
         targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
-        additive?: number
+        additive?: string
     ) => {
+        const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
         const txs = command === "forge"
             ? (await metalService.createForgeTxs(
                 type,
@@ -42,7 +42,7 @@ export namespace ReinforceCLI {
                 targetPubAccount,
                 targetId,
                 payload,
-                additive,
+                additiveBytes,
             )).txs
             : await metalService.createDestroyTxs(
                 type,
@@ -50,7 +50,7 @@ export namespace ReinforceCLI {
                 targetPubAccount,
                 targetId,
                 payload,
-                additive,
+                additiveBytes,
             );
         return txs.reduce(
             (acc, curr) => acc.set((curr as MetadataTransaction).scopedMetadataKey.toHex(), curr),
@@ -224,10 +224,10 @@ export namespace ReinforceCLI {
     };
 
     const reinforceMetal = async (
-        input: Readonly<ReinforceInput.CommandlineInput>,
+        input: Readonly<ReinforceInputV1.CommandlineInput>,
         intermediateTxs: IntermediateTxs,
         payload: Uint8Array,
-    ): Promise<ReinforceOutput.CommandlineOutput> => {
+    ): Promise<ReinforceOutputV1.CommandlineOutput> => {
         const { networkType } = await symbolService.getNetwork();
 
         if (networkType !== intermediateTxs.networkType) {
@@ -301,15 +301,15 @@ export namespace ReinforceCLI {
     };
 
     export const main = async (argv: string[]) => {
-        let input: ReinforceInput.CommandlineInput;
+        let input: ReinforceInputV1.CommandlineInput;
         try {
-            input = await ReinforceInput.validateInput(ReinforceInput.parseInput(argv));
+            input = await ReinforceInputV1.validateInput(ReinforceInputV1.parseInput(argv));
         } catch (e) {
-            ReinforceInput.printVersion();
+            ReinforceInputV1.printVersion();
             if (e === "version") {
                 return;
             }
-            ReinforceInput.printUsage();
+            ReinforceInputV1.printUsage();
             if (e === "help") {
                 return;
             }
@@ -327,7 +327,7 @@ export namespace ReinforceCLI {
         if (input.outputPath) {
             writeIntermediateFile(output, input.outputPath);
         }
-        ReinforceOutput.printOutputSummary(output);
+        ReinforceOutputV1.printOutputSummary(output);
 
         return output;
     };

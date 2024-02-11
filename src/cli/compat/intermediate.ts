@@ -9,12 +9,12 @@ import {
     TransactionType,
     UInt64
 } from "symbol-sdk";
-import { Logger } from "../libs";
-import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, UndeadSignature } from "../services";
+import { Logger } from "../../libs";
+import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, UndeadSignature } from "../../services";
 
 
-export const VERSION = "3.0";
-export const SUPPORTED_VERSION = /^3\.0$/;
+export const VERSION = "2.1";
+export const SUPPORTED_VERSION = /^2\.[0-1]$/;
 
 export interface IntermediateTxs {
     version: string;
@@ -28,7 +28,7 @@ export interface IntermediateTxs {
     mosaicId?: string;
     namespaceId?: string;
     totalFee: number[];
-    additive: number;
+    additive: string;
     signerPublicKey: string;
     txs?: {
         // Extracted metadata keys
@@ -69,7 +69,7 @@ export interface IntermediateOutput {
     undeadBatches?: AggregateUndeadTransaction[];
     signerPubAccount: PublicAccount;
     totalFee: UInt64;
-    additive: number;
+    additive: string;
     metalId: string;
     createdAt: Date;
 }

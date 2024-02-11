@@ -11,19 +11,14 @@ import {
     PublicAccount,
     UInt64
 } from "symbol-sdk";
-import { Logger } from "../libs";
-import {
-    AggregateUndeadTransaction,
-    MetalServiceV2,
-    NecromancyService,
-    SignedAggregateTx,
-    SymbolService
-} from "../services";
+import { Logger } from "../../libs";
+import { AggregateUndeadTransaction, NecromancyService, SignedAggregateTx, SymbolService } from "../../services";
+import { MetalService } from "../../services/compat";
 
 
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 export let symbolService: SymbolService;
-export let metalService: MetalServiceV2;
+export let metalService: MetalService;
 export let necromancyService: NecromancyService;
 export const deadlineMinHours = 5;
 export const deadlineMarginHours = 1;
@@ -46,7 +41,7 @@ export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRat
     const { networkType } = await symbolService.getNetwork();
     Logger.debug(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
 
-    metalService = new MetalServiceV2(symbolService);
+    metalService = new MetalService(symbolService);
     necromancyService = new NecromancyService(symbolService, {
         deadlineUnitHours: symbolService.config.deadline_hours,
         deadlineMarginHours: deadlineMarginHours,

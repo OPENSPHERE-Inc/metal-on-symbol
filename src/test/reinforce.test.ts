@@ -1,29 +1,26 @@
-import dotenv from "dotenv";
-dotenv.config({ path: './.env.test' });
-
-import {
-    Account,
-    Convert,
-    MosaicId,
-    NamespaceId,
-    MetadataType,
-    MosaicMetadataTransaction,
-    NamespaceMetadataTransaction,
-    PlainMessage,
-    UInt64,
-    Mosaic,
-    Deadline,
-    TransferTransaction,
-} from "symbol-sdk";
-import {initTestEnv, symbolService, SymbolTest} from "./utils";
+import "./env";
+import { AggregateUndeadTransaction, MetadataTransaction } from "@opensphere-inc/symbol-service";
 import assert from "assert";
-import {ForgeCLI, ScrapCLI} from "../cli";
-import {ReinforceCLI} from "../cli";
 import fs from "fs";
 import path from "path"
-import {MetalService, SignedAggregateTx} from "../services";
-import {AggregateUndeadTransaction, MetadataTransaction} from "@opensphere-inc/symbol-service";
-import {writeIntermediateFile} from "../cli/intermediate";
+import {
+    Account,
+    Deadline,
+    MetadataType,
+    Mosaic,
+    MosaicId,
+    MosaicMetadataTransaction,
+    NamespaceId,
+    NamespaceMetadataTransaction,
+    PlainMessage,
+    TransferTransaction,
+    UInt64,
+} from "symbol-sdk";
+import { ForgeCLI, ReinforceCLI, ScrapCLI } from "../cli";
+import { writeIntermediateFile } from "../cli/intermediate";
+import { MetalServiceV2, SignedAggregateTx } from "../services";
+import { initTestEnv, MetalTest, symbolService, SymbolTest } from "./utils";
+import compareBatches = MetalTest.compareBatches;
 
 
 describe("Reinforce CLI", () => {
@@ -56,20 +53,6 @@ describe("Reinforce CLI", () => {
         }
     });
 
-    const compareBatches = (batches1?: SignedAggregateTx[], batches2?: SignedAggregateTx[]) => {
-        batches1?.forEach((batch, index) => {
-            expect(batch.signedTx.payload).toStrictEqual(batches2?.[index].signedTx.payload);
-            expect(batch.maxFee.toDTO()).toStrictEqual(batches2?.[index].maxFee.toDTO());
-            expect(batch.cosignatures.map(
-                ({ signature, signerPublicKey, parentHash}) =>
-                    ({ signature, signerPublicKey, parentHash }))
-            ).toStrictEqual(batches2?.[index].cosignatures.map(
-                ({ signature, signerPublicKey, parentHash}) =>
-                    ({ signature, signerPublicKey, parentHash }))
-            );
-        });
-    };
-
     it("Forge Account Metal", async() => {
         const { signerAccount } = await SymbolTest.getNamedAccounts();
         const forgeOutput = await ForgeCLI.main([
@@ -77,7 +60,7 @@ describe("Reinforce CLI", () => {
             "--priv-key", signerAccount.privateKey,
             "-t", targetAccount.publicKey,
             "-c",
-            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
+            "--additive", String(MetalServiceV2.generateRandomAdditive()),
             "-o", outputFile,
             inputFile,
         ]);
@@ -178,7 +161,7 @@ describe("Reinforce CLI", () => {
             "--priv-key", signerAccount.privateKey,
             "-t", targetAccount.publicKey,
             "-c",
-            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
+            "--additive", String(MetalServiceV2.generateRandomAdditive()),
             "-o", outputFile,
             inputFile,
         ]);
@@ -188,7 +171,7 @@ describe("Reinforce CLI", () => {
             "--priv-key", signerAccount.privateKey,
             "-t", targetAccount.publicKey,
             "-c",
-            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
+            "--additive", String(MetalServiceV2.generateRandomAdditive()),
             "-o", outputFile,
             inputFile,
         ]);
@@ -244,7 +227,7 @@ describe("Reinforce CLI", () => {
             "-s", targetAccount.publicKey,
             "-m", mosaicId.toHex(),
             "-c",
-            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
+            "--additive", String(MetalServiceV2.generateRandomAdditive()),
             "-o", outputFile,
             inputFile,
         ]);
@@ -270,7 +253,7 @@ describe("Reinforce CLI", () => {
             "-s", targetAccount.publicKey,
             "-n", namespaceId.toHex(),
             "-c",
-            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
+            "--additive", String(MetalServiceV2.generateRandomAdditive()),
             "-o", outputFile,
             inputFile,
         ]);
@@ -347,7 +330,7 @@ describe("Reinforce CLI", () => {
             "-t", targetAccount.publicKey,
             "-c",
             "--deadline", `${24 * 5}`,
-            "--additive", Convert.uint8ToUtf8(MetalService.generateRandomAdditive()),
+            "--additive", String(MetalServiceV2.generateRandomAdditive()),
             "--num-cosigs", "1",
             "-o", outputFile,
             inputFile,

@@ -307,13 +307,13 @@ metal scrap  -i test_data/e92m3.jpg  -n namespace_name  # Namespace Metal
 
 **Additiveが添加された Metal の場合**
 
-Forge する際、デフォルト（0000）とは異なる Additive が添加されている場合は、
+Forge する際、デフォルト（0）とは異なる Additive が添加されている場合は、
 以下のように `--additive` オプションを指定してください。
 
 ```shell
-metal scrap  -i test_data/e92m3.jpg  --additive ABCD                     # Account Metal
-metal scrap  -i test_data/e92m3.jpg  --additive ABCD  -m mosaic_id       # Mosaic Metal
-metal scrap  -i test_data/e92m3.jpg  --additive ABCD  -n namespace_name  # Namespace Metal
+metal scrap  -i test_data/e92m3.jpg  --additive 1234                     # Account Metal
+metal scrap  -i test_data/e92m3.jpg  --additive 1234  -m mosaic_id       # Mosaic Metal
+metal scrap  -i test_data/e92m3.jpg  --additive 1234  -n namespace_name  # Namespace Metal
 ```
 
 ### 2.7. Reinforce（マルチシグの連署）
@@ -643,20 +643,20 @@ C01000005205659DD2EE1531vnXLdOMAMpU54JyMjqKiOFUHysqWK51zRLF40F7ZSvcQ2c0kkq7ZdkmS
 E01000009AF02A462D4D71B7vLqzjbWktysErRgxMke5MAj5T3HQ151Sbbvr956NH3Vojv8AwV+zzoPj7wVZ6p8N7Txx4Nmtb1U0y1N8niTRfmfdCLaC6YlJmlYhRAEkaUoEcbyWTTfjN46+HXh/WPDt34b0PXo9SYaTeXbXt1Z2NzbP8rR3CPJJa2flx5yzeSYA6yFT5apWRr3hzT7b4s6hax2FnHbajrVraXcSwKI7qGW2iMkci4wyOSSynIbJznNdx8Db+e0/Zj8UtFNNG2n6i/2Uo5U23lxjZs/u7dq4xjG0Y6VxTk4S97VXW/n57nqQfNC/Wx//2Q==
 ```
 
-| 1 byte        | 3 bytes     | 4 bytes        | 16 bytes                                      | 1~1000 bytes         |
-|---------------|-------------|----------------|-----------------------------------------------|----------------------|
-| マジック (C or E） | バージョン (010） | Additive（0000） | 次チャンクの `Key` (HEX) 、マジック `E` の場合はチェックサム (HEX) | チャンクデータ (base64 の断片) |
+| 1 byte                      | 2 bytes         | 2 bytes           | 8 bytes                                                                         | 1~1011 bytes      |
+|-----------------------------|-----------------|-------------------|---------------------------------------------------------------------------------|-------------------|
+| マジック (0x43 'C' or 0x45 'E'） | バージョン 0x01 0x00 | Additive（0~65535） | 次チャンクの `Key` (64 bits unsigned int) 、マジック `E` の場合はチェックサム (64 bits unsigned int) | チャンクデータ (バイナリデータ) |
 
-ヘッダーは先頭 24 bytes 分
+ヘッダーは先頭 13 bytes 分
 
 **・マジック (1 byte)**
 
-- C: 途中のチャンク（Chunk）
-- E: 最後のチャンク（End chunk）
+- 0x43 'C': 途中のチャンク（Chunk）
+- 0x45 'E': 最後のチャンク（End chunk）
 
-**・Additive (4 bytes)**
+**・Additive (2 bytes)**
 
-Forge の際に追加できる 4 文字の「添加物」です。
+Forge の際に追加できる数値 0～65535 の「添加物」です。
 `Additive` を加えると、同じデータあっても `Metal ID` 及びチャンクの `Key` が変化します。
 レアケースで予想される `Key` 衝突対策です。
 
@@ -665,14 +665,14 @@ Forge の際に追加できる 4 文字の「添加物」です。
 
 ただし、`Additive` は全チャンクの `Value` 上で見えるので、いちいち控えておかなくても問題ないかもしれません。
 
-**・次チャンクの Key (HEX, 16 bytes)**
+**・次チャンクの Key (64 bits unsigned int, 8 bytes)**
 
-マジック `C` のチャンクは、次チャンクの Key (HEX) が入ります。
+マジック `C` のチャンクは、次チャンクの Key (64 bits unsigned int) が入ります。
 
 `E` のチャンクは次がない代わりに、
-データ全体のチェックサム（sha3_256 ハッシュ値下位 64 bits unsigned int の HEX 表現）が入ります。
+データ全体のチェックサム（sha3_256 ハッシュ値下位 64 bits unsigned int）が入ります。
 
-> **チェックサム対象は base64 表現ではなくバイナリ生データです**
+> **チェックサム対象は元ファイルのバイナリ生データです**
 
 チェックサムサンプルコード
 
@@ -687,10 +687,10 @@ const generateChecksum = (input: Uint8Array): UInt64 => {
 };
 ```
 
-**・チャンクデータ (base64 の断片)**
+**・チャンクデータ (バイナリデータ)**
 
-base64 エンコードしたデータを 1000 byte 以下の断片に分けて一つずつチャンクに格納します。
-`C` チャンクであっても、1 byte 以上 1000 byte 以下であればどの様な長さでも良いです。 
+バイナリデータを 1011 byte 以下の断片に分けて一つずつチャンクに格納します。
+`C` チャンクであっても、1 byte 以上 1011 byte 以下であればどの様な長さでも良いです。 
 
 > `E` チャンクにデータ全体のチェックサムが入るので、同じ内容のチャンクが現れても `Key` が衝突することがありません。
 
@@ -700,8 +700,7 @@ base64 エンコードしたデータを 1000 byte 以下の断片に分けて�
 
 **・デコード**
 
-デコードは、チャンクデータ部分（`Value` の 24 bytes 目以降）を先頭から順番に文字列としてつなげて行き、
-最後にデータ全体へ base64 デコードを適用すれば可能です。
+デコードは、チャンクデータ部分（`Value` の 14 bytes 目以降）を先頭から順番にバイナリデータとして繋げていけば完成です。
 
 #### 5.2.2. メタデータの Key
 
@@ -717,7 +716,7 @@ base64 エンコードしたデータを 1000 byte 以下の断片に分けて�
 サンプルコード
 
 ```typescript
-const generateMetadataKey = (input: string): UInt64 => {
+const generateMetadataKey = (input: Uint8Array): UInt64 => {
     if (input.length === 0) {
         throw Error("Input must not be empty");
     }
@@ -806,10 +805,10 @@ yarn add symbol-sdk
 使用する際は、最初に必ず SymbolService と MetalService の初期化をしてください。
 
 ```typescript
-import {SymbolService} from "metal-on-symbol";
+import {SymbolService, MetalServiceV2} from "metal-on-symbol";
 
 const symbolService = new SymbolService(config);
-const metalService = new MetalService(symbolService);
+const metalService = new MetalServiceV2(symbolService);
 ```
 
 **引数**
@@ -826,10 +825,10 @@ const metalService = new MetalService(symbolService);
 **サンプルコード**
 
 ```typescript
-import {MetalService} from "./metal";
+import {SymbolService, MetalServiceV2} from "metal-on-symbol";
 
 const symbolService = new SymbolService({node_url: "https://example.jp:3001"});
-const metalService = new MetalService(symbolService);
+const metalService = new MetalServiceV2(symbolService);
 ```
 
 ### 6.2. Forge
@@ -837,8 +836,6 @@ const metalService = new MetalService(symbolService);
 まず Forge するためのトランザクション群を生成します。
 
 ```typescript
-import {MetalService} from "metal-on-symbol";
-
 const { txs, key, additive } = await metalService.createForgeTxs(
     type, 
     sourcePubAccount,
@@ -857,8 +854,8 @@ const { txs, key, additive } = await metalService.createForgeTxs(
 - `targetPubAccount: PublicAccount` - メタデータ付与先となるアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先となるモザイク／ネームスペースのID。アカウントの場合は `undefined`
 - `payload: Uint8Array` - Forge したいデータ（バイナリ可）
-- `additive: Uint8Arra` - **(Optional)** 添加したい Additive で、省略すると `0000`（必ず 4 bytes の ascii 文字列であること）
-- `metadataPool?: Metadata[]` - **(Optional)** オンチェーンに既にあるチャンクメタデータのプールで、あるものは生成トランザクションに含まれません。
+- `additive: number` - **(Optional)** 添加したい Additive で、省略すると 0 （必ず 0～65535 の整数であること）
+- `metadataPool?: BinMetadata[]` - **(Optional)** オンチェーンに既にあるチャンクメタデータのプールで、あるものは生成トランザクションに含まれません。
   設定がなければ全てのトランザクションを生成します。
 
 **戻り値**
@@ -866,7 +863,7 @@ const { txs, key, additive } = await metalService.createForgeTxs(
 - `txs: InnerTransaction[]` - メタデータタイプによって `AccountMetadataTransaction`、`MosaicMetadataTransaction`、
   `NamespaceMetadataTransaction` の何れかのトランザクションが含まれます。
 - `key: UInt64` - 先頭のチャンクメタデータの `Key`
-- `additive: Uint8Array` - 実際に添加された Additive が返ります。衝突が発生して引数に指定したもの以外の、
+- `additive: number` - 実際に添加された Additive が返ります。衝突が発生して引数に指定したもの以外の、
   ランダム生成されたものが返る可能性があります。
 
 次に `txs` に署名してブロックチェーンにアナウンスします。
@@ -981,7 +978,7 @@ const forgeMetal = async (
     payload: Uint8Array,
     signerAccount: Account,
     cosignerAccounts: Account[],
-    additive?: Uint8Array,
+    additive?: number,
 ) => {
     const { key, txs, additive: newAdditive } = await metalService.createForgeTxs(
         type,
@@ -1042,7 +1039,7 @@ const metadataPool = await symbolService.searchMetadata(
 
 **戻り値**
 
-- `Metadata[]` - メタデータリスト
+- `BinMetadata[]` - メタデータリスト
 
 得られたメタデータリストを `metalService.createForgeTxs` の `metadataPool` に渡してトランザクションを生成し、
 あとは同じようにトランザクションへ署名してアナウンスしてください。
@@ -1058,7 +1055,7 @@ const forgeMetal = async (
     payload: Uint8Array,
     signerAccount: Account,
     cosignerAccounts: Account[],
-    additive?: Uint8Array,
+    additive?: number,
 ) => {
     const metadataPool = await symbolService.searchMetadata(
         type, 
@@ -1170,7 +1167,7 @@ const txs = await metalService.createScrapTxs(
 - `targetPubAccount: PublicAccount` - メタデータ付与先のアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
 - `key: UInt64` - 先頭チャンクメタデータの `Key`
-- `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+- `metadataPool?: BinMetadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
  
 > メタデータからはトランザクション生成に必要なパブリックキーが取得できないので、別途入手してsourcePubAccount と targetPubAccount を渡す必要がある仕様です。
 
@@ -1247,8 +1244,8 @@ const txs = await metalService.createDestroyTxs(
 - `targetPubAccount: PublicAccount` - メタデータ付与先のアカウント
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
 - `payload: Uint8Array` - 元ファイルのデータ（バイナリ可）
-- `additive: Uint8Array` - Forge 時に添加した Additive（必ず 4 bytes の ascii 文字列であること）
-- `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+- `additive: number` - Forge 時に添加した Additive（必ず 0～65535 の整数であること）
+- `metadataPool?: BinMetadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
 
 **戻り値**
 
@@ -1266,7 +1263,7 @@ const destroyMetal = async (
     targetPubAccount: PublicAccount,
     targetId: undefined | MosaicId | NamespaceId,
     payload: Uint8Array,
-    additive: Uint8Array,
+    additive: number,
     signerAccount: Account,
     cosignerAccounts: Account[]
 ) => {
@@ -1324,7 +1321,7 @@ const { mismatches, maxLength } = await metalService.verify(
 - `targetAddress: Address` - メタデータ付与先のアドレス
 - `key: UInt64` - 先頭チャンクメタデータの `Key`
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
-- `metadataPool?: Metadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+- `metadataPool?: BinMetadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
 
 **戻り値**
 
@@ -1369,19 +1366,18 @@ const payloadBase64 = MetalService.decode(key, metadataPool);
 **引数**
 
 - `key: UInt64` - 先頭チャンクメタデータの `Key`
-- `metadataPool: Metadata[]` - Metal の全チャンクを含むメタデータのプール
+- `metadataPool: BinMetadata[]` - Metal の全チャンクを含むメタデータのプール
 
 > metadataPool は、メタデータの `type`, `sourcePubAccount`, `targetPubAccount`, `targetId` が同一である事を前提にしています。
 
 **戻り値**
 
-- `string` - base64 文字列。チャンクが壊れていても途中までの文字列が返ります。
+- `Uint8Array` - バイナリデータ。チャンクが壊れていても途中までのデータが返ります。
 
 **[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/decode.ts)**
 
 ```typescript
-const payloadBase64 = MetalService.decode(key, metadataPool);
-const payload = Base64.toUint8Array(payloadBase64);
+const payload = MetalService.decode(key, metadataPool);
 ```
 
 ### 6.8. ユーティリティ
