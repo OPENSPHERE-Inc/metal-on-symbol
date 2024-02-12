@@ -17,17 +17,17 @@ import {
     UInt64,
 } from "symbol-sdk";
 import { Logger } from "../libs";
-import { MetalService as MetalServiceV1 } from "./compat";
+import { MetalService as MetalServiceV1, Magic as MagicV1 } from "./compat";
 import { metadataEntryConverter, SymbolService } from "./symbol";
 
 
-const VERSION: [ number, number ] = [ 1, 0 ];
-const HEADER_SIZE = 13;
-const CHUNK_PAYLOAD_MAX_SIZE = 1011;
+const VERSION = 0x31;  // We should use above 0x30 to determine V1 or not
+const HEADER_SIZE = 12;
+export const CHUNK_PAYLOAD_MAX_SIZE = 1012;
 
 enum Magic {
-    CHUNK = "C",
-    END_CHUNK = "E",
+    CHUNK = 0x00,  // Upper 4 bits 0000
+    END_CHUNK = 0x80,  // Upper 4 bits 1000
 }
 
 const isMagic = (value: any): value is Magic => Object.values(Magic).includes(value);
@@ -40,12 +40,12 @@ export interface ChunkData {
 }
 
 export interface ChunkDataV1 extends ChunkData {
-    version: 1;
+    version: 0x30;
     additive: Uint8Array;
 }
 
 export interface CHunkDataV2 extends ChunkData {
-    version: 2;
+    version: 0x31;
     additive: number;
 }
 
@@ -72,15 +72,16 @@ export class MetalServiceV2 {
 
     // Returns:
     //   - value:
-    //       [magic 0x43 ("C") or 0x45 ("E") (1 byte)] +
-    //       [version 0x01 0x00 (8 bits + 8 bits = 2 bytes)] +
+    //       [magic 0 (Chunk) or 1 (End chunk) (1 bit)] +
+    //       [reserve with 0 (7 bits)] +
+    //       [version 0x31 (1 byte)] +
     //       [additive (16 bits unsigned integer = 2 bytes)] +
     //       [next key (when magic is "C"), file hash (when magic is "E") (64 bits = 8 bytes)] +
-    //       [payload (1011 bytes)] = 1024 bytes
+    //       [payload (1012 bytes)] = 1024 bytes
     //   - key: Hash of value
     private static packChunkBytes(
         magic: Magic,
-        version: [ number, number ],
+        version: number,
         additive: number,
         nextKey: UInt64,
         chunkBytes: Uint8Array,
@@ -90,12 +91,12 @@ export class MetalServiceV2 {
         assert(value.length <= 1024);
 
         // Header (14 bytes)
-        value.set(Convert.utf8ToUint8(magic), 0);  // magic 1 byte
-        value.set(version, 1);  // version 2 bytes
-        value.set(new Uint8Array(new Uint16Array([ additive ]).buffer), 3);  // additive 2 bytes
-        value.set(Convert.hexToUint8(nextKey.toHex()), 5);  // next key 8 bytes
+        value.set([ magic & 0x80 ], 0);  // magic 1 bit + reserve 7 bits
+        value.set([ version & 0xFF ], 1);  // version 1 byte
+        value.set(new Uint8Array(new Uint16Array([ additive & 0xFFFF ]).buffer), 2);  // additive 2 bytes
+        value.set(Convert.hexToUint8(nextKey.toHex()), 4);  // next key 8 bytes
 
-        // Payload (max 1011 bytes)
+        // Payload (max 1012 bytes)
         value.set(chunkBytes, HEADER_SIZE);
 
         // key's length will always be 16 bytes
@@ -127,25 +128,27 @@ export class MetalServiceV2 {
     }
 
     public static extractChunk(chunk: BinMetadataEntry): ChunkDataV1 | CHunkDataV2 | undefined {
-        const magic = String.fromCharCode(chunk.value[0]);
-        if (!isMagic(magic)) {
-            Logger.error(`Error: Malformed header magic ${magic}`);
-            return undefined;
-        }
+        const header = chunk.value.subarray(0, 2);  // 2 bytes
 
-        const version = chunk.value.subarray(1, 3);
-        if (version.toString() !== VERSION.toString()) {
+        const version = header[1];  // Last 1 byte of header
+        if (version !== VERSION) {
             // Call V1 method
             const result = MetalServiceV1.extractChunk(metadataEntryConverter.fromBin(chunk));
             // Convert V2 result format
             return result && {
                 ...result,
-                magic,
-                version: 1,
+                magic: result.magic === MagicV1.END_CHUNK ? Magic.END_CHUNK : Magic.CHUNK,
+                version: 0x30,
                 nextKey: UInt64.fromHex(result.nextKey),
                 // The chunk is partial data. Decoding base64 will be occurred in end of decode()
                 chunkPayload: Convert.utf8ToUint8(result.chunkPayload),
             };
+        }
+
+        const magic = header[0] & 0x80;  // First 1 bit of header
+        if (!isMagic(magic)) {
+            Logger.error(`Error: Malformed header magic ${magic}`);
+            return undefined;
         }
 
         const checksum = MetalServiceV2.generateMetadataKey(chunk.value);
@@ -157,13 +160,13 @@ export class MetalServiceV2 {
             return undefined;
         }
 
-        const additive = new Uint16Array(chunk.value.buffer.slice(3, 5))[0];
-        const nextKey = UInt64.fromHex(Convert.uint8ToHex(chunk.value.subarray(5, HEADER_SIZE)));
+        const additive = new Uint16Array(chunk.value.buffer.slice(2, 4))[0];
+        const nextKey = UInt64.fromHex(Convert.uint8ToHex(chunk.value.subarray(4, HEADER_SIZE)));
         const chunkPayload = chunk.value.subarray(HEADER_SIZE, HEADER_SIZE + CHUNK_PAYLOAD_MAX_SIZE);
 
         return {
             magic,
-            version: 2,
+            version: VERSION,
             checksum,
             nextKey,
             chunkPayload,
@@ -177,7 +180,7 @@ export class MetalServiceV2 {
 
         let decodedBytes = new Uint8Array();
         let currentKeyHex = key.toHex();
-        let magic = "";
+        let magic: Magic | undefined;
         let version: number | undefined;
         do {
             const metadata = lookupTable.get(currentKeyHex)?.metadataEntry;
@@ -191,7 +194,7 @@ export class MetalServiceV2 {
             if (!result) {
                 break;
             }
-            if (version && version.toString() !== result.version.toString()) {
+            if (version && version !== result.version) {
                 Logger.error(`Error: Inconsistent chunk versions.`);
                 break;
             }
@@ -206,7 +209,7 @@ export class MetalServiceV2 {
             decodedBytes = buffer;
         } while (magic !== Magic.END_CHUNK);
 
-        return !version || version === 2
+        return !version || version === VERSION
             ? decodedBytes
             // Decoded bytes is base64 encoded (utf-8)
             : Base64.toUint8Array(Convert.uint8ToUtf8(decodedBytes));

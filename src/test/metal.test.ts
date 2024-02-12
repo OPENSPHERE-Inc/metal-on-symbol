@@ -14,8 +14,7 @@ import {
     NamespaceId,
     UInt64
 } from "symbol-sdk";
-import { MetalServiceV2, SymbolService } from "../services";
-import { MetalService } from "../services/compat";
+import { CHUNK_PAYLOAD_MAX_SIZE, MetalServiceV2, SymbolService } from "../services";
 import { initTestEnv, metalServiceV2, MetalTest, symbolService, SymbolTest } from "./utils";
 
 
@@ -35,7 +34,7 @@ describe("MetalService", () => {
 
         assert(process.env.TEST_INPUT_FILE);
         testData = fs.readFileSync(process.env.TEST_INPUT_FILE);
-        dataChunks = Math.ceil(testData.length / 1011);
+        dataChunks = Math.ceil(testData.length / CHUNK_PAYLOAD_MAX_SIZE);
 
         const assets = await SymbolTest.generateAssets();
         targetAccount = assets.account;

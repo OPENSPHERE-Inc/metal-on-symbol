@@ -43,7 +43,7 @@ export namespace ScrapCLI {
             const chunkData = MetalServiceV2.extractChunk(metadataEntry);
             if (!chunkData) {
                 throw new Error(`The chunk is broken.`);
-            } else if (chunkData.version !== 2) {
+            } else if (chunkData.version !== 0x31) {
                 throw new Error("Version 1 Metal cannot be scrap. Please use 'scrap-v1' CLI instead.")
             }
             additive = chunkData.additive;

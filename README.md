@@ -1,5 +1,30 @@
 # Metal on Symbol
 
+## V2 リリースノート
+
+- **ペイロードがこれまで Base64 だったものがバイナリになります。** その結果、容量効率が改善します。 
+  バイナリ Value の Metadata を扱うために Symbol SDK (v2) に独自拡張を施しています (SDK に同梱)
+- ヘッダー領域を削減しペイロード領域を 1 チャンク 1012 バイトに拡張。
+  - magic を　1 バイト文字から 1 ビット、version を 3 バイトから 1 バイトに縮小し、途中にリザーブ 7 ビット挟んで 2 バイトに格納。
+  - additive を 4 バイト文字列から 16 bits unsigned int（0～65535）に。
+  - Metadata key を 16 バイト Hex 表現だったのを 64 bits unsigned int（8バイト）に。
+- CLI / SDK は V1 の Metal を自動的に認識してデコードします。V1 の Metal を Forge することはできません。
+  - ただし、V1 の SDK (`MetalService`) と `scrap`, `reinforce` CLI を `compat` フォルダに退避してありますので、
+    任意に呼び出すことは可能です(CLI では `scrap-v1`, `reinforce-v1` で呼び出し可能）
+
+### SDK V1 → V2 マイグレーション手順
+
+1. `MetalService` クラスを `MetalService2` クラスに置換。メソッドは同じ物が生えてます。<br />
+   ※旧クラス `MetalService` は [/src/services/compat](./src/services/compat) にあります。
+2. 各メソッドの引数で、`additive` を `string` (4文字) から `number` (0 ～ 65535) に変更。
+3. Symbol SDK (v2) の `Metadata` クラスを `BinMetadata` クラスに置換。以下の関連するクラスも置換する。
+   - `MetadataHttp` → `BinMetadataHttp`
+   - `MetadataRepository` → `BinMetadataRepository`<br />
+     ※`RepositoryFactory` は使用できないので注意
+   - `MetadataEntry` → `BinMetadataEntry`
+4. `SymbolService.searchMetadata` を使用している場合は、`SymbolService.searchBinMetadata` に変更
+5. V1 Metal のデコードは `MetalServiceV2` クラスでも可能です（内部でチャンクバージョンを判別して処理します）
+
 ## 1. 概要
 
 ### 1.1. Metal とは
@@ -77,8 +102,8 @@ Metal はこれら全てにおいて使用可能です。
 
 #### Cons
 
-- Forge する際はデータを base64 に変換し、細かくチャンクに分けて書き込みますので、容量効率は**すこぶる良くありません**。
-  ヘッダーを除くとチャンク一つは base64 での 1,000 文字まで（正味 750 バイト位？）
+- ~~Forge する際はデータを base64 に変換し、細かくチャンクに分けて書き込みますので、容量効率は**すこぶる良くありません**。
+  ヘッダーを除くとチャンク一つは base64 での 1,000 文字まで（正味 750 バイト位？）~~
 - トランザクションデータとメタデータの現在値が全ノードに（恐らく）保持される為、冗長になります。
 - Scrap は Forge と同ボリュームのトランザクションデータを要します。手数料も Forge と同じだけかかります。 
 - ファイル情報（ファイル名、形式、サイズ、タイムスタンプ等）を取り扱いません。
@@ -635,26 +660,41 @@ const calculateMetadataHash = (
 
 **例** 
 
-```
-C01000005205659DD2EE1531vnXLdOMAMpU54JyMjqKiOFUHysqWK51zRLF40F7ZSvcQ2c0kkq7ZdkmSx4MZdmCjcvIYoW+7iq+vafDqepTRyWen2s21sQpCMDAwAYyQeADknJJ92zXM2kM2pE3EUk0nlYm2Km7KANukZc4VcdByxHf5hU1n4jOhxRRtJM3mPKfslzG0kdqmQEljDZA3qvIILDy16Dmuj2XY5/bdWMvLH7Pqv2e51OGW4bM7xTutrDcfMWzucjnHONwLDp6C3ZT2trcSJeK1havE7lSySTDbgiHLN1JAPB43Ecgc5+n3ek3No0WpTC8e8DSSwrYw3KRI6t+8jZHAjmJZflCqQcE8oAM29XTp42leP7KU2zoxl+Q5ySArD5f4uOg245quV3D2itcvarq7y2pT/Ro5J1BLQ+YPNwoJ+dmIBZlXqBwMcEDbk6vrjSXNrayf6TeSOnzM63HmkKoyMMRkjGQ2clBkk5Ayrq4edJJLaGGJWQkFPlz8/fjn0GP6ZqxYL9lu4d0cstrtLiUEhjgq3Rc8g8ZHAOM4PI2jGyuYOo27F248KXNsVWOGxuLy433O2ym+0/YIU5JJQOFXjGVc4VSSB1Ojp0S+H9MWO90mTydxYNL5m7zGj2KSCq/KSwIUfMdvYjA9A+Hnh6y8X67HHdLLcWSx77i7S2iihsbfz1RpF2GMFxITFtkb5mkBJX5SL2s2Vnpvhq4n1Jg0MdqvLNJGsM4kCyRSwSxBmYbWjdCQQRgEhRXPUru9jeFFNXMSy0u806OaeAXUmh2MsUs4nsmk/evGd4EihAG8sSSqjMu7Zkbsc83f69qlhb6fDH9oa48tjtA2NFIVVWkXBzuC7AWODmMnGDXRanq9pL4Tt7m61bzSxuFltBCeHYSSRli4CBSPLGVJIVlLHcQD5ze6msVxtmgthakeXJswrwyHedqhDnI8tsAYVQVGVGFpUvfd2hVZcqsmbGlOut22zUpo5NpEyOZP3kTPiXjJwykbCdu0E4zn
-```
+・Chunk (Additive = 0)
 
 ```
-E01000009AF02A462D4D71B7vLqzjbWktysErRgxMke5MAj5T3HQ151Sbbvr956NH3Vojv8AwV+zzoPj7wVZ6p8N7Txx4Nmtb1U0y1N8niTRfmfdCLaC6YlJmlYhRAEkaUoEcbyWTTfjN46+HXh/WPDt34b0PXo9SYaTeXbXt1Z2NzbP8rR3CPJJa2flx5yzeSYA6yFT5apWRr3hzT7b4s6hax2FnHbajrVraXcSwKI7qGW2iMkci4wyOSSynIbJznNdx8Db+e0/Zj8UtFNNG2n6i/2Uo5U23lxjZs/u7dq4xjG0Y6VxTk4S97VXW/n57nqQfNC/Wx//2Q==
+0031000001756675E5C78815FFD8FFE000104A46494600010101006000600000FFE100224578696600004D4D002A00000008000101120003000000010001000000000000FFDB0043000201010201010202020202020202030503030303030604040305070607070706070708090B0908080A0807070A0D0A0A0B0C0C0C0C07090E0F0D0C0E0B0C0C0CFFDB004301020202030303060303060C0807080C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0CFFC000110800FA032003012200021101031101FFC4001F0000010501010101010100000000000000000102030405060708090A0BFFC400B5100002010303020403050504040000017D01020300041105122131410613516107227114328191A1082342B1C11552D1F02433627282090A161718191A25262728292A3435363738393A434445464748494A535455565758595A636465666768696A737475767778797A838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE1E2E3E4E5E6E7E8E9EAF1F2F3F4F5F6F7F8F9FAFFC4001F0100030101010101010101010000000000000102030405060708090A0BFFC400B51100020102040403040705040400010277000102031104052131061241510761711322328108144291A1B1C109233352F0156272D10A162434E125F11718191A262728292A35363738393A434445464748494A535455565758595A636465666768696A737475767778797A82838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE2E3E4E5E6E7E8E9EAF2F3F4F5F6F7F8F9FAFFDA000C03010002110311003F00FAD352D0BFB5BC0F67F0FF0050B8D6AF7C7234EF22D2D756D61EDEFEE1ADE5DCCCC90EA416E2389E489A3631DD12AA1B6C9B4D725F153C4D6FFD97A7C9368BA7F8BB54B312C515DDB6AAB3DE685036D12442D24649B50453E629572CE5189825FDE4D28F158340BCFDA02F26F1A6B1E28F036B1E32B96825BDD47C273DCEA412ED5C20B093518A07B1B3458A78A3C9B8795545C4ACCDBDE43EB9F0A7C0FE209BE2978735AB8D5BC65E2EF0DF8A9219FC469E1EB1FECBB513CFE6C205C34375736F70EA0C5E5B35E876F2E011ACE656497F11A98574D4B9DF37975EAFA7EA7EA5529A6FDA4E4DFF00497E3D0F3CF897A7687F043C39E209F50D27C3BA1C89FE87E1FD02F354D61A148D62C496E62D2EDAE6096333CAD6F35B4CE77850FF00686511E3A0FD9FBF634F117ECA7A1789B568FF00B67C51A0EA9773EB12B5DA5A6A5A5E84CE05B2AC082D7CF92F6290C9970F16D8DFF7508C36FEA747F1DCFF000F3C67
 ```
 
-| 1 byte                      | 2 bytes         | 2 bytes           | 8 bytes                                                                         | 1~1011 bytes      |
-|-----------------------------|-----------------|-------------------|---------------------------------------------------------------------------------|-------------------|
-| マジック (0x43 'C' or 0x45 'E'） | バージョン 0x01 0x00 | Additive（0~65535） | 次チャンクの `Key` (64 bits unsigned int) 、マジック `E` の場合はチェックサム (64 bits unsigned int) | チャンクデータ (バイナリデータ) |
+・End Chunk (Additive = 0)
 
-ヘッダーは先頭 13 bytes 分
+```
+803100009AF02A462D4D71B7DA78ABC03E32BD49E6B959FF00D0F49672565951D46D8E3752C4E0AAF9A43B946243E97C4AD1ACEEF5C5D426B5B692FADEEB51F2AE5E2569A3C5BDB01B5F1918048E0F73EB5E73FB1CEBD7DE27F8DBE0BD0F52BCBBD43459F5C29269F73334D6B228D8A0189895202F0011D38AF4631528DA5AA3C6AD374AADA9E96668F8BBE28E9FA378B74C5F0E6A8969A979F729A68BBB0D2EEAC4C533992EEDDAE229E349ED5A26CC703C48ED22F9691AB9491FD6FC5965A3F813C456FAA7847C37E1BF1442D323CDE1BBAD2A69E47B864575F2EDA0CBC3033798BB9F7229752A2274123FA17823E0A783744FD91BC457965E11F0CD9DE1D4BC596A67834B82390C504F78B0C7B82E7646AAA117A285006302BF3A7E0DF88750D07E256836F637D79676EBE278ACC4504CD1A080C8EA62C290366091B7A60918A8E55CCEDD34F5B96AABA906A7F2F23E90F871F10BE09F802EEF747F1A7847E2A7867576BC7682CED6E21D72D544D3620B56668A19E452BFB8224DECEC1B3970A449F1B7C2D69E19F0C2E9FA6F857C6CD1DE5BACA977AA5D47E468A1182ABDCCCD184861755908F3828505DC490B20073B5FF12EA579FB1AFECA3AB4DA85ECBAA5E6B1E34F0EDC5E3CECD713E9915ED898EC5DC9DCD6C8679CAC24EC5F3A4C28DED9F34FD8D356BAD7751F1C5C5F5CDC5E5C68FE00BB9EC259E4323D8C8F2C10BBC44E4A334534B192B82525753C3106A314E2EA7E17396527CCA275DF04BC3BE13D2B5885754BBD6BC417BE22B71323C3F69FB1EA28ACF926056592F42B29DBF3AA3AA8210835EA179A27C23B8FB6D9B7C33D0FC6FA258DB1B692E20D0AEB49B8478DCF9BBEF889A470009029E0B1655F3D026C3C67C41823D37F6ADF12585BA2DBD8E9B1C56B696D18DB0DAC25A5531C6A3854C123680060D755E21D72F742F1EF8563B1BCBAB38DB5A4B72B04AD18313247B93008F94F71D0D79D526DBBEBF79E8D1F75688EFF00C15FB3CE83E3EF0559EA9F0DED3C71E0D9AD6F5534CB537C9E24D17E67DD08B682E989499A5621440124694A0471BC964D37E3378EBE1D787F58F0EDDF86F43D7A3D4986937976D7B756763736CFF2B47708F2496B67E5C79CB3792600EB2153E5AA5646BDE1CD3EDBE2CEA16B1D859C76DA8EB56B697712C0A23BA865B688C91C8B8C323924B29C86C9CE735DC7C0DBF9ED3F663F14B4534D1B69FA8BFD94A39536DE5C6366CFEEEDDAB8C631B463A5714E4E12F7B5575BF9F9EE7A907CD0BF5B1FFFD9
+```
 
-**・マジック (1 byte)**
+| 1 bits                            | 7 bits        | 1 byte       | 16 bits (LE)      | 64 bits (LE)                                                                            | 1~1012 bytes      |
+|-----------------------------------|---------------|--------------|-------------------|-----------------------------------------------------------------------------------------|-------------------|
+| マジック (`0` Chunk or `1` End Chunk） | リザーブ (`0` 詰め) | バージョン `0x31` | Additive（0~65535） | 次チャンクの `Key` (64 bits unsigned int) 、マジック `End Chunk` の場合はチェックサム (64 bits unsigned int) | チャンクデータ (バイナリデータ) |
 
-- 0x43 'C': 途中のチャンク（Chunk）
-- 0x45 'E': 最後のチャンク（End chunk）
+ヘッダーは先頭 12 bytes 分
 
-**・Additive (2 bytes)**
+**・マジック (先頭 1 bits)**
+
+- `0`: 途中のチャンク（Chunk）
+- `1`: 最後のチャンク（End Chunk）
+
+**・リザーブビット (7 bits)**
+
+将来のバージョン用にリザーブ。現状は `0` で詰めるものとする。
+
+**・バージョン (8 bits)**
+
+- `0x31`: バージョン (8 bits)
+
+> V1 と V2 を確実に判別するために常に `0x31` 以上のバージョンを使用します。
+> V1 はこのバイトが `0x30` になるためです。
+
+**・Additive (16 bits unsigned int, リトルエンディアン)**
 
 Forge の際に追加できる数値 0～65535 の「添加物」です。
 `Additive` を加えると、同じデータあっても `Metal ID` 及びチャンクの `Key` が変化します。
@@ -665,11 +705,11 @@ Forge の際に追加できる数値 0～65535 の「添加物」です。
 
 ただし、`Additive` は全チャンクの `Value` 上で見えるので、いちいち控えておかなくても問題ないかもしれません。
 
-**・次チャンクの Key (64 bits unsigned int, 8 bytes)**
+**・次チャンクの Key (64 bits unsigned int, リトルエンディアン)**
 
-マジック `C` のチャンクは、次チャンクの Key (64 bits unsigned int) が入ります。
+マジック `End Chunk` のチャンクは、次チャンクの Key (64 bits unsigned int) が入ります。
 
-`E` のチャンクは次がない代わりに、
+`End Chunk` のチャンクは次がない代わりに、
 データ全体のチェックサム（sha3_256 ハッシュ値下位 64 bits unsigned int）が入ります。
 
 > **チェックサム対象は元ファイルのバイナリ生データです**
@@ -689,10 +729,10 @@ const generateChecksum = (input: Uint8Array): UInt64 => {
 
 **・チャンクデータ (バイナリデータ)**
 
-バイナリデータを 1011 byte 以下の断片に分けて一つずつチャンクに格納します。
-`C` チャンクであっても、1 byte 以上 1011 byte 以下であればどの様な長さでも良いです。 
+バイナリデータを 1012 byte 以下の断片に分けて一つずつチャンクに格納します。
+`C` チャンクであっても、1 byte 以上 1012 byte 以下であればどの様な長さでも良いです。 
 
-> `E` チャンクにデータ全体のチェックサムが入るので、同じ内容のチャンクが現れても `Key` が衝突することがありません。
+> `End Chunk` にデータ全体のチェックサムが入るので、同じ内容のチャンクが現れても `Key` が衝突することがありません。
 
 **・エンコード**
 
@@ -752,10 +792,10 @@ Forge の際、メタデータの `Key` が `Value` から算出されていま�
 
 先頭メタデータの `Value` をデコードして次チャンクの `Key` を取り出し、
 `Composite Hash` を計算して `/metadata/{compositeHash}` エンドポイントで次チャンクを取得する事を、
-マジック `E` のチャンクが来るまで繰り返す。
+マジック `End Chunk` のチャンクが来るまで繰り返す。
 
-Symbol SDK の場合は [MetadataHttp / getMetadata](https://symbol.github.io/symbol-sdk-typescript-javascript/1.0.3/classes/MetadataHttp.html#getMetadata) 
-で使用可能です。
+Metal が拡張した Symbol SDK を使用する場合は [BinMetadataHttp / getMetadata](https://github.com/OPENSPHERE-Inc/symbol-service/blob/2fc6c41fa4a5b8d755105bd74b7bd260d3e4feb1/src/libs/metadata.ts#L210) 
+で実行可能です。
 
 > チャンクの数だけ REST Gateway への連続アクセスが必要なので負荷と時間がかかる可能性があります。
 
@@ -765,8 +805,8 @@ Symbol SDK の場合は [MetadataHttp / getMetadata](https://symbol.github.io/sy
 `/metadata` エンドポイントにアクセスして、関連するすべてのメタデータを検索で取得してプールする。
 メタデータプールの中で、先頭の `Key` から `E` チャンクまで順に辿って、必要なメタデータを集める。
 
-Symbol SDK の場合は [Metadata Http / search](https://symbol.github.io/symbol-sdk-typescript-javascript/1.0.3/classes/MetadataHttp.html#search)
-で使用可能です。
+Metal が拡張した Symbol SDK を使用する場合は [BinMetadataHttp / search](https://github.com/OPENSPHERE-Inc/symbol-service/blob/2fc6c41fa4a5b8d755105bd74b7bd260d3e4feb1/src/libs/metadata.ts#L188)
+で実行可能です。
 
 > まとめて取得できる分速いですが、検索条件で Metal のチャンクのみに絞り込めないので、余分なデータを取得する可能性があります。
 > 
@@ -802,7 +842,7 @@ yarn add symbol-sdk
 ```
 
 ネットワークプロパティを取得したりするため、Symbol ノードにアクセスする前提となります。
-使用する際は、最初に必ず SymbolService と MetalService の初期化をしてください。
+使用する際は、最初に必ず SymbolService と MetalServiceV2 の初期化をしてください。
 
 ```typescript
 import {SymbolService, MetalServiceV2} from "metal-on-symbol";
@@ -831,7 +871,61 @@ const symbolService = new SymbolService({node_url: "https://example.jp:3001"});
 const metalService = new MetalServiceV2(symbolService);
 ```
 
-### 6.2. Forge
+### 6.2. BinMetadata API (Symbol SDK 拡張)
+
+Metal on Symbol V2 では、バイナリペイロードの Metal にアクセスするために、Symbol SDK (v2) を独自に拡張しています (BinMetadata API）
+
+これらの API は `BinMetadataHttp` をインスタンス化することで使用できます。
+最終的には `BinMetadataEntry` の `value` プロパティが　`Uint8array` （すなわちバイナリデータ）で取得されます。
+
+Symbol SDK (v2) の標準では、`MetadataEntry` の `value` プロパティが、内部的に utf-8 の文字列へ変換されてしまうため、
+バイナリデータを正しく扱うことが不可能でした。
+
+Metal で作成するメタデータへのアクセスは、Symbol SDK (v2)　標準の `MetadataHttp` を使用せず、
+`BinMetadataHttp` (BinMetadata API) を使用してください。
+
+あるいは、バイナリのメタデータ value を正しく扱える他の SDK を使用してください。
+
+**サンプルコード**
+
+```typescript
+import { BinMetadataHttp } from "metal-on-symbol";
+
+const nodeUrl = "https://node.example.jp:3001"
+
+const searchBinMetadata = async (
+    type: MetadataType,
+    target?: Address,
+    source?: Address,
+    key?: UInt64,
+    targetId?: MosaicId | NamespaceId,
+    pageSize: number = 100,
+) => {
+    const binMetadataHttp = new BinMetadataHttp(nodeUrl);
+    const searchCriteria: MetadataSearchCriteria = { 
+        targetAddress: target, 
+        sourceAddress: source, 
+        scopedMetadataKey: key?.toHex(), 
+        targetId: targetId, 
+        metadataType: type,
+        pageSize,
+    };
+
+    let batch;
+    let pageNumber = 1;
+    const metadataPool = new Array<BinMetadata>();
+    do {
+        batch = await firstValueFrom(
+            metadataHttp.search({ ...searchCriteria, pageNumber: pageNumber++ })
+        ).then((page) => page.data);
+        metadataPool.push(...batch);
+    } while (batch.length === pageSize);
+    
+    return metadataPool;
+};
+```
+
+### 6.3. Forge
 
 まず Forge するためのトランザクション群を生成します。
 
@@ -863,7 +957,7 @@ const { txs, key, additive } = await metalService.createForgeTxs(
 - `txs: InnerTransaction[]` - メタデータタイプによって `AccountMetadataTransaction`、`MosaicMetadataTransaction`、
   `NamespaceMetadataTransaction` の何れかのトランザクションが含まれます。
 - `key: UInt64` - 先頭のチャンクメタデータの `Key`
-- `additive: number` - 実際に添加された Additive が返ります。衝突が発生して引数に指定したもの以外の、
+- `additive: number` - 実際に添加された Additive (0～65535) が返ります。衝突が発生して引数に指定したもの以外の、
   ランダム生成されたものが返る可能性があります。
 
 次に `txs` に署名してブロックチェーンにアナウンスします。
@@ -1013,7 +1107,7 @@ const forgeMetal = async (
 };
 ```
 
-### 6.3. Forge（リカバリ）
+### 6.4. Forge（リカバリ）
 
 何らかの理由（アカウントの残高不足等）で途中のトランザクションが失敗した場合、以下の手順でリカバリが可能です。
 
@@ -1077,7 +1171,7 @@ const forgeMetal = async (
 };
 ```
 
-### 6.4. Fetch
+### 6.5. Fetch
 
 #### Metal ID で Fetch
 
@@ -1126,7 +1220,7 @@ const payload = await metalService.fetch(type, sourceAddress, targetAddress, tar
 
 **[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/fetch_by_key.ts)**
 
-### 6.5. Scrap
+### 6.6. Scrap
 
 #### Metal ID で Scrap 
 
@@ -1282,7 +1376,7 @@ const destroyMetal = async (
 };
 ```
 
-### 6.6. Verify
+### 6.7. Verify
 
 手元のファイルとオンチェーンの Metal を照合します。
 
@@ -1354,13 +1448,13 @@ const verifyMetal = async (
 };
 ```
 
-### 6.7. デコードだけ
+### 6.8. デコードだけ
 
 自前のコードでオンチェーンのメタデータを取得した場合は、デコードだけ行うことも可能です。
 
 ```typescript
 // Static method
-const payloadBase64 = MetalService.decode(key, metadataPool);
+const payloadBytes = MetalServiceV2.decode(key, metadataPool);
 ```
 
 **引数**
@@ -1377,21 +1471,21 @@ const payloadBase64 = MetalService.decode(key, metadataPool);
 **[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/src/nodejs/decode.ts)**
 
 ```typescript
-const payload = MetalService.decode(key, metadataPool);
+const payload = MetalServiceV2.decode(key, metadataPool);
 ```
 
-### 6.8. ユーティリティ
+### 6.9. ユーティリティ
 
 #### ・チャンクメタデータ Key の生成
 
 ```typescript
 // Static method
-const key = MetalService.generateMetadataKey(input);
+const key = MetalServiceV2.generateMetadataKey(input);
 ```
 
 **引数**
 
-- `input: string` - 入力文字列（多くは base64 文字列）
+- `input: string | Uint8array` - 入力データ（バイナリの場合は Uint8array を使用）
 
 **戻り値**
 
@@ -1401,7 +1495,7 @@ const key = MetalService.generateMetadataKey(input);
 
 ```typescript
 // Static method
-const checksum = MetalService.generateChecksum(input);
+const checksum = MetalServiceV2.generateChecksum(input);
 ```
 
 **引数**
@@ -1412,13 +1506,13 @@ const checksum = MetalService.generateChecksum(input);
 
 - `UInt64` - 64 bits チェックサム値
 
-> base64 ではない生データを使用することに注意
+> base64 形式ではない生のバイナリデータを使用することに注意
 
 #### ・Metal ID から Composite Hash の復元
 
 ```typescript
 // Static method
-const compositeHash = MetalService.restoreMetadataHash(metalId);
+const compositeHash = MetalServiceV2.restoreMetadataHash(metalId);
 ```
 
 **引数**
@@ -1463,7 +1557,7 @@ const plainData = SymbolService.decryptBinary(encryptedData, senderPubAccount, r
 
 - `Uint8Array` - 平文データ（バイナリ）
 
-### 6.9. サンプルコード
+### 6.10. サンプルコード
 
 [こちら](https://github.com/OPENSPHERE-Inc/metal-sdk-sample) のリポジトリにサンプルコードをアップしてあります。
 

@@ -8,6 +8,9 @@ export {
     SymbolServiceConfig,
     BinMetadata,
     BinMetadataEntry,
+    BinMetadataHttp,
+    BinMetadataRepository,
+    BinMetadataPaginationStreamer,
     AggregateUndeadTransaction,
     UndeadSignature,
     NecromancyService

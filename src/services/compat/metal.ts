@@ -23,14 +23,14 @@ import bs58 from "bs58";
 import { Base64 } from "js-base64";
 
 
-const VERSION = "010";
+const VERSION = "010";  // 0x30 0x31 0x30
 const HEADER_SIZE = 24;
 const CHUNK_PAYLOAD_MAX_SIZE = 1000;
 const METAL_ID_HEADER_HEX = "0B2A";
 
-enum Magic {
-    CHUNK = "C",
-    END_CHUNK = "E",
+export enum Magic {
+    CHUNK = "C",  // 0x43
+    END_CHUNK = "E",  // 0x45
 }
 
 const isMagic = (char: any): char is Magic => Object.values(Magic).includes(char);
