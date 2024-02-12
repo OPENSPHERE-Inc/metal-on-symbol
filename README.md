@@ -14,15 +14,34 @@
 
 ### SDK V1 → V2 マイグレーション手順
 
-1. `MetalService` クラスを `MetalService2` クラスに置換。メソッドは同じ物が生えてます。<br />
+1. `MetalService` クラスを `MetalServiceV2` クラスに置換。メソッドは同じ物が生えてます。<br />
    ※旧クラス `MetalService` は [/src/services/compat](./src/services/compat) にあります。
-2. 各メソッドの引数で、`additive` を `string` (4文字) から `number` (0 ～ 65535) に変更。
-3. Symbol SDK (v2) の `Metadata` クラスを `BinMetadata` クラスに置換。以下の関連するクラスも置換する。
+2. 各メソッドの変更点に対応。いずれもエディタの型チェック機能や、TS のトランスパイル時にエラーが出ると思います。
+   JavaScript から使用する際は注意していください。
+   - 引数の `additive` の型を `number` (0 ～ 65535) に変更する。
+     - `verifyMetadataKey()` メソッド
+     - `createForgeTxs()` メソッド
+     - `createDestroyTxs()` メソッド
+   - 引数の `Metadata` は `BinMetadata` に変更する。
+     - `decode()` メソッド
+     - `createScrapTxs()` メソッド
+     - `createDestroyTxs()` メソッド
+     - `checkCollision()` メソッド
+     - `verify()` メソッド
+   - 引数の `MetadataEntry` は `BinMetadataEntry` に変更する。
+     - `extractChunk()` メソッド
+   - 戻り値の `additive` の型は `number` (0 ～ 65535) になります。
+     - `extractChunk()` メソッド
+     - `createForgeTxs()` メソッド
+   - 戻り値の `Metadata` は `BinMetadata` になります。
+     - `getFirstChunk()` メソッド
+   - `decode()` の戻り値は `Uint8array` （バイナリ）になります。Base64 のデコードは不要です。
+3. Symbol SDK (v2) の `Metadata` クラスを `BinMetadata` クラスに置換。以下の関連クラスも置換する。
    - `MetadataHttp` → `BinMetadataHttp`
    - `MetadataRepository` → `BinMetadataRepository`<br />
-     ※`RepositoryFactory` は使用できないので注意
+     **※`RepositoryFactory` は使用できないので注意**
    - `MetadataEntry` → `BinMetadataEntry`
-4. `SymbolService.searchMetadata` を使用している場合は、`SymbolService.searchBinMetadata` に変更
+4. `SymbolService` の `searchMetadata()` メソッドを使用している場合は、`searchBinMetadata()` メソッドに変更
 5. V1 Metal のデコードは `MetalServiceV2` クラスでも可能です（内部でチャンクバージョンを判別して処理します）
 
 ## 1. 概要
