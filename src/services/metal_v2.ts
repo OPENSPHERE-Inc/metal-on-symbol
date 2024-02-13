@@ -26,8 +26,8 @@ const HEADER_SIZE = 12;
 export const CHUNK_PAYLOAD_MAX_SIZE = 1012;
 
 enum Magic {
-    CHUNK = 0x00,  // Upper 4 bits 0000
-    END_CHUNK = 0x80,  // Upper 4 bits 1000
+    CHUNK = 0x00,  // Upper 1 bit 0
+    END_CHUNK = 0x80,  // Upper 1 bits 1
 }
 
 const isMagic = (value: any): value is Magic => Object.values(Magic).includes(value);
@@ -90,16 +90,16 @@ export class MetalServiceV2 {
         const value = new Uint8Array(chunkBytes.length + HEADER_SIZE);
         assert(value.length <= 1024);
 
-        // Header (14 bytes)
+        // Header (12 bytes)
         value.set([ magic & 0x80 ], 0);  // magic 1 bit + reserve 7 bits
         value.set([ version & 0xFF ], 1);  // version 1 byte
         value.set(new Uint8Array(new Uint16Array([ additive & 0xFFFF ]).buffer), 2);  // additive 2 bytes
         value.set(Convert.hexToUint8(nextKey.toHex()), 4);  // next key 8 bytes
 
-        // Payload (max 1012 bytes)
+        // Payload (max 1,012 bytes)
         value.set(chunkBytes, HEADER_SIZE);
 
-        // key's length will always be 16 bytes
+        // key's length will always be 8 bytes
         const key = MetalServiceV2.generateMetadataKey(value);
 
         return { value, key };
@@ -221,7 +221,7 @@ export class MetalServiceV2 {
     // Returns:
     //   - key: Metadata key of first chunk (*undefined* when no transactions were created)
     //   - txs: List of metadata transaction (*InnerTransaction* for aggregate tx)
-    //   - additive: Actual additive that been used during encoding. You should store this for verifying the metal.
+    //   - additive: Actual additive that been used during encoding. We should store this for verifying the metal.
     public async createForgeTxs(
         type: MetadataType,
         sourcePubAccount: PublicAccount,
@@ -292,7 +292,7 @@ export class MetalServiceV2 {
         metadataPool?: BinMetadata[],
     ) {
         const lookupTable = MetalServiceV2.createMetadataLookupTable(
-            metadataPool ||
+            metadataPool ??
             // Retrieve scoped metadata from on-chain
             await this.symbolService.searchBinMetadata(type, {
                 source: sourcePubAccount,
@@ -347,7 +347,7 @@ export class MetalServiceV2 {
         metadataPool?: BinMetadata[],
     ) {
         const lookupTable = MetalServiceV2.createMetadataLookupTable(
-            metadataPool ||
+            metadataPool ??
             // Retrieve scoped metadata from on-chain
             await this.symbolService.searchBinMetadata(type,{
                 source: sourcePubAccount,
@@ -400,7 +400,7 @@ export class MetalServiceV2 {
         metadataPool?: BinMetadata[],
     ) {
         const lookupTable = MetalServiceV2.createMetadataLookupTable(
-            metadataPool ||
+            metadataPool ??
             // Retrieve scoped metadata from on-chain
             await this.symbolService.searchBinMetadata(type,  { source, target, targetId })
         );
@@ -443,13 +443,13 @@ export class MetalServiceV2 {
     ) {
         const decodedBytes = MetalServiceV2.decode(
             key,
-            metadataPool ||
+            metadataPool ??
             // Retrieve scoped metadata from on-chain
             await this.symbolService.searchBinMetadata(
                 type,
                 { source: sourceAddress, target: targetAddress, targetId }
             )
-        ) || "";
+        ) ?? "";
 
         let mismatches = 0;
         const maxLength = Math.max(payload.length, decodedBytes.length);
