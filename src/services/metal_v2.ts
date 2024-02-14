@@ -24,10 +24,16 @@ import { metadataEntryConverter, SymbolService } from "./symbol";
 const VERSION = 0x31;  // We should use above 0x30 to determine V1 or not
 const HEADER_SIZE = 12;
 export const CHUNK_PAYLOAD_MAX_SIZE = 1012;
+const CHUNK_MAX_SIZE = 1024;
 
 enum Magic {
     CHUNK = 0x00,  // Upper 1 bit 0
     END_CHUNK = 0x80,  // Upper 1 bits 1
+}
+
+enum Flag {
+    MAGIC = 0x80,
+    TEXT = 0x40,
 }
 
 const isMagic = (value: any): value is Magic => Object.values(Magic).includes(value);
@@ -37,6 +43,7 @@ export interface ChunkData {
     checksum: UInt64;
     nextKey: UInt64;
     chunkPayload: Uint8Array;
+    text: boolean;
 }
 
 export interface ChunkDataV1 extends ChunkData {
@@ -73,11 +80,12 @@ export class MetalServiceV2 {
     // Returns:
     //   - value:
     //       [magic 0 (Chunk) or 1 (End chunk) (1 bit)] +
-    //       [reserve with 0 (7 bits)] +
+    //       [text flag (1 bit)] +
+    //       [reserve with 0 (6 bits)] +
     //       [version 0x31 (1 byte)] +
     //       [additive (16 bits unsigned integer = 2 bytes)] +
-    //       [next key (when magic is "C"), file hash (when magic is "E") (64 bits = 8 bytes)] +
-    //       [payload (1012 bytes)] = 1024 bytes
+    //       [next key (when magic is 0 "Chunk"), file hash (when magic is 1 "End chunk") (64 bits = 8 bytes)] +
+    //       [payload 1012 bytes] = 1024 bytes
     //   - key: Hash of value
     private static packChunkBytes(
         magic: Magic,
@@ -85,19 +93,24 @@ export class MetalServiceV2 {
         additive: number,
         nextKey: UInt64,
         chunkBytes: Uint8Array,
+        text?: boolean,
     ) {
         assert(additive >= 0 && additive < 65536);
-        const value = new Uint8Array(chunkBytes.length + HEADER_SIZE);
-        assert(value.length <= 1024);
+        const value = new Uint8Array(HEADER_SIZE + chunkBytes.length);
+        assert(value.length <= CHUNK_MAX_SIZE);
 
         // Header (12 bytes)
-        value.set([ magic & 0x80 ], 0);  // magic 1 bit + reserve 7 bits
+        const flags = magic & Flag.MAGIC |
+            (text ? Flag.TEXT : 0);
+        value.set([ flags ], 0);  // magic 1 bit + flags 1 bit + reserve 6 bits
         value.set([ version & 0xFF ], 1);  // version 1 byte
         value.set(new Uint8Array(new Uint16Array([ additive & 0xFFFF ]).buffer), 2);  // additive 2 bytes
         value.set(Convert.hexToUint8(nextKey.toHex()), 4);  // next key 8 bytes
 
         // Payload (max 1,012 bytes)
-        value.set(chunkBytes, HEADER_SIZE);
+        if (chunkBytes.length) {
+            value.set(chunkBytes, HEADER_SIZE);
+        }
 
         // key's length will always be 8 bytes
         const key = MetalServiceV2.generateMetadataKey(value);
@@ -105,14 +118,55 @@ export class MetalServiceV2 {
         return { value, key };
     }
 
+    private static combinePayloadWithText(payload: Uint8Array, text?: string) {
+        const textBytes = text ? Convert.utf8ToUint8(text) : new Uint8Array(0);
+        const textSize = textBytes.length % CHUNK_PAYLOAD_MAX_SIZE
+            ? textBytes.length + 1 // If extJson section end at mid-chunk then append null char
+            : textBytes.length;
+
+        const combinedPayload = new Uint8Array(textSize + payload.length);
+        let offset = 0;
+
+        if (textBytes.length) {
+            combinedPayload.set(textBytes, offset);
+            offset += textBytes.length;
+        }
+        if (textBytes.length % CHUNK_PAYLOAD_MAX_SIZE) {
+            // append null char as terminator
+            combinedPayload.set([ 0x00 ], offset);
+            offset++;
+        }
+        if (payload.length) {
+            combinedPayload.set(payload, offset);
+        }
+
+        return {
+            combinedPayload,
+            textChunks: Math.ceil(textBytes.length / CHUNK_PAYLOAD_MAX_SIZE),
+        };
+    }
+
     // Calculate metadata key from payload. "additive" must be specified when using non-default one.
-    public static calculateMetadataKey(payload: Uint8Array, additive = MetalServiceV2.DEFAULT_ADDITIVE) {
-        const chunks = Math.ceil(payload.length / CHUNK_PAYLOAD_MAX_SIZE);
-        let nextKey = MetalServiceV2.generateChecksum(payload);
+    public static calculateMetadataKey(
+        payload: Uint8Array,
+        additive = MetalServiceV2.DEFAULT_ADDITIVE,
+        text?: string,
+    ) {
+        const { combinedPayload, textChunks } = MetalServiceV2.combinePayloadWithText(payload, text);
+
+        const chunks = Math.ceil(combinedPayload.length / CHUNK_PAYLOAD_MAX_SIZE);
+        let nextKey = MetalServiceV2.generateChecksum(combinedPayload);
         for (let i = chunks - 1; i >= 0; i--) {
             const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
-            const chunkBytes = payload.subarray(i * CHUNK_PAYLOAD_MAX_SIZE, (i + 1) * CHUNK_PAYLOAD_MAX_SIZE);
-            nextKey = MetalServiceV2.packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes).key;
+            const chunkBytes = combinedPayload.subarray(i * CHUNK_PAYLOAD_MAX_SIZE, (i + 1) * CHUNK_PAYLOAD_MAX_SIZE);
+            nextKey = MetalServiceV2.packChunkBytes(
+                magic,
+                VERSION,
+                additive,
+                nextKey,
+                chunkBytes,
+                i < textChunks,
+            ).key;
         }
 
         return nextKey;
@@ -122,9 +176,10 @@ export class MetalServiceV2 {
     public static verifyMetadataKey(
         key: UInt64,
         payload: Uint8Array,
-        additive = MetalServiceV2.DEFAULT_ADDITIVE
+        additive = MetalServiceV2.DEFAULT_ADDITIVE,
+        text?: string,
     ) {
-        return MetalServiceV2.calculateMetadataKey(payload, additive).equals(key);
+        return MetalServiceV2.calculateMetadataKey(payload, additive, text).equals(key);
     }
 
     public static extractChunk(chunk: BinMetadataEntry): ChunkDataV1 | CHunkDataV2 | undefined {
@@ -142,14 +197,16 @@ export class MetalServiceV2 {
                 nextKey: UInt64.fromHex(result.nextKey),
                 // The chunk is partial data. Decoding base64 will be occurred in end of decode()
                 chunkPayload: Convert.utf8ToUint8(result.chunkPayload),
+                text: false,
             };
         }
 
-        const magic = header[0] & 0x80;  // First 1 bit of header
+        const magic = header[0] & Flag.MAGIC;  // First 1 bit of header
         if (!isMagic(magic)) {
             Logger.error(`Error: Malformed header magic ${magic}`);
             return undefined;
         }
+
 
         const checksum = MetalServiceV2.generateMetadataKey(chunk.value);
         if (!checksum.equals(chunk.scopedMetadataKey)) {
@@ -160,9 +217,10 @@ export class MetalServiceV2 {
             return undefined;
         }
 
+        const text = !!(header[0] & Flag.TEXT);
         const additive = new Uint16Array(chunk.value.buffer.slice(2, 4))[0];
         const nextKey = UInt64.fromHex(Convert.uint8ToHex(chunk.value.subarray(4, HEADER_SIZE)));
-        const chunkPayload = chunk.value.subarray(HEADER_SIZE, HEADER_SIZE + CHUNK_PAYLOAD_MAX_SIZE);
+        const chunkPayload = chunk.value.subarray(HEADER_SIZE, CHUNK_MAX_SIZE);
 
         return {
             magic,
@@ -171,14 +229,39 @@ export class MetalServiceV2 {
             nextKey,
             chunkPayload,
             additive,
+            text,
         };
     }
 
-    // Return: Decoded payload bytes.
+    private static splitChunkPayloadAndText(chunkData: ChunkData) {
+        if (!chunkData.text) {
+            // No text in the chunk
+            return {
+                chunkPayload: chunkData.chunkPayload,
+                chunkText: undefined,
+            };
+        }
+
+        // Extract text section until null char is encountered.
+        const textBytes = new Array<number>();
+        for (let i = 0; i < chunkData.chunkPayload.length && chunkData.chunkPayload[i]; i++) {
+            textBytes.push(chunkData.chunkPayload[i]);
+        }
+
+        return {
+            chunkPayload: new Uint8Array(chunkData.chunkPayload.subarray(textBytes.length + 1)),
+            chunkText: new Uint8Array(textBytes),
+        };
+    }
+
+    // Returns:
+    //   - payload: Decoded payload bytes.
+    //   - text: Decoded text as string or undefined if no text
     public static decode(key: UInt64, metadataPool: BinMetadata[]) {
         const lookupTable = MetalServiceV2.createMetadataLookupTable(metadataPool);
 
-        let decodedBytes = new Uint8Array();
+        let decodedPayload = new Uint8Array();
+        let decodedText = new Uint8Array();
         let currentKeyHex = key.toHex();
         let magic: Magic | undefined;
         let version: number | undefined;
@@ -203,16 +286,30 @@ export class MetalServiceV2 {
             magic = result.magic;
             currentKeyHex = result.nextKey.toHex();
 
-            const buffer = new Uint8Array(decodedBytes.length + result.chunkPayload.length);
-            buffer.set(decodedBytes);
-            buffer.set(result.chunkPayload, decodedBytes.length);
-            decodedBytes = buffer;
+            const { chunkPayload, chunkText } = MetalServiceV2.splitChunkPayloadAndText(result);
+
+            if (chunkPayload.length) {
+                const payloadBuffer = new Uint8Array(decodedPayload.length + chunkPayload.length);
+                payloadBuffer.set(decodedPayload);
+                payloadBuffer.set(chunkPayload, decodedPayload.length);
+                decodedPayload = payloadBuffer;
+            }
+
+            if (chunkText?.length) {
+                const textBuffer = new Uint8Array(decodedText.length + chunkText.length);
+                textBuffer.set(decodedText);
+                textBuffer.set(chunkText, decodedText.length);
+                decodedText = textBuffer;
+            }
         } while (magic !== Magic.END_CHUNK);
 
-        return !version || version === VERSION
-            ? decodedBytes
-            // Decoded bytes is base64 encoded (utf-8)
-            : Base64.toUint8Array(Convert.uint8ToUtf8(decodedBytes));
+        return {
+            payload: !version || version === VERSION
+                ? decodedPayload
+                // Decoded bytes is base64 encoded (utf-8)
+                : Base64.toUint8Array(Convert.uint8ToUtf8(decodedPayload)),
+            text: decodedText.length ? Convert.uint8ToUtf8(decodedText) : undefined,
+        };
     }
 
     constructor(public readonly symbolService: SymbolService) {
@@ -228,23 +325,56 @@ export class MetalServiceV2 {
         targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
-        additive = MetalServiceV2.DEFAULT_ADDITIVE,
+        additive?: number,
         metadataPool?: BinMetadata[],
+    ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: number }>;
+
+    // Overload for V2 + text
+    public async createForgeTxs(
+        type: MetadataType,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
+        payload: Uint8Array,
+        additive?: number,
+        text?: string,
+        metadataPool?: BinMetadata[],
+    ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: number }>;
+
+    public async createForgeTxs(
+        type: MetadataType,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
+        payload: Uint8Array,
+        additive = MetalServiceV2.DEFAULT_ADDITIVE,
+        arg1?: string | BinMetadata[],
+        arg2?: BinMetadata[],
     ): Promise<{ key: UInt64, txs: InnerTransaction[], additive: number }> {
+        const text = typeof(arg1) === "string" ? arg1 : undefined;
+        const metadataPool = Array.isArray(arg1) ? arg1 : arg2;
+
         const lookupTable = MetalServiceV2.createMetadataLookupTable(metadataPool);
         const txs = new Array<InnerTransaction>();
         const keys = new Array<string>();
-
-        const chunks = Math.ceil(payload.length / CHUNK_PAYLOAD_MAX_SIZE);
-        let nextKey = MetalServiceV2.generateChecksum(payload);
+        const { combinedPayload, textChunks } = MetalServiceV2.combinePayloadWithText(payload, text);
+        const chunks = Math.ceil(combinedPayload.length / CHUNK_PAYLOAD_MAX_SIZE);
+        let nextKey = MetalServiceV2.generateChecksum(combinedPayload);
 
         for (let i = chunks - 1; i >= 0; i--) {
             const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
-            const chunkBytes = payload.subarray(
+            const chunkBytes = combinedPayload.subarray(
                 i * CHUNK_PAYLOAD_MAX_SIZE,
                 (i + 1) * CHUNK_PAYLOAD_MAX_SIZE
             );
-            const { value, key } = MetalServiceV2.packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes);
+            const { value, key } = MetalServiceV2.packChunkBytes(
+                magic,
+                VERSION,
+                additive,
+                nextKey,
+                chunkBytes,
+                i < textChunks
+            );
 
             if (keys.includes(key.toHex())) {
                 Logger.warn(`Warning: Scoped key "${key.toHex()}" has been conflicted. ` +
@@ -257,6 +387,7 @@ export class MetalServiceV2 {
                     targetId,
                     payload,
                     MetalServiceV2.generateRandomAdditive(),
+                    text,
                     metadataPool,
                 );
             }
@@ -337,6 +468,29 @@ export class MetalServiceV2 {
         return txs;
     }
 
+
+    public async createDestroyTxs(
+        type: MetadataType,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
+        payload: Uint8Array,
+        additive?: number,
+        metadataPool?: BinMetadata[],
+    ): Promise<InnerTransaction[]>;
+
+    // Overload for V2 + text
+    public async createDestroyTxs(
+        type: MetadataType,
+        sourcePubAccount: PublicAccount,
+        targetPubAccount: PublicAccount,
+        targetId: undefined | MosaicId | NamespaceId,
+        payload: Uint8Array,
+        additive?: number,
+        text?: string,
+        metadataPool?: BinMetadata[],
+    ): Promise<InnerTransaction[]>;
+
     public async createDestroyTxs(
         type: MetadataType,
         sourcePubAccount: PublicAccount,
@@ -344,8 +498,12 @@ export class MetalServiceV2 {
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
         additive = MetalServiceV2.DEFAULT_ADDITIVE,
-        metadataPool?: BinMetadata[],
+        arg1?: string | BinMetadata[],
+        arg2?: BinMetadata[],
     ) {
+        const text = typeof(arg1) === "string" ? arg1 : undefined;
+        const metadataPool = Array.isArray(arg1) ? arg1 : arg2;
+
         const lookupTable = MetalServiceV2.createMetadataLookupTable(
             metadataPool ??
             // Retrieve scoped metadata from on-chain
@@ -356,17 +514,25 @@ export class MetalServiceV2 {
             })
         );
         const scrappedValueBytes = new Uint8Array(0);
-        const chunks = Math.ceil(payload.length / CHUNK_PAYLOAD_MAX_SIZE);
+        const { combinedPayload, textChunks } = MetalServiceV2.combinePayloadWithText(payload, text);
+        const chunks = Math.ceil(combinedPayload.length / CHUNK_PAYLOAD_MAX_SIZE);
         const txs = new Array<InnerTransaction>();
-        let nextKey = MetalServiceV2.generateChecksum(payload);
+        let nextKey = MetalServiceV2.generateChecksum(combinedPayload);
 
         for (let i = chunks - 1; i >= 0; i--) {
             const magic = i === chunks - 1 ? Magic.END_CHUNK : Magic.CHUNK;
-            const chunkBytes = payload.subarray(
+            const chunkBytes = combinedPayload.subarray(
                 i * CHUNK_PAYLOAD_MAX_SIZE,
                 (i + 1) * CHUNK_PAYLOAD_MAX_SIZE
             );
-            const { key } = MetalServiceV2.packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes);
+            const { key } = MetalServiceV2.packChunkBytes(
+                magic,
+                VERSION,
+                additive,
+                nextKey,
+                chunkBytes,
+                i < textChunks
+            );
 
             const onChainMetadata = lookupTable.get(key.toHex());
             if (onChainMetadata) {
@@ -432,6 +598,7 @@ export class MetalServiceV2 {
         return collisions;
     }
 
+    // Verify payload only
     public async verify(
         payload: Uint8Array,
         type: MetadataType,
@@ -441,7 +608,7 @@ export class MetalServiceV2 {
         targetId?: MosaicId | NamespaceId,
         metadataPool?: BinMetadata[],
     ) {
-        const decodedBytes = MetalServiceV2.decode(
+        const { payload: decodedPayload } = MetalServiceV2.decode(
             key,
             metadataPool ??
             // Retrieve scoped metadata from on-chain
@@ -452,9 +619,9 @@ export class MetalServiceV2 {
         ) ?? "";
 
         let mismatches = 0;
-        const maxLength = Math.max(payload.length, decodedBytes.length);
+        const maxLength = Math.max(payload.length, decodedPayload.length);
         for (let i = 0; i < maxLength; i++) {
-            if (payload[i] !== decodedBytes[i]) {
+            if (payload[i] !== decodedPayload[i]) {
                 mismatches++;
             }
         }
@@ -469,6 +636,9 @@ export class MetalServiceV2 {
         return this.symbolService.getBinMetadataByHash(MetalServiceV2.restoreMetadataHash(metalId));
     }
 
+    // Returns
+    //   - payload: Decoded payload bytes.
+    //   - text: Decoded text as string or undefined if no text
     public async fetch(
         type: MetadataType,
         source: Address | Account | PublicAccount,
@@ -481,7 +651,8 @@ export class MetalServiceV2 {
     }
 
     // Returns:
-    //   - payload: Decoded metal contents
+    //   - payload: Decoded payload bytes.
+    //   - text: Decoded text as string or undefined if no text
     //   - type: Metadata type
     //   - sourceAddress: Metadata source address
     //   - targetAddress: Metadata target address
@@ -493,7 +664,7 @@ export class MetalServiceV2 {
         const metadata = await this.getFirstChunk(metalId);
         const metadataEntry = metadata.metadataEntry;
 
-        const payload = await this.fetch(
+        const { payload, text } = await this.fetch(
             metadataEntry.metadataType,
             metadataEntry.sourceAddress,
             metadataEntry.targetAddress,
@@ -503,6 +674,7 @@ export class MetalServiceV2 {
 
         return {
             payload,
+            text,
             type: metadataEntry.metadataType,
             sourceAddress: metadataEntry.sourceAddress,
             targetAddress: metadataEntry.targetAddress,

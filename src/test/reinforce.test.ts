@@ -18,7 +18,7 @@ import {
 } from "symbol-sdk";
 import { ForgeCLI, ReinforceCLI, ScrapCLI } from "../cli";
 import { writeIntermediateFile } from "../cli/intermediate";
-import { MetalServiceV2, SignedAggregateTx } from "../services";
+import { MetalServiceV2 } from "../services";
 import { initTestEnv, MetalTest, symbolService, SymbolTest } from "./utils";
 import compareBatches = MetalTest.compareBatches;
 

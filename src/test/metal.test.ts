@@ -1,5 +1,5 @@
 import "./env";
-import { BinMetadata, BinMetadataEntry } from "@opensphere-inc/symbol-service";
+import { BinMetadata, BinMetadataEntry, SignedAggregateTx } from "@opensphere-inc/symbol-service";
 import assert from "assert";
 import fs from "fs";
 import Long from "long";
@@ -46,6 +46,7 @@ describe("MetalService", () => {
         txs: InnerTransaction[],
         signer: Account,
         cosigners: Account[],
+        callback?: (batches: SignedAggregateTx[], totalFee: UInt64) => void,
     ) => {
         assert(process.env.BATCH_SIZE);
         const start = moment.now();
@@ -53,14 +54,17 @@ describe("MetalService", () => {
             txs,
             signer,
             cosigners,
-            (batches, totalFee) => {
-                console.log(`totalFee=${SymbolService.toXYM(Long.fromString(totalFee.toString()))}`);
-                console.log(`batches.length=${batches.length}`);
-
-                expect(batches.length).toBe(Math.ceil(dataChunks / symbolService.config.batch_size));
-            });
+            callback
+        );
         console.log(`announce time=${moment().diff(start, "seconds", true)}secs, errors=${errors?.length || 0}`);
         return errors;
+    };
+
+    const batchCallback = (batches: SignedAggregateTx[], totalFee: UInt64) => {
+        console.log(`totalFee=${SymbolService.toXYM(Long.fromString(totalFee.toString()))}`);
+        console.log(`batches.length=${batches.length}`);
+
+        expect(batches.length).toBe(Math.ceil(dataChunks / symbolService.config.batch_size));
     };
 
     it("Compute metal ID and restore metadata hash", async () => {
@@ -120,7 +124,7 @@ describe("MetalService", () => {
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
         expect(txs.length).toBe(dataChunks);
 
-        const errors = await doBatches(txs, sourceAccount, [ targetAccount ]);
+        const errors = await doBatches(txs, sourceAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
     }, 600000);
@@ -159,7 +163,7 @@ describe("MetalService", () => {
         assert(txs);
         console.log(`txs.length=${txs?.length}`);
 
-        const errors = await doBatches(txs, sourceAccount, [ targetAccount ]);
+        const errors = await doBatches(txs, sourceAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
 
@@ -200,7 +204,7 @@ describe("MetalService", () => {
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
         expect(txs.length).toBe(dataChunks);
 
-        const errors = await doBatches(txs, creatorAccount, [ targetAccount ]);
+        const errors = await doBatches(txs, creatorAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
     }, 600000);
@@ -239,7 +243,7 @@ describe("MetalService", () => {
         assert(txs);
         console.log(`txs.length=${txs?.length}`);
 
-        const errors = await doBatches(txs, creatorAccount, [ targetAccount ]);
+        const errors = await doBatches(txs, creatorAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
 
@@ -280,7 +284,7 @@ describe("MetalService", () => {
         expect((txs[0] as AccountMetadataTransaction).scopedMetadataKey).toBe(key);
         expect(txs.length).toBe(dataChunks);
 
-        const errors = await doBatches(txs, ownerAccount, [ targetAccount ]);
+        const errors = await doBatches(txs, ownerAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
     }, 600000);
@@ -313,7 +317,7 @@ describe("MetalService", () => {
         assert(txs);
         console.log(`txs.length=${txs?.length}`);
 
-        const errors = await doBatches(txs, ownerAccount, [ targetAccount ]);
+        const errors = await doBatches(txs, ownerAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
 
@@ -333,7 +337,7 @@ describe("MetalService", () => {
             testData,
             MetalServiceV2.generateRandomAdditive(),
         );
-        await doBatches(forgeTxs, creatorAccount, [ targetAccount ]);
+        await doBatches(forgeTxs, creatorAccount, [ targetAccount ], batchCallback);
 
         const destroyTxs = await metalServiceV2.createDestroyTxs(
             MetadataType.Mosaic,
@@ -343,7 +347,7 @@ describe("MetalService", () => {
             testData,
             additive,
         );
-        const errors = await doBatches(destroyTxs, creatorAccount, [ targetAccount ]);
+        const errors = await doBatches(destroyTxs, creatorAccount, [ targetAccount ], batchCallback);
 
         expect(errors).toBeUndefined();
 
@@ -477,5 +481,80 @@ describe("MetalService", () => {
         expect(txs2).toBeUndefined();
 
         await MetalTest.scrapMetal(metalId, signerAccount.publicAccount, signerAccount.publicAccount, signerAccount, []);
+    }, 600000);
+
+    const forgeWithText = async (payload: Uint8Array, text: string) => {
+        const { signerAccount: sourceAccount } = await SymbolTest.getNamedAccounts();
+        const { key, txs, additive } = await metalServiceV2.createForgeTxs(
+            MetadataType.Account,
+            sourceAccount.publicAccount,
+            targetAccount.publicAccount,
+            undefined,
+            payload,
+            MetalServiceV2.generateRandomAdditive(),
+            text,
+        );
+
+        console.debug(`metadataKey=${key.toHex()}`);
+
+        metadataKey = key;
+        metalAdditive = additive;
+        metalId = MetalServiceV2.calculateMetalId(
+            MetadataType.Account,
+            sourceAccount.address,
+            targetAccount.address,
+            undefined,
+            metadataKey,
+        );
+
+        const errors = await doBatches(txs, sourceAccount, [ targetAccount ]);
+
+        expect(errors).toBeUndefined();
+
+        const result = await metalServiceV2.fetchByMetalId(metalId);
+
+        expect(result).toBeDefined();
+        expect(result?.payload.buffer).toStrictEqual(payload.buffer);
+        expect(result?.text).toBe(text);
+
+        await MetalTest.scrapMetal(
+            metalId,
+            sourceAccount.publicAccount,
+            targetAccount.publicAccount,
+            sourceAccount,
+            [ targetAccount ]
+        );
+    };
+
+    it("Forge with text (less than CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+        await forgeWithText(testData, "a".repeat(CHUNK_PAYLOAD_MAX_SIZE - 100));
+    }, 600000);
+
+    it("Forge with text (CHUNK_PAYLOAD_MAX_SIZE minus one)", async () => {
+        await forgeWithText(testData, "b".repeat(CHUNK_PAYLOAD_MAX_SIZE - 1));
+    }, 600000);
+
+    it("Forge with text (equal CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+        await forgeWithText(testData, "c".repeat(CHUNK_PAYLOAD_MAX_SIZE));
+    }, 600000);
+
+    it("Forge with text (CHUNK_PAYLOAD_MAX_SIZE plus one)", async () => {
+        await forgeWithText(testData, "d".repeat(CHUNK_PAYLOAD_MAX_SIZE + 1));
+    }, 600000);
+
+    it("Forge with text (more than CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+        await forgeWithText(testData, "e".repeat(CHUNK_PAYLOAD_MAX_SIZE + 100));
+    }, 600000);
+
+    it.only("Forge with text but no payload (less than CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+        await forgeWithText(new Uint8Array(0), "f".repeat(CHUNK_PAYLOAD_MAX_SIZE - 100));
+    }, 600000);
+
+    it("Forge with text but no payload (equal CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+        await forgeWithText(new Uint8Array(0), "g".repeat(CHUNK_PAYLOAD_MAX_SIZE));
+    }, 600000);
+
+    it("Forge with text but no payload (more than CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+        await forgeWithText(new Uint8Array(0), "h".repeat(CHUNK_PAYLOAD_MAX_SIZE + 100));
     }, 600000);
 });

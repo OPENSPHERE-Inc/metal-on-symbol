@@ -27,29 +27,31 @@
 2. 各メソッドの変更点に対応。いずれもエディタの型チェック機能や、TS のトランスパイル時にエラーが出ると思います。
    JavaScript から使用する際は注意してください。
    - `checkCollision()` メソッド
-     - 引数の `Metadata` は `BinMetadata` に変更する。
+     - 引数の型 `Metadata` は `BinMetadata` に変更する。
    - `createDestroyTxs()` メソッド
      - 引数の `additive` の型を `number` (0 ～ 65535) に変更する。
-     - 引数の `Metadata` は `BinMetadata` に変更する。
+     - 引数の型 `Metadata` は `BinMetadata` に変更する。
    - `createForgeTxs()` メソッド
      - 引数の `additive` の型を `number` (0 ～ 65535) に変更する。
-     - 引数の `Metadata` は `BinMetadata` に変更する。
-     - 戻り値の `additive` の型は `number` (0 ～ 65535) になります。
+     - 引数の型 `Metadata` は `BinMetadata` に変更する。
+     - 戻り値の `additive` プロパティの型は `number` (0 ～ 65535) になります。
    - `createScrapTxs()` メソッド
-     - 引数の `Metadata` は `BinMetadata` に変更する。
+     - 引数の型 `Metadata` は `BinMetadata` に変更する。
    - `decode()` メソッド
-     - 引数の `Metadata` は `BinMetadata` に変更する。
-     - 戻り値は `Uint8array` （バイナリ）になります。Base64 のデコードは不要です。
+     - 引数の型 `Metadata` は `BinMetadata` に変更する。
+     - **戻り値がオブジェクトになり**、`payload: Uint8array` プロパティにバイナリが格納されます。Base64 のデコードは不要です。
    - `extractChunk()` メソッド
-     - 引数の `MetadataEntry` は `BinMetadataEntry` に変更する。
+     - 引数の型 `MetadataEntry` は `BinMetadataEntry` に変更する。
      - 戻り値の `additive` の型は `number` (0 ～ 65535) になります。
      - 戻り値の `chunkPayload` の型は `Uint8array` (バイナリ) になります。
      - 戻り値の `magic` の型は引き続き `enum Magic` ですが値は `number` （CHUNK = `0x00`, END_CHUNK = `0x80`）になります。
      - 戻り値の `nextKey` の型は `UInt64` になります。
+   - `fetch()` メソッド
+     - **戻り値がオブジェクトになり**、`payload: Uint8array` プロパティにバイナリが格納されます。
    - `getFirstChunk()` メソッド
-     - 戻り値の `Metadata` は `BinMetadata` になります。
+     - 戻り値の型 `Metadata` は `BinMetadata` になります。
    - `verify()` メソッド
-     - 引数の `Metadata` は `BinMetadata` に変更する。
+     - 引数の型 `Metadata` は `BinMetadata` に変更する。
    - `verifyMetadataKey()` メソッド
      - 引数の `additive` の型を `number` (0 ～ 65535) に変更する。
 3. Symbol SDK (v2) の `Metadata` クラスを `BinMetadata` クラスに置換。以下の関連クラスも置換する。
@@ -728,9 +730,22 @@ const calculateMetadataHash = (
 803100009AF02A462D4D71B7DA78ABC03E32BD49E6B959FF00D0F49672565951D46D8E3752C4E0AAF9A43B946243E97C4AD1ACEEF5C5D426B5B692FADEEB51F2AE5E2569A3C5BDB01B5F1918048E0F73EB5E73FB1CEBD7DE27F8DBE0BD0F52BCBBD43459F5C29269F73334D6B228D8A0189895202F0011D38AF4631528DA5AA3C6AD374AADA9E96668F8BBE28E9FA378B74C5F0E6A8969A979F729A68BBB0D2EEAC4C533992EEDDAE229E349ED5A26CC703C48ED22F9691AB9491FD6FC5965A3F813C456FAA7847C37E1BF1442D323CDE1BBAD2A69E47B864575F2EDA0CBC3033798BB9F7229752A2274123FA17823E0A783744FD91BC457965E11F0CD9DE1D4BC596A67834B82390C504F78B0C7B82E7646AAA117A285006302BF3A7E0DF88750D07E256836F637D79676EBE278ACC4504CD1A080C8EA62C290366091B7A60918A8E55CCEDD34F5B96AABA906A7F2F23E90F871F10BE09F802EEF747F1A7847E2A7867576BC7682CED6E21D72D544D3620B56668A19E452BFB8224DECEC1B3970A449F1B7C2D69E19F0C2E9FA6F857C6CD1DE5BACA977AA5D47E468A1182ABDCCCD184861755908F3828505DC490B20073B5FF12EA579FB1AFECA3AB4DA85ECBAA5E6B1E34F0EDC5E3CECD713E9915ED898EC5DC9DCD6C8679CAC24EC5F3A4C28DED9F34FD8D356BAD7751F1C5C5F5CDC5E5C68FE00BB9EC259E4323D8C8F2C10BBC44E4A334534B192B82525753C3106A314E2EA7E17396527CCA275DF04BC3BE13D2B5885754BBD6BC417BE22B71323C3F69FB1EA28ACF926056592F42B29DBF3AA3AA8210835EA179A27C23B8FB6D9B7C33D0FC6FA258DB1B692E20D0AEB49B8478DCF9BBEF889A470009029E0B1655F3D026C3C67C41823D37F6ADF12585BA2DBD8E9B1C56B696D18DB0DAC25A5531C6A3854C123680060D755E21D72F742F1EF8563B1BCBAB38DB5A4B72B04AD18313247B93008F94F71D0D79D526DBBEBF79E8D1F75688EFF00C15FB3CE83E3EF0559EA9F0DED3C71E0D9AD6F5534CB537C9E24D17E67DD08B682E989499A5621440124694A0471BC964D37E3378EBE1D787F58F0EDDF86F43D7A3D4986937976D7B756763736CFF2B47708F2496B67E5C79CB3792600EB2153E5AA5646BDE1CD3EDBE2CEA16B1D859C76DA8EB56B697712C0A23BA865B688C91C8B8C323924B29C86C9CE735DC7C0DBF9ED3F663F14B4534D1B69FA8BFD94A39536DE5C6366CFEEEDDAB8C631B463A5714E4E12F7B5575BF9F9EE7A907CD0BF5B1FFFD9
 ```
 
-| 1 ビット                             | 7 ビット         | 1 バイト        | 16 ビット (LE)       | 64 ビット (LE)                                                                             | 1~1012 バイト        |
-|-----------------------------------|---------------|--------------|-------------------|-----------------------------------------------------------------------------------------|-------------------|
-| マジック (`0` Chunk or `1` End Chunk） | リザーブ (`0` 詰め) | バージョン `0x31` | Additive（0~65535） | 次チャンクの `Key` (64 bits unsigned int) 、マジック `End Chunk` の場合はチェックサム (64 bits unsigned int) | チャンクデータ (バイナリデータ) |
+・テキストセクションあり Chunk (Additive = 0)
+
+```
+40316EF84A3BB1F03AE8019D6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616100FFD8FFE000104A46494600010101006000600000FFE100224578696600004D4D002A00000008000101120003000000010001000000000000FFDB0043000201010201010202020202020202030503030303030604040305070607070706070708090B0908080A0807070A0D0A0A0B0C0C0C0C07090E0F0D0C0E0B0C0C0CFFDB004301020202030303060303060C0807080C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0C0CFFC000110800FA032003012200021101031101FFC4001F0000010501010101010100000000000000000102030405060708090A0BFFC400B5100002010303020403050504040000017D01020300041105122131410613516107227114328191A1082342B1C11552D1F02433627282090A161718191A25262728292A3435363738393A434445464748494A535455565758595A636465666768696A737475767778797A838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE1E2E3E4E5E6E7E8E9EAF1F2F3F4F5F6F7F8F9FAFFC4001F0100030101010101010101010000000000000102030405060708090A0BFFC400B51100020102040403040705040400010277000102031104052131061241510761711322328108144291A1B1C109233352F0156272D10A162434E125F11718191A262728292A35363738393A434445464748494A535455565758595A636465666768696A737475767778797A82838485868788898A92939495969798999AA2A3A4A5A6A7A8A9AAB2B3B4B5B6B7B8B9BAC2C3C4C5C6C7C8C9CAD2D3D4D5D6D7D8D9DAE2E3E4E5E6E7E8E9EAF2F3F4F5F6F7F8F9FAFFDA000C03010002110311003F00FAD352D0BFB5BC0F67F0FF0050B8D6AF7C7234EF22D2D756D61EDEFEE1ADE5DCCCC90EA416E2389E489A3631DD12AA1B6C9B4D725F153C4D6FFD97A7C9368BA7F8BB54B312C515DDB6AAB3DE685036D12442D24649B50453E629572CE5189825FDE4D28F158340BCFDA02F26F1A6B1E28F036B1E32B96825BDD47C273DCEA412ED5C20B093518A07B1B3458A78A3C9B8795545C4ACCDBDE43EB9F0A7C0FE209BE2978735AB8D5BC65E2EF0DF8A9219FC469E1EB1FECBB513CFE6C205C34375736F70EA0C5E5B35E876F2E011ACE656497F11A98574D4B9DF37975EAFA7EA7EA5529A6FDA4E4DFF00497E3D0F3CF897A7687F043C39E209F50D27C3BA
+```
+
+
+| オフセット(バイト) | 長さ          | 内容                                                                                      |
+|------------|-------------|-----------------------------------------------------------------------------------------|
+| 0          | 1 ビット       | マジック (`0` Chunk or `1` End Chunk）                                                       |
+|            | 1 ビット       | テキストフラグ (`0` or `1`)                                                                    |
+|            | 6 ビット       | リザーブ (`0` 詰め)                                                                           |
+| 1          | 1 バイト       | バージョン `0x31`                                                                            |
+| 2          | 16 ビット (LE) | Additive（0~65535）                                                                       |
+| 4          | 64 ビット (LE) | 次チャンクの `Key` (64 bits unsigned int) 、マジック `End Chunk` の場合はチェックサム (64 bits unsigned int) |
+| 12         | 1~1012 バイト  | チャンクデータ (バイナリデータ)。テキストフラグ = `1` の場合は `0x00` が現れるまではテキストセクション                            |
 
 ヘッダーは先頭 12 バイト分
 
@@ -739,7 +754,24 @@ const calculateMetadataHash = (
 - `0`: 途中のチャンク（Chunk）
 - `1`: 最後のチャンク（End Chunk）
 
-**・リザーブビット (7 ビット)**
+**・テキストフラグ (1 ビット)**
+
+チャンクデータにテキストセクションが存在するか否か
+
+- `0`: テキストセクションなし
+- `1`: テキストセクションあり
+
+テキストセクションありの場合は、チャンクデータの先頭から `0x00`（ヌル文字）が出現する、
+またはチャンクデータの末尾までのバイトを utf-8 テキストの断片として扱います。
+
+このテキストセクションは本来のバイナリペイロードとは別個にデコードされます。
+
+テキストセクションは将来的に、プロトコル、あるいはアプリケーションが拡張データを格納する領域として使用できますが、
+ペイロードのデコードには影響を与えてはなりません（ペイロードはそれ自体で完全でなければなりません）
+
+> 使用例：Mime Type、ファイルサイズ、ファイル名を保存するなど
+
+**・リザーブ (6 ビット)**
 
 将来のバージョン用にリザーブ。現状は `0` で詰めるものとする。
 
@@ -768,7 +800,7 @@ Forge の際に追加できる数値 0～65535 の「添加物」です。
 `End Chunk` のチャンクは次がない代わりに、
 データ全体のチェックサム（sha3_256 ハッシュ値下位 64 bits unsigned int）が入ります。
 
-> **チェックサム対象は元ファイルのバイナリ生データです**
+> **チェックサム対象のデータ全体とは、テキストセクションと元ファイルのバイナリを合わせたデータです**
 
 チェックサムサンプルコード
 
@@ -786,7 +818,10 @@ const generateChecksum = (input: Uint8Array): UInt64 => {
 **・チャンクデータ (バイナリデータ)**
 
 バイナリデータを 1,012 バイト以下の断片に分けて一つずつチャンクに格納します。
-`C` チャンクであっても、1 バイト以上 1,012 バイト以下であればどの様な長さでも良いです。 
+`Chunk` チャンクであっても、1 バイト以上 1,012 バイト以下であればどの様な長さでも良いです。 
+
+テキストフラグが立っているチャンクの場合、
+必ずテキストセクションがチャンクデータの先頭から始まり、`0x00`（ヌル文字）またはチャンクデータの末尾で終わります。
 
 > `End Chunk` にデータ全体のチェックサムが入るので、同じ内容のチャンクが現れても `Key` が衝突することがありません。
 
@@ -796,7 +831,15 @@ const generateChecksum = (input: Uint8Array): UInt64 => {
 
 **・デコード**
 
-デコードは、チャンクデータ部分（`Value` の 14 バイト目以降）を先頭から順番にバイナリデータとして繋げていけば完成です。
+テキストバッファとペイロードバッファを用意し、
+以下の手順を先頭のチャンクから最後尾のチャンクまで繰り返します。
+
+1. テキストフラグが `1` の場合
+   - チャンクデータの先頭から `0x00`（ヌル文字）が出現する手前まではテキストバッファ末尾に追加
+   - `0x00`（ヌル文字）が出現した直後のバイトからチャンクデータの末尾までをペイロードバッファ末尾に追加
+     （テキストセクションがチャンクデータ末尾まで続いた場合はスキップ）
+2. テキストフラグが　`0` の場合
+   - チャンクデータ先頭から末尾までをペイロードバッファ末尾に追加
 
 #### 5.2.2. メタデータの Key
 
@@ -996,6 +1039,7 @@ const { txs, key, additive } = await metalService.createForgeTxs(
     targetId,
     payaload,
     additive,
+    text,
     metadataPool
 ); 
 ```
@@ -1008,6 +1052,7 @@ const { txs, key, additive } = await metalService.createForgeTxs(
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先となるモザイク／ネームスペースのID。アカウントの場合は `undefined`
 - `payload: Uint8Array` - Forge したいデータ（バイナリ可）
 - `additive: number` - **(Optional)** 添加したい Additive で、省略すると 0 （必ず 0～65535 の整数であること）
+- `text?: string` - **(Optional)** テキストセクション
 - `metadataPool?: BinMetadata[]` - **(Optional)** オンチェーンに既にあるチャンクメタデータのプールで、あるものは生成トランザクションに含まれません。
   設定がなければ全てのトランザクションを生成します。
 
@@ -1173,7 +1218,7 @@ const forgeMetal = async (
 まず既に上がったメタデータを収集します。
 
 ```typescript
-const metadataPool = await symbolService.searchMetadata(
+const metadataPool = await symbolService.searchBinMetadata(
     type, 
     {
         source: sourcePubAccount,
@@ -1210,7 +1255,7 @@ const forgeMetal = async (
     cosignerAccounts: Account[],
     additive?: number,
 ) => {
-    const metadataPool = await symbolService.searchMetadata(
+    const metadataPool = await symbolService.searchBinMetadata(
         type, 
         {
             source: sourcePubAccount,
@@ -1224,6 +1269,7 @@ const forgeMetal = async (
         targetId,
         payload,
         additive,
+        undefined,
         metadataPool,
     );
     // ...以下略...
@@ -1247,6 +1293,7 @@ const result = await metalService.fetchByMetalId(metalId);
 **戻り値**
 
 - `payload: Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+- `text?: string` - テキストセクション（存在しない場合は `undefined`）
 - `type: MetadataType` - メタデータタイプ（Account, Mosaic, Namespace）
 - `sourceAddress: Address` - メタデータ付与元のアカウントアドレス
 - `targetAddress: Address` - メタデータ付与先のアカウント
@@ -1262,7 +1309,7 @@ const result = await metalService.fetchByMetalId(metalId);
 `Metal ID` が分からなくても、先頭チャンクのメタデータを特定できれば Metal を取得できます。
 
 ```typescript
-const payload = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+const { payload, text } = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
 ```
 
 **引数**
@@ -1275,7 +1322,8 @@ const payload = await metalService.fetch(type, sourceAddress, targetAddress, tar
 
 **戻り値**
 
-- `Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+- `payload: Uint8Array` - デコードされたデータ。チャンクが壊れている場合でも途中までのデータが返ります。
+- `text?: strig` - テキストセクション（存在しない場合は `undefined`）
 
 **[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/nodejs/src/fetch_by_key.ts)**
 
@@ -1386,6 +1434,7 @@ const txs = await metalService.createDestroyTxs(
     targetId,
     payload,
     additive,
+    text,
     metadataPool,
 );
 ```
@@ -1398,6 +1447,7 @@ const txs = await metalService.createDestroyTxs(
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
 - `payload: Uint8Array` - 元ファイルのデータ（バイナリ可）
 - `additive: number` - Forge 時に添加した Additive（必ず 0～65535 の整数であること）
+- `text?: string` - **(Optional)** Forge した時と同一のテキストセクションが必要です
 - `metadataPool?: BinMetadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
 
 **戻り値**
@@ -1513,7 +1563,7 @@ const verifyMetal = async (
 
 ```typescript
 // Static method
-const payloadBytes = MetalServiceV2.decode(key, metadataPool);
+const { payload, text } = MetalServiceV2.decode(key, metadataPool);
 ```
 
 **引数**
@@ -1525,12 +1575,13 @@ const payloadBytes = MetalServiceV2.decode(key, metadataPool);
 
 **戻り値**
 
-- `Uint8Array` - バイナリデータ。チャンクが壊れていても途中までのデータが返ります。
+- `payload: Uint8Array` - バイナリデータ。チャンクが壊れていても途中までのデータが返ります。
+- `text?: string` - テキストセクション（存在しない場合は `undefined`）
 
 **[サンプルコード](https://github.com/OPENSPHERE-Inc/metal-sdk-sample/blob/master/nodejs/src/decode.ts)**
 
 ```typescript
-const payload = MetalServiceV2.decode(key, metadataPool);
+const { payload } = MetalServiceV2.decode(key, metadataPool);
 ```
 
 ### 6.9. ユーティリティ
@@ -1559,7 +1610,7 @@ const checksum = MetalServiceV2.generateChecksum(input);
 
 **引数**
 
-- `input: Uint8Array` - 入力生データ（バイナリ）
+- `input: Uint8Array` - テキストセクションを含む入力生データ（バイナリ）
 
 **戻り値**
 

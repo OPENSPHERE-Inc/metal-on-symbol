@@ -1,6 +1,6 @@
 import assert from "assert";
 import fs from "fs";
-import { Convert, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
 import { Logger } from "../../libs";
 import { MetalServiceV2 } from "../../services";
 import {

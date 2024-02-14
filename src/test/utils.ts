@@ -28,6 +28,7 @@ export namespace MetalTest {
         signer: Account,
         cosignerAccounts: Account[],
         additive?: number,
+        text?: string,
     ) => {
         const { key, txs, additive: actualAdditive } = await metalServiceV2.createForgeTxs(
             type,
@@ -36,6 +37,7 @@ export namespace MetalTest {
             targetId,
             payload,
             additive,
+            text,
         );
         assert(txs.length);
         console.log(`key=${key.toHex()}`);

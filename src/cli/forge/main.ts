@@ -45,6 +45,7 @@ export namespace ForgeCLI {
             targetId,
             payload,
             input.additive,
+            undefined,
             metadataPool,
         );
         if (!txs.length) {

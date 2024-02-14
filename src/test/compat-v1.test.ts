@@ -1,8 +1,8 @@
 import "./env";
 import assert from "assert";
 import fs from "fs";
-import { Account, add, Convert, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
-import { FetchCLI, ReinforceCLI, ScrapCLI } from "../cli";
+import { Account, Convert, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { FetchCLI } from "../cli";
 import { ReinforceCLIV1, ScrapCLIV1 } from "../cli/compat";
 import { MetalService } from "../services/compat";
 import { initTestEnv, MetalTest, SymbolTest } from "./utils";

@@ -60,7 +60,7 @@ export namespace FetchCLI {
                         ? `namespace:${targetId?.toHex()}`
                         : `account:${targetAddress.plain()}`
             }`);
-            payload = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+            payload = (await metalService.fetch(type, sourceAddress, targetAddress, targetId, key)).payload;
         }
 
         if (!input.noSave) {
