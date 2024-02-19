@@ -1,7 +1,9 @@
 import assert from "assert";
+import mime from "mime";
+import path from "path";
 import { MetadataType } from "symbol-sdk";
 import { Logger } from "../../libs";
-import { MetalServiceV2 } from "../../services";
+import { MetalSeal, MetalServiceV2 } from "../../services";
 import {
     buildAndExecuteBatches,
     buildAndExecuteUndeadBatches,
@@ -38,6 +40,7 @@ export namespace ForgeCLI {
             })
             : undefined;
 
+        const mimeType = input.filePath && mime.getType(input.filePath);
         const { key, txs, additive: actualAdditive } = await metalService.createForgeTxs(
             input.type,
             sourcePubAccount,
@@ -45,7 +48,11 @@ export namespace ForgeCLI {
             targetId,
             payload,
             input.additive,
-            undefined,
+            new MetalSeal(
+                payload.length,
+                mimeType ?? undefined,
+                input.filePath && path.basename(input.filePath)
+            ).stringify(),
             metadataPool,
         );
         if (!txs.length) {

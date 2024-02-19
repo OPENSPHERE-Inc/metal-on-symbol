@@ -1,8 +1,10 @@
 import assert from "assert";
 import fs from "fs";
+import mime from "mime";
+import path from "path";
 import { MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
 import { Logger } from "../../libs";
-import { MetalServiceV2 } from "../../services";
+import { MetalSeal, MetalServiceV2 } from "../../services";
 import {
     buildAndExecuteBatches,
     buildAndExecuteUndeadBatches,
@@ -34,6 +36,12 @@ export namespace ScrapCLI {
         let targetId: undefined | MosaicId | NamespaceId;
         let additive = input.additive;
 
+        const createMetalSealText = (payload: Uint8Array) => new MetalSeal(
+            payload.length,
+            (input.filePath && mime.getType(input.filePath)) ?? undefined,
+            input.filePath && path.basename(input.filePath),
+        ).stringify();
+
         if (metalId) {
             const metadataEntry = (await metalService.getFirstChunk(metalId)).metadataEntry;
             // Obtain type, key and targetId here.
@@ -58,7 +66,7 @@ export namespace ScrapCLI {
         } else {
             if (!key && payload) {
                 // Obtain metadata key here
-                key = MetalServiceV2.calculateMetadataKey(payload, input.additive);
+                key = MetalServiceV2.calculateMetadataKey(payload, input.additive, createMetalSealText(payload));
             }
 
             assert(type !== undefined);
@@ -84,6 +92,7 @@ export namespace ScrapCLI {
                 targetId,
                 payload,
                 additive,
+                createMetalSealText(payload),
             )
             : await metalService.createScrapTxs(
                 type,

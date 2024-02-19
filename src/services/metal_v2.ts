@@ -121,7 +121,7 @@ export class MetalServiceV2 {
     private static combinePayloadWithText(payload: Uint8Array, text?: string) {
         const textBytes = text ? Convert.utf8ToUint8(text) : new Uint8Array(0);
         const textSize = textBytes.length % CHUNK_PAYLOAD_MAX_SIZE
-            ? textBytes.length + 1 // If extJson section end at mid-chunk then append null char
+            ? textBytes.length + 1 // If text section end at mid-chunk then append null char
             : textBytes.length;
 
         const combinedPayload = new Uint8Array(textSize + payload.length);
@@ -132,7 +132,7 @@ export class MetalServiceV2 {
             offset += textBytes.length;
         }
         if (textBytes.length % CHUNK_PAYLOAD_MAX_SIZE) {
-            // append null char as terminator
+            // Append null char as terminator
             combinedPayload.set([ 0x00 ], offset);
             offset++;
         }

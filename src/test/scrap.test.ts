@@ -1,9 +1,11 @@
 import "./env";
 import assert from "assert";
 import fs from "fs";
+import mime from "mime";
+import path from "path";
 import { Account, MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
 import { ScrapCLI } from "../cli";
-import { MetalServiceV2 } from "../services";
+import { MetalSeal, MetalServiceV2 } from "../services";
 import { initTestEnv, MetalTest, SymbolTest } from "./utils";
 
 
@@ -284,6 +286,11 @@ describe("Scrap CLI", () => {
             signerAccount,
             [ targetAccount ],
             generatedAdditive,
+            new MetalSeal(
+                testData.length,
+                mime.getType(inputFile) ?? undefined,
+                path.basename(inputFile),
+            ).stringify(),
         );
 
         const estimateOutput = await ScrapCLI.main([

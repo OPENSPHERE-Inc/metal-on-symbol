@@ -21,6 +21,7 @@
   "devDependencies": {
     "@types/jest": "^29.2.3",
     "@types/long": "^5.0.0",
+    "@types/mime": "^3.0.4",
     "@types/prompts": "^2.4.2",
     "@types/uuid": "^8.3.4",
     "cross-env": "^7.0.3",
@@ -37,6 +38,7 @@
     "js-base64": "^3.7.3",
     "js-sha3": "https://github.com/Propine/js-sha3.git",
     "long": "^5.2.1",
+    "mime": "^3.0.0",
     "moment": "^2.29.4",
     "prompts": "^2.4.2",
     "symbol-openapi-typescript-fetch-client": "^1.0.3",

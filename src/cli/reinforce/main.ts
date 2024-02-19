@@ -1,8 +1,10 @@
+import mime from "mime";
+import path from "path";
 import {ReinforceInput} from "./input";
 import assert from "assert";
 import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
 import {ReinforceOutput} from "./output";
-import {MetadataTransaction, SymbolService} from "../../services";
+import { MetadataTransaction, MetalSeal, SymbolService } from "../../services";
 import {
     Account,
     AggregateTransaction,
@@ -33,8 +35,16 @@ export namespace ReinforceCLI {
         targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
-        additive?: number
+        additive?: number,
+        filePath?: string,
     ) => {
+        const mimeType = filePath && mime.getType(filePath);
+        const sealText = new MetalSeal(
+            payload.length,
+            mimeType ?? undefined,
+            filePath && path.basename(filePath)
+        ).stringify();
+
         const txs = command === "forge"
             ? (await metalService.createForgeTxs(
                 type,
@@ -43,6 +53,7 @@ export namespace ReinforceCLI {
                 targetId,
                 payload,
                 additive,
+                sealText,
             )).txs
             : await metalService.createDestroyTxs(
                 type,
@@ -51,6 +62,7 @@ export namespace ReinforceCLI {
                 targetId,
                 payload,
                 additive,
+                sealText,
             );
         return txs.reduce(
             (acc, curr) => acc.set((curr as MetadataTransaction).scopedMetadataKey.toHex(), curr),
@@ -256,7 +268,8 @@ export namespace ReinforceCLI {
             targetPubAccount,
             targetId,
             payload,
-            intermediateTxs.additive
+            intermediateTxs.additive,
+            input.filePath,
         );
 
         const { batches, undeadBatches } = intermediateTxs.undeadTxs

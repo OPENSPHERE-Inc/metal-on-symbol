@@ -11,6 +11,9 @@
 - CLI / SDK は V1 の Metal を自動的に認識してデコードします。V1 の Metal を Forge することはできません。
   - ただし、V1 の SDK (`MetalService`) と `scrap`, `reinforce` CLI を `compat` フォルダに退避してありますので、
     任意に呼び出すことは可能です(CLI では `scrap-v1`, `reinforce-v1` で呼び出し可能）
+- テキストセクションが実装されました。チャンクペイロード内にテキスト情報を埋め込めます。
+  -  [Metal Seal](#610-metal-seal) を使ってファイル情報（Mime Type やファイルサイズ、ファイル名など）をテキストセクションに書き込めるよう
+    になりました（Forge/Scrap/Reinforce CLI では対応済）
 
 ### CLI マイグレーション時の注意点
 
@@ -159,7 +162,8 @@ Metal はこれら全てにおいて使用可能です。
   ヘッダーを除くとチャンク一つは base64 での 1,000 文字まで（正味 750 バイト位？）~~
 - トランザクションデータとメタデータの現在値が全ノードに（恐らく）保持される為、冗長になります。
 - Scrap は Forge と同ボリュームのトランザクションデータを要します。手数料も Forge と同じだけかかります。 
-- ファイル情報（ファイル名、形式、サイズ、タイムスタンプ等）を取り扱いません。
+- ~~ファイル情報（ファイル名、形式、サイズ、タイムスタンプ等）を取り扱いません。~~
+  [Metal Seal](#610-metal-seal) を使えばテキストセクションにファイル情報を埋め込めます。
 - プロトコルレベルでは暗号化を行いません（事前に暗号化してペイロードにバイナリで格納してください）
 - アカウント作成や、モザイク作成、ネームスペース作成はプロトコルに含まれません。
 - 空データは Forge できません。
@@ -1524,7 +1528,7 @@ const { mismatches, maxLength } = await metalService.verify(
 - `targetAddress: Address` - メタデータ付与先のアドレス
 - `key: UInt64` - 先頭チャンクメタデータの `Key`
 - `targetId: undefined | MosaicId | NamespaceId` - メタデータ付与先のモザイク／ネームスペースID。アカウントの場合は `undefined`
-- `metadataPool?: BinMetadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことができ、内部で再度取得する無駄を省けます。通常は指定不要
+- `metadataPool?: BinMetadata[]` - **(Optional)** 取得済みのメタデータプールがあれば渡すことで、内部で再度取得する無駄を省けます。通常は指定不要
 
 **戻り値**
 
@@ -1667,7 +1671,92 @@ const plainData = SymbolService.decryptBinary(encryptedData, senderPubAccount, r
 
 - `Uint8Array` - 平文データ（バイナリ）
 
-### 6.10. サンプルコード
+### 6.10. Metal Seal
+
+テキストセクションにファイル情報を書き込むためのシンプルな JSON スキーマです。
+
+スキーマ `seal1` は 3 ないし、4 つの要素からなる配列で表現されます。
+
+内容は以下の通りです。
+
+| 配列インデックス | 型                           | 内容             |
+|----------|-----------------------------|----------------|
+| 0        | string                      | スキーマ名 `seal1`  |
+| 1        | number                      | ファイルサイズ（バイト単位） |
+| 2        | string \| null \| undefined | Mime Type（省略可） |
+| 3        | string \| undefined         | ファイル名（省略可）     |
+
+以下の様に JSON にエンコードされます。
+
+```json
+[ "seal1", 12345, "image/jpg", "example.jpg" ]
+```
+
+ファイル名を省略
+
+```json
+[ "seal1", 12345, "image/jpg" ]
+```
+
+Mime Type を省略
+
+```json
+[ "seal1", 12345, null, "example.jpg" ]
+```
+
+Mime Type もファイル名も 両方省略
+
+```json
+[ "seal1", 12345 ]
+```
+
+Metal Seal を変換するためのクラス `MetalSeal` が用意されています。
+
+#### コンストラクタ
+
+```typescript
+import { MetalSeal } from "metal-on-symbol"
+
+const seal = new MetalSeal(length, mimeType, name);
+```
+
+**引数**
+
+- `length: number` - ファイルサイズ（バイト単位）
+- `mimeType: string | undefined` - Mime Type（省略可）
+- `name: string | undefined` - ファイル名（省略可）
+
+#### プロパティ
+
+- `schema: string` - スキーマ名 `seal1`
+- `length: number` - ファイルサイズ（バイト単位）
+- `mimeType: string | undefined` - Mime Type（無い場合は `undefined`）
+- `name: string | undefined` - ファイル名（無い場合は `undefined`）
+
+#### JSONに変換
+
+```typescript
+const sealJson = seal.stringify();
+```
+
+**戻り値**
+
+- `string` - JSON文字列が返ります。これをテキストセクションに入れて Forge してください。
+
+#### JSONをパース
+
+```typescript
+const seal = MetalSeal.parse(sealJson);
+```
+**引数**
+
+- `sealJson: string` - Metal をデコードして取得したテキストセクションを渡してください。
+
+**戻り値**
+
+- `MetalSeal` - クラスインスタンスが返ります。JSON が壊れている場合は例外が発生します。
+
+### 6.11. サンプルコード
 
 [こちら](https://github.com/OPENSPHERE-Inc/metal-sdk-sample) のリポジトリにサンプルコードをアップしてあります。
 
