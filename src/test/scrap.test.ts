@@ -290,6 +290,7 @@ describe("Scrap CLI", () => {
                 testData.length,
                 mime.getType(inputFile) ?? undefined,
                 path.basename(inputFile),
+                "comment123"
             ).stringify(),
         );
 
@@ -299,6 +300,8 @@ describe("Scrap CLI", () => {
             "--tgt-pub-key", targetAccount.publicKey,
             "-i", inputFile,
             "--additive", String(additive),
+            "--seal", "3",
+            "--comment", "comment123",
         ]);
 
         expect(estimateOutput?.metalId).toBeDefined();
@@ -319,6 +322,8 @@ describe("Scrap CLI", () => {
             "--additive", String(additive),
             "--parallels", "1",
             "--fee-ratio", "0.35",
+            "-S3",
+            "--comment", "comment123",
         ]);
 
         expect(scrapOutput?.metalId).toBeDefined();

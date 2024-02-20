@@ -14,6 +14,7 @@ export namespace FetchOutput {
         namespaceId?: NamespaceId;
         metalId: string;
         type: MetadataType;
+        text?: string;
     }
 
     export const printOutputSummary = (output: CommandlineOutput) => {
@@ -26,6 +27,7 @@ export namespace FetchOutput {
             (output.mosaicId ? `  Mosaic ID: ${output.mosaicId.toHex()}\n` : "") +
             (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
+            (output.text ? `  Text: ${output.text}\n` : "") +
             `  Data size: ${output.payload.length} bytes\n` +
             `  Network Type: ${output.networkType}\n`
         );

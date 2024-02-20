@@ -36,15 +36,8 @@ export namespace ReinforceCLI {
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
         additive?: number,
-        filePath?: string,
+        text?: string,
     ) => {
-        const mimeType = filePath && mime.getType(filePath);
-        const sealText = new MetalSeal(
-            payload.length,
-            mimeType ?? undefined,
-            filePath && path.basename(filePath)
-        ).stringify();
-
         const txs = command === "forge"
             ? (await metalService.createForgeTxs(
                 type,
@@ -53,7 +46,7 @@ export namespace ReinforceCLI {
                 targetId,
                 payload,
                 additive,
-                sealText,
+                text,
             )).txs
             : await metalService.createDestroyTxs(
                 type,
@@ -62,7 +55,7 @@ export namespace ReinforceCLI {
                 targetId,
                 payload,
                 additive,
-                sealText,
+                text,
             );
         return txs.reduce(
             (acc, curr) => acc.set((curr as MetadataTransaction).scopedMetadataKey.toHex(), curr),
@@ -269,7 +262,7 @@ export namespace ReinforceCLI {
             targetId,
             payload,
             intermediateTxs.additive,
-            input.filePath,
+            intermediateTxs.text,
         );
 
         const { batches, undeadBatches } = intermediateTxs.undeadTxs
@@ -310,6 +303,7 @@ export namespace ReinforceCLI {
             type,
             createdAt: new Date(intermediateTxs.createdAt),
             payload,
+            text: intermediateTxs.text,
         };
     };
 

@@ -257,14 +257,15 @@ export class MetalServiceV2 {
     // Returns:
     //   - payload: Decoded payload bytes.
     //   - text: Decoded text as string or undefined if no text
+    //   - headChunk: First chunk data
     public static decode(key: UInt64, metadataPool: BinMetadata[]) {
         const lookupTable = MetalServiceV2.createMetadataLookupTable(metadataPool);
 
+        let headChunk: ChunkDataV1 | CHunkDataV2 | undefined = undefined;
         let decodedPayload = new Uint8Array();
         let decodedText = new Uint8Array();
         let currentKeyHex = key.toHex();
         let magic: Magic | undefined;
-        let version: number | undefined;
         do {
             const metadata = lookupTable.get(currentKeyHex)?.metadataEntry;
             if (!metadata) {
@@ -277,12 +278,12 @@ export class MetalServiceV2 {
             if (!result) {
                 break;
             }
-            if (version && version !== result.version) {
+            headChunk ??= result;
+            if (headChunk?.version !== result.version) {
                 Logger.error(`Error: Inconsistent chunk versions.`);
                 break;
             }
 
-            version = result.version;
             magic = result.magic;
             currentKeyHex = result.nextKey.toHex();
 
@@ -304,11 +305,12 @@ export class MetalServiceV2 {
         } while (magic !== Magic.END_CHUNK);
 
         return {
-            payload: !version || version === VERSION
+            payload: !headChunk?.version || headChunk.version === VERSION
                 ? decodedPayload
                 // Decoded bytes is base64 encoded (utf-8)
                 : Base64.toUint8Array(Convert.uint8ToUtf8(decodedPayload)),
             text: decodedText.length ? Convert.uint8ToUtf8(decodedText) : undefined,
+            headChunk,
         };
     }
 
@@ -639,6 +641,7 @@ export class MetalServiceV2 {
     // Returns
     //   - payload: Decoded payload bytes.
     //   - text: Decoded text as string or undefined if no text
+    //   - headChunk: First chunk data.
     public async fetch(
         type: MetadataType,
         source: Address | Account | PublicAccount,
@@ -651,6 +654,7 @@ export class MetalServiceV2 {
     }
 
     // Returns:
+    //   - headChunk: First chunk data.
     //   - payload: Decoded payload bytes.
     //   - text: Decoded text as string or undefined if no text
     //   - type: Metadata type
@@ -664,7 +668,7 @@ export class MetalServiceV2 {
         const metadata = await this.getFirstChunk(metalId);
         const metadataEntry = metadata.metadataEntry;
 
-        const { payload, text } = await this.fetch(
+        const { payload, text, headChunk } = await this.fetch(
             metadataEntry.metadataType,
             metadataEntry.sourceAddress,
             metadataEntry.targetAddress,
@@ -673,6 +677,7 @@ export class MetalServiceV2 {
         );
 
         return {
+            headChunk,
             payload,
             text,
             type: metadataEntry.metadataType,

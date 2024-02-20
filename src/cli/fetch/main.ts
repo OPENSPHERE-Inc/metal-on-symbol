@@ -32,6 +32,7 @@ export namespace FetchCLI {
         let key = input.key;
         let targetId: undefined | MosaicId | NamespaceId;
         let payload: Uint8Array;
+        let text: string | undefined;
 
         if (input.metalId) {
             Logger.debug(`Fetching metal ${input.metalId}`);
@@ -45,6 +46,7 @@ export namespace FetchCLI {
             key = result.key;
             targetId = result.targetId;
             payload = result.payload;
+            text = result.text;
         } else {
             assert(type !== undefined);
             targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
@@ -60,7 +62,9 @@ export namespace FetchCLI {
                         ? `namespace:${targetId?.toHex()}`
                         : `account:${targetAddress.plain()}`
             }`);
-            payload = (await metalService.fetch(type, sourceAddress, targetAddress, targetId, key)).payload;
+            const result = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+            payload = result.payload;
+            text = result.text;
         }
 
         if (!input.noSave) {
@@ -79,6 +83,7 @@ export namespace FetchCLI {
             ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
             key,
             metalId,
+            text,
         };
 
         FetchOutput.printOutputSummary(output);

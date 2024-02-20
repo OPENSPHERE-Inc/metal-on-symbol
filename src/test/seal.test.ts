@@ -33,14 +33,27 @@ describe("Metal seal", () => {
     }, 600000);
 
     it("Construct (full)", () => {
-        const seal = new MetalSeal(12345, "application/octet-stream", "example.jpg");
-        expect(seal.stringify()).toBe(`["${MetalSeal.SCHEMA}",12345,"application/octet-stream","example.jpg"]`);
+        const seal = new MetalSeal(12345, "application/octet-stream", "example.jpg", "comment123");
+        expect(seal.stringify()).toBe(`["${MetalSeal.SCHEMA}",12345,"application/octet-stream","example.jpg","comment123"]`);
 
         const parsed = MetalSeal.parse(seal.stringify());
         expect(parsed.schema).toBe(seal.schema);
         expect(parsed.length).toBe(seal.length);
         expect(parsed.mimeType).toBe(seal.mimeType);
         expect(parsed.name).toBe(seal.name);
+        expect(parsed.comment).toBe(seal.comment);
+    });
+
+    it("Construct (length,mimeType,comment)", () => {
+        const seal = new MetalSeal(12345, "application/octet-stream", undefined, "comment123");
+        expect(seal.stringify()).toBe(`["${MetalSeal.SCHEMA}",12345,"application/octet-stream",null,"comment123"]`);
+
+        const parsed = MetalSeal.parse(seal.stringify());
+        expect(parsed.schema).toBe(seal.schema);
+        expect(parsed.length).toBe(seal.length);
+        expect(parsed.mimeType).toBe(seal.mimeType);
+        expect(parsed.name).toBe(seal.name);
+        expect(parsed.comment).toBe(seal.comment);
     });
 
     it("Construct (length,mimeType)", () => {
@@ -52,6 +65,19 @@ describe("Metal seal", () => {
         expect(parsed.length).toBe(seal.length);
         expect(parsed.mimeType).toBe(seal.mimeType);
         expect(parsed.name).toBe(seal.name);
+        expect(parsed.comment).toBe(seal.comment);
+    });
+
+    it("Construct (length,comment)", () => {
+        const seal = new MetalSeal(12345, undefined, undefined, "comment123");
+        expect(seal.stringify()).toBe(`["${MetalSeal.SCHEMA}",12345,null,null,"comment123"]`);
+
+        const parsed = MetalSeal.parse(seal.stringify());
+        expect(parsed.schema).toBe(seal.schema);
+        expect(parsed.length).toBe(seal.length);
+        expect(parsed.mimeType).toBe(seal.mimeType);
+        expect(parsed.name).toBe(seal.name);
+        expect(parsed.comment).toBe(seal.comment);
     });
 
     it("Construct (length,name)", () => {
@@ -63,6 +89,7 @@ describe("Metal seal", () => {
         expect(parsed.length).toBe(seal.length);
         expect(parsed.mimeType).toBe(seal.mimeType);
         expect(parsed.name).toBe(seal.name);
+        expect(parsed.comment).toBe(seal.comment);
     });
 
     it("Construct (length)", () => {
@@ -74,6 +101,7 @@ describe("Metal seal", () => {
         expect(parsed.length).toBe(seal.length);
         expect(parsed.mimeType).toBe(seal.mimeType);
         expect(parsed.name).toBe(seal.name);
+        expect(parsed.comment).toBe(seal.comment);
     });
 
     it("Parse error (Malformed)", () => {
@@ -157,6 +185,7 @@ describe("Metal seal", () => {
                 testData.length,
                 "image/jpg",
                 path.basename(inputFile),
+                "comment123"
             )
         );
     }, 600000);

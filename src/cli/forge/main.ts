@@ -39,8 +39,15 @@ export namespace ForgeCLI {
                 targetId
             })
             : undefined;
+        const text = input.seal
+            ? new MetalSeal(
+                payload.length,
+                (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
+                (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
+                input.sealComment || undefined,
+            ).stringify()
+            : undefined;
 
-        const mimeType = input.filePath && mime.getType(input.filePath);
         const { key, txs, additive: actualAdditive } = await metalService.createForgeTxs(
             input.type,
             sourcePubAccount,
@@ -48,11 +55,7 @@ export namespace ForgeCLI {
             targetId,
             payload,
             input.additive,
-            new MetalSeal(
-                payload.length,
-                mimeType ?? undefined,
-                input.filePath && path.basename(input.filePath)
-            ).stringify(),
+            text,
             metadataPool,
         );
         if (!txs.length) {
@@ -136,6 +139,7 @@ export namespace ForgeCLI {
             key,
             totalFee,
             additive: actualAdditive,
+            text,
             sourcePubAccount,
             targetPubAccount,
             ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),

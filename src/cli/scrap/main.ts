@@ -35,38 +35,39 @@ export namespace ScrapCLI {
         let metalId = input.metalId;
         let targetId: undefined | MosaicId | NamespaceId;
         let additive = input.additive;
-
-        const createMetalSealText = (payload: Uint8Array) => new MetalSeal(
-            payload.length,
-            (input.filePath && mime.getType(input.filePath)) ?? undefined,
-            input.filePath && path.basename(input.filePath),
-        ).stringify();
+        let text = input.seal && payload
+            ? new MetalSeal(
+                payload.length,
+                (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
+                (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
+                input.sealComment || undefined,
+            ).stringify()
+            : undefined;
 
         if (metalId) {
-            const metadataEntry = (await metalService.getFirstChunk(metalId)).metadataEntry;
-            // Obtain type, key and targetId here.
-            type = metadataEntry.metadataType
-            key = metadataEntry.scopedMetadataKey;
-            targetId = metadataEntry.targetId;
-            const chunkData = MetalServiceV2.extractChunk(metadataEntry);
-            if (!chunkData) {
-                throw new Error(`The chunk is broken.`);
-            } else if (chunkData.version !== 0x31) {
+            const result = await metalService.fetchByMetalId(metalId);
+            if (result.headChunk?.version !== 0x31) {
                 throw new Error("Version 1 Metal cannot be scrap. Please use 'scrap-v1' CLI instead.")
             }
-            additive = chunkData.additive;
+
+            // Obtain type, key and targetId here.
+            type = result.type;
+            key = result.key;
+            targetId = result.targetId;
+            additive = result.headChunk.additive;
+            text = result.text;
 
             // We cannot retrieve publicKey at this time. Only can do address check.
-            if (!sourcePubAccount.address.equals(metadataEntry?.sourceAddress)) {
+            if (!sourcePubAccount.address.equals(result.sourceAddress)) {
                 throw new Error(`Source address mismatched.`);
             }
-            if (!targetPubAccount.address.equals(metadataEntry?.targetAddress)) {
+            if (!targetPubAccount.address.equals(result.targetAddress)) {
                 throw new Error(`Target address mismatched.`);
             }
         } else {
             if (!key && payload) {
                 // Obtain metadata key here
-                key = MetalServiceV2.calculateMetadataKey(payload, input.additive, createMetalSealText(payload));
+                key = MetalServiceV2.calculateMetadataKey(payload, additive, text);
             }
 
             assert(type !== undefined);
@@ -92,7 +93,7 @@ export namespace ScrapCLI {
                 targetId,
                 payload,
                 additive,
-                createMetalSealText(payload),
+                text,
             )
             : await metalService.createScrapTxs(
                 type,
@@ -155,6 +156,7 @@ export namespace ScrapCLI {
             additive: additive || MetalServiceV2.DEFAULT_ADDITIVE,
             type,
             createdAt: new Date(),
+            text,
         };
     };
 

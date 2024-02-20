@@ -13,8 +13,8 @@ import { Logger } from "../libs";
 import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, UndeadSignature } from "../services";
 
 
-export const VERSION = "3.0";
-export const SUPPORTED_VERSION = /^3\.0$/;
+export const VERSION = "3.1";
+export const SUPPORTED_VERSION = /^3\.[0|1]$/;
 
 export interface IntermediateTxs {
     version: string;
@@ -29,6 +29,7 @@ export interface IntermediateTxs {
     namespaceId?: string;
     totalFee: number[];
     additive: number;
+    text?: string;
     signerPublicKey: string;
     txs?: {
         // Extracted metadata keys
@@ -70,6 +71,7 @@ export interface IntermediateOutput {
     signerPubAccount: PublicAccount;
     totalFee: UInt64;
     additive: number;
+    text?: string;
     metalId: string;
     createdAt: Date;
 }
@@ -131,6 +133,7 @@ export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, file
         ...(output.namespaceId && { namespaceId: output.namespaceId.toHex() }),
         totalFee: output.totalFee.toDTO(),
         additive: output.additive,
+        text: output.text,
         signerPublicKey: output.signerPubAccount.publicKey,
         txs: output.batches?.map((batch) => batchToIntermediateTx(batch)),
         undeadTxs: output.undeadBatches?.map((batch) => batchToIntermediateUndeadTx(batch)),

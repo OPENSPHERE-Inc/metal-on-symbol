@@ -299,6 +299,22 @@ metal forge  -n namespace.name  test_data/e92m3.jpg
 
 #### その他のオプション例
 
+##### シール
+
+`--seal 整数(0～3）` オプションでは [Metal Seal](#610-metal-seal) を使ってテキストセクションにファイル情報を付与できます。
+シールレベルを `0` から `3` の整数で指定でき、 `0` の場合はシール無しとなります。オプション指定なしの場合はデフォルトの `2` となります。
+
+| シールレベル | 付与される情報                    | オプション                |
+|--------|----------------------------|----------------------|
+| 0      | シール無し（テキストセクション無し）         | `--seal 0` または `-S0` |
+| 1      | ファイルサイズ                    | `--seal 1` または `-S1` |
+| 2      | ファイルサイズと Mime Type（デフォルト）  | `--seal 2` または `-S2` |
+| 3      | ファイルサイズと Mime Type 及びファイル名 | `--seal 3` または `-S3` |
+
+> ファイル名はパスは含まれません（例： `path/to/example.jpg` は `example.jpg` が使用される）
+
+`--comment テキスト` オプションで [Metal Seal](#610-metal-seal) 内に任意のコメントテキストを追加できます。
+
 ##### 見積だけ実行
 
 `-e` (Estimate) オプションを付けることで、トランザクションを実行せずに、見積だけ行います。
@@ -392,13 +408,30 @@ metal scrap  -i test_data/e92m3.jpg  -n namespace_name  # Namespace Metal
 **Additiveが添加された Metal の場合**
 
 Forge する際、デフォルト（0）とは異なる Additive が添加されている場合は、
-以下のように `--additive` オプションを指定してください。
+以下の様に `--additive` オプションを指定してください。
 
 ```shell
 metal scrap  -i test_data/e92m3.jpg  --additive 1234                     # Account Metal
 metal scrap  -i test_data/e92m3.jpg  --additive 1234  -m mosaic_id       # Mosaic Metal
 metal scrap  -i test_data/e92m3.jpg  --additive 1234  -n namespace_name  # Namespace Metal
 ```
+
+**シールされた Metal の場合**
+
+Forge の際にシールしていた場合は、[Metal Seal](#610-metal-seal) も一致させなければなりません。
+
+以下の様に `--seal` および `--comment` オプションを指定してください。
+
+```shell
+metal scrap  -i test_data/e92m3.jpg  --seal 3                                      # Account Metal
+metal scrap  -i test_data/e92m3.jpg  --seal 1  --comment comment123  -m mosaic_id  # Mosaic Metal
+metal scrap  -i test_data/e92m3.jpg  --seal 0  -n namespace_name                   # Namespace Metal
+```
+Additive と シールが両方ある場合は、両方指定してください。
+
+> よくあるミス
+> 
+> `--seal 3` を使用していたが、ファイル名が Forge の時と違っている
 
 ### 2.7. Reinforce（マルチシグの連署）
 
@@ -1678,7 +1711,7 @@ const plainData = SymbolService.decryptBinary(encryptedData, senderPubAccount, r
 
 テキストセクションにファイル情報を書き込むためのシンプルな JSON スキーマです。
 
-スキーマ `seal1` は 3 ないし、4 つの要素からなる配列で表現されます。
+スキーマ `seal1` は 2 ～ 5 つの要素からなる配列で表現されます。
 
 内容は以下の通りです。
 
@@ -1687,27 +1720,34 @@ const plainData = SymbolService.decryptBinary(encryptedData, senderPubAccount, r
 | 0        | string                      | スキーマ名 `seal1`  |
 | 1        | number                      | ファイルサイズ（バイト単位） |
 | 2        | string \| null \| undefined | Mime Type（省略可） |
-| 3        | string \| undefined         | ファイル名（省略可）     |
+| 3        | string \| null \| undefined | ファイル名（省略可）     |
+| 4        | string \| undefined         | コメント（省略可）      |
 
 以下の様に JSON にエンコードされます。
 
 ```json
-[ "seal1", 12345, "image/jpg", "example.jpg" ]
+[ "seal1", 12345, "image/jpg", "example.jpg", "comment123" ]
 ```
 
 ファイル名を省略
 
 ```json
-[ "seal1", 12345, "image/jpg" ]
+[ "seal1", 12345, "image/jpg", null, "comment123" ]
 ```
 
-Mime Type を省略
+Mime Type とコメントを省略
 
 ```json
 [ "seal1", 12345, null, "example.jpg" ]
 ```
 
-Mime Type もファイル名も 両方省略
+Mime Type、ファイル名を省略
+
+```json
+[ "seal1", 12345, null, null, "comment123" ]
+```
+
+ファイルサイズ以外を省略
 
 ```json
 [ "seal1", 12345 ]
@@ -1720,7 +1760,7 @@ Metal Seal を変換するためのクラス `MetalSeal` が用意されてい�
 ```typescript
 import { MetalSeal } from "metal-on-symbol"
 
-const seal = new MetalSeal(length, mimeType, name);
+const seal = new MetalSeal(length, mimeType, name, comment);
 ```
 
 **引数**
@@ -1728,6 +1768,7 @@ const seal = new MetalSeal(length, mimeType, name);
 - `length: number` - ファイルサイズ（バイト単位）
 - `mimeType: string | undefined` - Mime Type（省略可）
 - `name: string | undefined` - ファイル名（省略可）
+- `comment: string | undefined` - コメント（省略可）
 
 #### プロパティ
 
@@ -1735,6 +1776,7 @@ const seal = new MetalSeal(length, mimeType, name);
 - `length: number` - ファイルサイズ（バイト単位）
 - `mimeType: string | undefined` - Mime Type（無い場合は `undefined`）
 - `name: string | undefined` - ファイル名（無い場合は `undefined`）
+- `comment: string | undefined` - コメント（無い場合は `undefined`）
 
 #### JSONに変換
 
