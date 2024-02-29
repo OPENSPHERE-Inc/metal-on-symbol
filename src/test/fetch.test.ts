@@ -1,6 +1,4 @@
-import dotenv from "dotenv";
-dotenv.config({ path: './.env.test' });
-
+import "./env";
 import {Account, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
 import {initTestEnv, MetalTest, SymbolTest} from "./utils";
 import assert from "assert";

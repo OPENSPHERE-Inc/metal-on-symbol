@@ -1,11 +1,11 @@
-import {FetchInput} from "./input";
 import assert from "assert";
-import {MetalService} from "../../services";
-import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {FetchOutput} from "./output";
-import {Logger} from "../../libs";
-import {writeStreamOutput} from "../stream";
-import {metalService, symbolService} from "../common";
+import { MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { Logger } from "../../libs";
+import { MetalServiceV2 } from "../../services";
+import { metalService, symbolService } from "../common";
+import { writeStreamOutput } from "../stream";
+import { FetchInput } from "./input";
+import { FetchOutput } from "./output";
 
 
 export namespace FetchCLI {
@@ -32,6 +32,7 @@ export namespace FetchCLI {
         let key = input.key;
         let targetId: undefined | MosaicId | NamespaceId;
         let payload: Uint8Array;
+        let text: string | undefined;
 
         if (input.metalId) {
             Logger.debug(`Fetching metal ${input.metalId}`);
@@ -45,6 +46,7 @@ export namespace FetchCLI {
             key = result.key;
             targetId = result.targetId;
             payload = result.payload;
+            text = result.text;
         } else {
             assert(type !== undefined);
             targetId = [ undefined, input.mosaicId, input.namespaceId ][type];
@@ -60,7 +62,9 @@ export namespace FetchCLI {
                         ? `namespace:${targetId?.toHex()}`
                         : `account:${targetAddress.plain()}`
             }`);
-            payload = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+            const result = await metalService.fetch(type, sourceAddress, targetAddress, targetId, key);
+            payload = result.payload;
+            text = result.text;
         }
 
         if (!input.noSave) {
@@ -68,7 +72,7 @@ export namespace FetchCLI {
         }
 
         const { networkType } = await symbolService.getNetwork();
-        const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
+        const metalId = input.metalId || MetalServiceV2.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
         const output: FetchOutput.CommandlineOutput = {
             type,
             networkType,
@@ -79,6 +83,7 @@ export namespace FetchCLI {
             ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
             key,
             metalId,
+            text,
         };
 
         FetchOutput.printOutputSummary(output);

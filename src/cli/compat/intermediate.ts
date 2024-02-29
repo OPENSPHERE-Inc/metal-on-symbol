@@ -9,12 +9,12 @@ import {
     TransactionType,
     UInt64
 } from "symbol-sdk";
-import { Logger } from "../libs";
-import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, UndeadSignature } from "../services";
+import { Logger } from "../../libs";
+import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, UndeadSignature } from "../../services";
 
 
-export const VERSION = "3.1";
-export const SUPPORTED_VERSION = /^3\.[0|1]$/;
+export const VERSION = "2.1";
+export const SUPPORTED_VERSION = /^2\.[0-1]$/;
 
 export interface IntermediateTxs {
     version: string;
@@ -28,8 +28,7 @@ export interface IntermediateTxs {
     mosaicId?: string;
     namespaceId?: string;
     totalFee: number[];
-    additive: number;
-    text?: string;
+    additive: string;
     signerPublicKey: string;
     txs?: {
         // Extracted metadata keys
@@ -70,8 +69,7 @@ export interface IntermediateOutput {
     undeadBatches?: AggregateUndeadTransaction[];
     signerPubAccount: PublicAccount;
     totalFee: UInt64;
-    additive: number;
-    text?: string;
+    additive: string;
     metalId: string;
     createdAt: Date;
 }
@@ -133,7 +131,6 @@ export const writeIntermediateFile = (output: Readonly<IntermediateOutput>, file
         ...(output.namespaceId && { namespaceId: output.namespaceId.toHex() }),
         totalFee: output.totalFee.toDTO(),
         additive: output.additive,
-        text: output.text,
         signerPublicKey: output.signerPubAccount.publicKey,
         txs: output.batches?.map((batch) => batchToIntermediateTx(batch)),
         undeadTxs: output.undeadBatches?.map((batch) => batchToIntermediateUndeadTx(batch)),

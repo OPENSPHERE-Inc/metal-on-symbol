@@ -1,18 +1,18 @@
-import {Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {deadlineMinHours, initCliEnv, isValueOption, NodeInput} from "../common";
-import {VERSION} from "./version";
-import {AccountsInput, validateAccountsInput} from "../accounts";
-import {SymbolService} from "../../services";
-import {Logger} from "../../libs";
-import {StreamInput, validateStreamInput} from "../stream";
-import {PACKAGE_VERSION} from "../../package_version";
+import { MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { Logger } from "../../libs";
+import { PACKAGE_VERSION } from "../../package_version";
+import { SymbolService } from "../../services";
+import { AccountsInput, validateAccountsInput } from "../accounts";
+import { deadlineMinHours, initCliEnv, isValueOption, NodeInput } from "../common";
+import { StreamInput, validateStreamInput } from "../stream";
+import { VERSION } from "./version";
 
 
 export namespace ForgeInput {
 
     export interface CommandlineInput extends NodeInput, AccountsInput, StreamInput {
         version: string;
-        additive?: string;
+        additive?: number;
         checkCollision: boolean;
         cosignerPrivateKeys?: string[];
         deadlineHours: number;
@@ -27,9 +27,9 @@ export namespace ForgeInput {
         requiredCosignatures?: number;
         type: MetadataType;
         verify: boolean;
-
-        // Filled by validator
-        additiveBytes?: Uint8Array;
+        seal: number;
+        sealComment?: string;
+        text?: string;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -46,6 +46,7 @@ export namespace ForgeInput {
             signerPrivateKey: process.env.SIGNER_PRIVATE_KEY,
             recover: false,
             deadlineHours: deadlineMinHours,
+            seal: 2,
         };
 
         for (let i = 0; i < argv.length; i++) {
@@ -54,9 +55,9 @@ export namespace ForgeInput {
                 case "--additive": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
-                        throw new Error(`${token} must has additive (4 ascii chars) as a value.`);
+                        throw new Error(`${token} must be an number between 0 and 65535`);
                     }
-                    input.additive = value;
+                    input.additive = Number(value);
                     break;
                 }
 
@@ -194,6 +195,47 @@ export namespace ForgeInput {
                     break;
                 }
 
+                case "--seal": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${token} must has seal level number as value.`);
+                    }
+                    input.seal = Math.floor(Number(value));
+                    break;
+                }
+                case "-S0": {
+                    input.seal = 0;
+                    break;
+                }
+                case "-S1": {
+                    input.seal = 1;
+                    break;
+                }
+                case "-S2": {
+                    input.seal = 2;
+                    break;
+                }
+                case "-S3": {
+                    input.seal = 3;
+                    break;
+                }
+                case "--comment": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${token} must has seal comment as value.`);
+                    }
+                    input.sealComment = value;
+                    break;
+                }
+                case "--text": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${token} must has text section payload as value.`);
+                    }
+                    input.text = value;
+                    break;
+                }
+
                 case "--src-priv-key": {
                     const value = argv[++i];
                     if (!isValueOption(value)) {
@@ -268,24 +310,26 @@ export namespace ForgeInput {
     export const validateInput = async (_input: Readonly<CommandlineInput>) => {
         let input: CommandlineInput = { ..._input };
         if (input.feeRatio && (input.feeRatio > 1.0 || input.feeRatio < 0.0)) {
-            throw new Error("[--fee-ratio value] must be 0.0 <= x <= 1.0")
+            throw new Error("[--fee-ratio value] must be 0.0 <= x <= 1.0");
         }
 
         await initCliEnv(input, input.feeRatio);
 
         input = await validateStreamInput(input, !input.force);
 
-        if (input.additive) {
-            if (!input.additive.match(/^[\x21-\x7e\s]{4}$/)) {
-                throw new Error("[--additive value] must be 4 ascii chars.");
+        if (input.additive !== undefined) {
+            if (!Number.isSafeInteger(input.additive) || input.additive < 0 || input.additive > 0xFFFF) {
+                throw new Error("[--additive value] must be an number between 0 and 65535");
             }
-            input.additiveBytes = Convert.utf8ToUint8(input.additive);
         }
         if (input.deadlineHours < deadlineMinHours) {
             throw new Error(`[--deadline hours] must be ${deadlineMinHours} hours or longer.`);
         }
         if (input.requiredCosignatures !== undefined && input.requiredCosignatures === 0) {
             throw new Error("[--num-cosigs value] must not be zero.");
+        }
+        if (input.seal < 0 || input.seal > 3) {
+            throw new Error("[--seal value] must be 0 <= x <= 3");
         }
 
         return validateAccountsInput(input, !input.force && !input.stdin);
@@ -296,8 +340,9 @@ export namespace ForgeInput {
             `Usage: forge [options] [input_path]\n` +
             `Options:\n` +
             `  input_path             Specify input_path of payload file (default:stdin)\n` +
-            `  --additive value       Specify additive with 4 ascii characters (e.g. "A123", default:0000)\n` +
+            `  --additive value       Specify additive with 0~65535 integer (e.g. 1234, default:0)\n` +
             `  -c, --check-collision  Check key collision before announce (Also estimation mode allowed)\n` +
+            `  --comment text         Specify Metal Seal comment.\n` +
             `  --cosigner private_key Specify multisig cosigner's private_key (You can set multiple)\n` +
             `  --deadline hours       Specify intermediate TX deadline in hours (default:5, must be 5 hours or longer)\n` +
             `  -e, --estimate         Enable estimation mode (No TXs announce)\n` +
@@ -316,9 +361,12 @@ export namespace ForgeInput {
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
             `  -r, --recover          Announce only lost chunks for recovery\n` +
+            `  --seal level           Specify Metal Seal level. 0 means no seal. (default:2)\n` +
+            `  -S0,-S1,-S2,-S3        Alias of --seal 0~3\n` +
             `  -s public_key,\n` +
             `  --src-pub-key value    Specify source_account via public_key\n` +
             `  --src-priv-key value   Specify source_account via private_key\n` +
+            `  --text value           Specify text section payload (Override --seal and --comment option)\n` +
             `  -t public_key,\n` +
             `  --tgt-pub-key value    Specify target_account via public_key\n` +
             `  --tgt-priv-key value   Specify target_account via private_key\n` +

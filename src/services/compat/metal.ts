@@ -15,22 +15,22 @@ import {
     TransactionType,
     UInt64,
 } from "symbol-sdk";
-import {SymbolService} from "./symbol";
-import {Logger} from "../libs";
+import {SymbolService} from "../symbol";
+import {Logger} from "../../libs";
 import assert from "assert";
 import {sha3_256} from "js-sha3";
 import bs58 from "bs58";
 import { Base64 } from "js-base64";
 
 
-const VERSION = "010";
+const VERSION = "010";  // 0x30 0x31 0x30
 const HEADER_SIZE = 24;
 const CHUNK_PAYLOAD_MAX_SIZE = 1000;
 const METAL_ID_HEADER_HEX = "0B2A";
 
-enum Magic {
-    CHUNK = "C",
-    END_CHUNK = "E",
+export enum Magic {
+    CHUNK = "C",  // 0x43
+    END_CHUNK = "E",  // 0x45
 }
 
 const isMagic = (char: any): char is Magic => Object.values(Magic).includes(char);
@@ -40,7 +40,7 @@ export class MetalService {
     public static DEFAULT_ADDITIVE = Convert.utf8ToUint8("0000");
 
     // Use sha3_256 of first 64 bits, MSB should be 0
-    public static generateMetadataKey(input: string): UInt64 {
+    public static generateMetadataKey(input: string | Uint8Array): UInt64 {
         if (input.length === 0) {
             throw new Error("Input must not be empty");
         }
@@ -97,7 +97,7 @@ export class MetalService {
         return hashHex.slice(METAL_ID_HEADER_HEX.length);
     }
 
-    private static createMetadataLookupTable(metadataPool?: Metadata[]) {
+    protected static createMetadataLookupTable(metadataPool?: Metadata[]) {
         // Map key is hex string
         const lookupTable =  new Map<string, Metadata>();
         metadataPool?.forEach(
@@ -108,13 +108,13 @@ export class MetalService {
 
     // Returns:
     //   - value:
-    //       [magic "C" or "E" (1 bytes)] +
+    //       [magic "C" or "E" (1 byte)] +
     //       [version (3 bytes)] +
     //       [additive (4 bytes)] +
     //       [next key (when magic is "C"), file hash (when magic is "E") (16 bytes)] +
     //       [payload (1000 bytes)] = 1024 bytes
     //   - key: Hash of value
-    private static packChunkBytes(
+    protected static packChunkBytes(
         magic: Magic,
         version: string,
         additive: Uint8Array,
@@ -122,8 +122,7 @@ export class MetalService {
         chunkBytes: Uint8Array,
     ) {
         assert(additive.length >= 4);
-        // Append next scoped key into chunk's tail (except end of line)
-        const value = new Uint8Array(chunkBytes.length + 8 + (nextKey ? 16 : 0));
+        const value = new Uint8Array(chunkBytes.length + HEADER_SIZE);
         assert(value.length <= 1024);
 
         // Header (24 bytes)
@@ -157,11 +156,13 @@ export class MetalService {
     }
 
     // Verify metadata key with calculated one. "additive" must be specified when using non-default one.
-    public static verifyMetadataKey = (
+    public static verifyMetadataKey(
         key: UInt64,
         payload: Uint8Array,
         additive: Uint8Array = MetalService.DEFAULT_ADDITIVE
-    ) => MetalService.calculateMetadataKey(payload, additive).equals(key);
+    ) {
+        return MetalService.calculateMetadataKey(payload, additive).equals(key);
+    }
 
     public static extractChunk(chunk: MetadataEntry) {
         const magic = chunk.value.substring(0, 1);
@@ -259,7 +260,8 @@ export class MetalService {
             const { value, key } = MetalService.packChunkBytes(magic, VERSION, additive, nextKey, chunkBytes);
 
             if (keys.includes(key.toHex())) {
-                Logger.warn(`Warning: Scoped key "${key.toHex()}" has been conflicted. Trying another additive.`);
+                Logger.warn(`Warning: Scoped key "${key.toHex()}" has been conflicted. ` +
+                    `Trying another additive.`);
                 // Retry with another additive via recursive call
                 return this.createForgeTxs(
                     type,
@@ -360,7 +362,10 @@ export class MetalService {
         const lookupTable = MetalService.createMetadataLookupTable(
             metadataPool ||
             // Retrieve scoped metadata from on-chain
-            await this.symbolService.searchMetadata(type,  { source: sourcePubAccount, target: targetPubAccount, targetId })
+            await this.symbolService.searchMetadata(
+                type,
+                { source: sourcePubAccount, target: targetPubAccount, targetId }
+            )
         );
         const scrappedValueBytes = Convert.utf8ToUint8("");
         const payloadBase64Bytes = Convert.utf8ToUint8(Base64.fromUint8Array(payload));
@@ -452,7 +457,10 @@ export class MetalService {
             key,
             metadataPool ||
             // Retrieve scoped metadata from on-chain
-            await this.symbolService.searchMetadata(type,  { source: sourceAddress, target: targetAddress, targetId })
+            await this.symbolService.searchMetadata(
+                type,
+                { source: sourceAddress, target: targetAddress, targetId }
+            )
         ) || "";
 
         let mismatches = 0;

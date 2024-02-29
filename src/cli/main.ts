@@ -1,17 +1,16 @@
 #!/usr/bin/env node
-import dotenv from "dotenv";
-dotenv.config();
-
+import "./env";
+import { Logger } from "../libs";
+import { PACKAGE_VERSION } from "../package_version";
+import { ReinforceCLIV1, ScrapCLIV1 } from "./compat";
+import { DecryptCLI } from "./decrypt";
+import { EncryptCLI } from "./encrypt";
 import { FetchCLI } from "./fetch";
 import { ForgeCLI } from "./forge";
 import { ReinforceCLI } from "./reinforce";
 import { ScrapCLI } from "./scrap";
 import { VerifyCLI } from "./verify";
-import {VERSION} from "./version";
-import {PACKAGE_VERSION} from "../package_version";
-import {Logger} from "../libs";
-import {EncryptCLI} from "./encrypt";
-import {DecryptCLI} from "./decrypt";
+import { VERSION } from "./version";
 
 
 Logger.init({ force_stderr: true });
@@ -28,6 +27,7 @@ const printUsage = () => {
         `  reinforce   Cosigning forge/scrap intermediate transactions for multisig resolution.\n` +
         `  scrap       Scrap the metal on blockchain.\n` +
         `  verify      Verify off-chain file vs on-chain metal.\n` +
+        `Legacy compat commands (V1): reinforce-v1, scrap-v1\n` +
         `Options:\n` +
         `  -h, --help  Show command line usage.\n`
     );
@@ -60,6 +60,12 @@ const main = async (argv: string[]) => {
         }
         case "verify": {
             return VerifyCLI.main(argv.slice(1));
+        }
+        case "reinforce-v1": {
+            return ReinforceCLIV1.main(argv.slice(1));
+        }
+        case "scrap-v1": {
+            return ScrapCLIV1.main(argv.slice(1));
         }
         case "-h":
         case "--help": {

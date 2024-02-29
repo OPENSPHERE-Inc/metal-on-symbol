@@ -11,19 +11,14 @@ import {
     PublicAccount,
     UInt64
 } from "symbol-sdk";
-import { Logger } from "../libs";
-import {
-    AggregateUndeadTransaction,
-    MetalServiceV2,
-    NecromancyService,
-    SignedAggregateTx,
-    SymbolService
-} from "../services";
+import { Logger } from "../../libs";
+import { AggregateUndeadTransaction, NecromancyService, SignedAggregateTx, SymbolService } from "../../services";
+import { MetalService } from "../../services/compat";
 
 
 export const isValueOption = (token?: string) => !token?.startsWith("-");
 export let symbolService: SymbolService;
-export let metalService: MetalServiceV2;
+export let metalService: MetalService;
 export let necromancyService: NecromancyService;
 export const deadlineMinHours = 5;
 export const deadlineMarginHours = 1;
@@ -46,7 +41,7 @@ export const initCliEnv = async <T extends NodeInput>(input: Readonly<T>, feeRat
     const { networkType } = await symbolService.getNetwork();
     Logger.debug(`Using Node URL: ${input.nodeUrl} (network_type:${networkType})`);
 
-    metalService = new MetalServiceV2(symbolService);
+    metalService = new MetalService(symbolService);
     necromancyService = new NecromancyService(symbolService, {
         deadlineUnitHours: symbolService.config.deadline_hours,
         deadlineMarginHours: deadlineMarginHours,
@@ -104,8 +99,7 @@ export const announceBatches = async (
             stdout: process.stderr,
         })).decision;
         if (!decision) {
-            Logger.warn("Canceled by user.");
-            return false;
+            throw new Error("Canceled by user.");
         }
     }
 
@@ -120,15 +114,12 @@ export const announceBatches = async (
     } else {
         Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
     }
-
-    return true;
 };
 
 interface ExecuteBatchesResult {
-    totalFee: UInt64;
-    batches?: SignedAggregateTx[];
-    undeadBatches?: AggregateUndeadTransaction[];
-    announced: boolean;
+    totalFee: UInt64,
+    batches?: SignedAggregateTx[],
+    undeadBatches?: AggregateUndeadTransaction[],
 }
 
 export const buildAndExecuteBatches = async (
@@ -158,24 +149,22 @@ export const buildAndExecuteBatches = async (
         UInt64.fromUint(0)
     );
 
-    let announced = false;
     if (canAnnounce) {
         Logger.info(
             `Announcing ${batches.length} aggregate TXs ` +
             `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-        announced = await announceBatches(
-            batches,
-            signerAccount,
-            maxParallels,
-            showPrompt
-        );
+       await announceBatches(
+           batches,
+           signerAccount,
+           maxParallels,
+           showPrompt
+       );
     }
 
     return {
         batches,
         totalFee,
-        announced,
     };
 };
 
@@ -208,13 +197,12 @@ export const buildAndExecuteUndeadBatches = async (
         UInt64.fromUint(0)
     );
 
-    let announced = false;
     if (canAnnounce) {
         Logger.info(
             `Announcing ${undeadBatches.length} aggregate TXs ` +
             `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-        announced = await announceBatches(
+        await announceBatches(
             await necromancyService.pickAndCastTxBatches(undeadBatches),
             signerAccount,
             maxParallels,
@@ -225,7 +213,6 @@ export const buildAndExecuteUndeadBatches = async (
     return {
         undeadBatches,
         totalFee,
-        announced,
     };
 };
 

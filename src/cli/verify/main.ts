@@ -1,10 +1,10 @@
-import {VerifyInput} from "./input";
 import assert from "assert";
-import {doVerify, metalService, symbolService} from "../common";
-import {MetalService} from "../../services";
-import {VerifyOutput} from "./output";
-import {MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {readStreamInput} from "../stream";
+import { MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { MetalServiceV2 } from "../../services";
+import { doVerify, metalService, symbolService } from "../common";
+import { readStreamInput } from "../stream";
+import { VerifyInput } from "./input";
+import { VerifyOutput } from "./output";
 
 
 export namespace VerifyCLI {
@@ -59,7 +59,8 @@ export namespace VerifyCLI {
         );
 
         const { networkType } = await symbolService.getNetwork();
-        const metalId = input.metalId || MetalService.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
+        const metalId = input.metalId ||
+            MetalServiceV2.calculateMetalId(type, sourceAddress, targetAddress, targetId, key);
         const output: VerifyOutput.CommandlineOutput = {
             type,
             networkType,

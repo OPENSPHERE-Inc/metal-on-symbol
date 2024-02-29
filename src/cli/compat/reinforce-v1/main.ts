@@ -1,4 +1,3 @@
-import { AggregateUndeadTransaction, SignedAggregateTx } from "@opensphere-inc/symbol-service";
 import assert from "assert";
 import {
     Account,
@@ -15,16 +14,16 @@ import {
     SignedTransaction,
     UInt64
 } from "symbol-sdk";
-import { Logger } from "../../libs";
-import { MetadataTransaction, SymbolService } from "../../services";
+import { Logger } from "../../../libs";
+import { AggregateUndeadTransaction, MetadataTransaction, SignedAggregateTx, SymbolService } from "../../../services";
+import { readStreamInput } from "../../stream";
 import { announceBatches, metalService, necromancyService, symbolService } from "../common";
 import { IntermediateTxs, readIntermediateFile, writeIntermediateFile } from "../intermediate";
-import { readStreamInput } from "../stream";
-import { ReinforceInput } from "./input";
-import { ReinforceOutput } from "./output";
+import { ReinforceInputV1 } from "./input";
+import { ReinforceOutputV1 } from "./output";
 
 
-export namespace ReinforceCLI {
+export namespace ReinforceCLIV1 {
 
     const buildReferenceTxPool = async (
         command: "forge" | "scrap",
@@ -33,9 +32,9 @@ export namespace ReinforceCLI {
         targetPubAccount: PublicAccount,
         targetId: undefined | MosaicId | NamespaceId,
         payload: Uint8Array,
-        additive?: number,
-        text?: string,
+        additive?: string
     ) => {
+        const additiveBytes = additive ? Convert.utf8ToUint8(additive) : undefined;
         const txs = command === "forge"
             ? (await metalService.createForgeTxs(
                 type,
@@ -43,8 +42,7 @@ export namespace ReinforceCLI {
                 targetPubAccount,
                 targetId,
                 payload,
-                additive,
-                text,
+                additiveBytes,
             )).txs
             : await metalService.createDestroyTxs(
                 type,
@@ -52,8 +50,7 @@ export namespace ReinforceCLI {
                 targetPubAccount,
                 targetId,
                 payload,
-                additive,
-                text,
+                additiveBytes,
             );
         return txs.reduce(
             (acc, curr) => acc.set((curr as MetadataTransaction).scopedMetadataKey.toHex(), curr),
@@ -148,9 +145,8 @@ export namespace ReinforceCLI {
     };
 
     interface ExecuteBatchesResult {
-        batches?: SignedAggregateTx[];
-        undeadBatches?: AggregateUndeadTransaction[];
-        announced: boolean;
+        batches?: SignedAggregateTx[],
+        undeadBatches?: AggregateUndeadTransaction[],
     }
 
     const buildAndExecuteBatches = async (
@@ -174,14 +170,13 @@ export namespace ReinforceCLI {
             );
         });
 
-        let announced = false;
         if (canAnnounce) {
             Logger.info(
                 `Announcing ${batches.length} aggregate TXs. ` +
                 `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
                 `will be paid by ${intermediateTxs.command} originator.`
             );
-            announced = await announceBatches(
+            await announceBatches(
                 batches,
                 signerPubAccount,
                 maxParallels,
@@ -191,7 +186,6 @@ export namespace ReinforceCLI {
 
         return {
             batches,
-            announced,
         };
     };
 
@@ -210,14 +204,13 @@ export namespace ReinforceCLI {
         // Add cosignatures of new cosigners
         undeadBatches = undeadBatches.map((undeadBatch) => necromancyService.cosignTx(undeadBatch, cosignerAccounts));
 
-        let announced = false;
         if (canAnnounce) {
             Logger.info(
                 `Announcing ${undeadBatches.length} aggregate TXs. ` +
                 `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
                 `will be paid by ${intermediateTxs.command} originator.`
             );
-            announced = await announceBatches(
+            await announceBatches(
                 await necromancyService.pickAndCastTxBatches(undeadBatches),
                 signerPubAccount,
                 maxParallels,
@@ -227,15 +220,14 @@ export namespace ReinforceCLI {
 
         return {
             undeadBatches,
-            announced,
         };
     };
 
     const reinforceMetal = async (
-        input: Readonly<ReinforceInput.CommandlineInput>,
+        input: Readonly<ReinforceInputV1.CommandlineInput>,
         intermediateTxs: IntermediateTxs,
         payload: Uint8Array,
-    ): Promise<ReinforceOutput.CommandlineOutput> => {
+    ): Promise<ReinforceOutputV1.CommandlineOutput> => {
         const { networkType } = await symbolService.getNetwork();
 
         if (networkType !== intermediateTxs.networkType) {
@@ -264,11 +256,10 @@ export namespace ReinforceCLI {
             targetPubAccount,
             targetId,
             payload,
-            intermediateTxs.additive,
-            intermediateTxs.text,
+            intermediateTxs.additive
         );
 
-        const { batches, undeadBatches, announced } = intermediateTxs.undeadTxs
+        const { batches, undeadBatches } = intermediateTxs.undeadTxs
             ? await buildAndExecuteUndeadBatches(
                 intermediateTxs,
                 referenceTxPool,
@@ -299,27 +290,26 @@ export namespace ReinforceCLI {
             targetPubAccount,
             ...(intermediateTxs.mosaicId ? { mosaicId: new MosaicId(intermediateTxs.mosaicId) } : {}),
             ...(intermediateTxs.namespaceId ? { namespaceId: new NamespaceId(intermediateTxs.namespaceId) } : {}),
-            status: announced ? "reinforced" : "estimated",
+            status: input.announce ? "reinforced" : "estimated",
             metalId: intermediateTxs.metalId,
             signerPubAccount,
             command: intermediateTxs.command,
             type,
             createdAt: new Date(intermediateTxs.createdAt),
             payload,
-            text: intermediateTxs.text,
         };
     };
 
     export const main = async (argv: string[]) => {
-        let input: ReinforceInput.CommandlineInput;
+        let input: ReinforceInputV1.CommandlineInput;
         try {
-            input = await ReinforceInput.validateInput(ReinforceInput.parseInput(argv));
+            input = await ReinforceInputV1.validateInput(ReinforceInputV1.parseInput(argv));
         } catch (e) {
-            ReinforceInput.printVersion();
+            ReinforceInputV1.printVersion();
             if (e === "version") {
                 return;
             }
-            ReinforceInput.printUsage();
+            ReinforceInputV1.printUsage();
             if (e === "help") {
                 return;
             }
@@ -337,7 +327,7 @@ export namespace ReinforceCLI {
         if (input.outputPath) {
             writeIntermediateFile(output, input.outputPath);
         }
-        ReinforceOutput.printOutputSummary(output);
+        ReinforceOutputV1.printOutputSummary(output);
 
         return output;
     };

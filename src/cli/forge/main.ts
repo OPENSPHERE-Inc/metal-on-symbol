@@ -1,19 +1,22 @@
-import {Convert, MetadataType} from "symbol-sdk";
 import assert from "assert";
-import {ForgeInput} from "./input";
-import {ForgeOutput} from "./output";
-import {MetalService} from "../../services";
+import mime from "mime";
+import path from "path";
+import { MetadataType } from "symbol-sdk";
+import { Logger } from "../../libs";
+import { MetalSeal, MetalServiceV2 } from "../../services";
 import {
     buildAndExecuteBatches,
-    buildAndExecuteUndeadBatches, deadlineMinHours,
+    buildAndExecuteUndeadBatches,
+    deadlineMinHours,
     designateCosigners,
     doVerify,
     metalService,
     symbolService
 } from "../common";
-import {writeIntermediateFile} from "../intermediate";
-import {Logger} from "../../libs";
-import {readStreamInput} from "../stream";
+import { writeIntermediateFile } from "../intermediate";
+import { readStreamInput } from "../stream";
+import { ForgeInput } from "./input";
+import { ForgeOutput } from "./output";
 
 
 export namespace ForgeCLI {
@@ -30,27 +33,38 @@ export namespace ForgeCLI {
         const sourcePubAccount = input.sourcePubAccount || input.sourceSignerAccount?.publicAccount || signerPubAccount;
         const targetPubAccount = input.targetPubAccount || input.targetSignerAccount?.publicAccount || signerPubAccount;
         const metadataPool = input.recover
-            ? await symbolService.searchMetadata(input.type, {
+            ? await symbolService.searchBinMetadata(input.type, {
                 source: sourcePubAccount,
                 target: targetPubAccount,
                 targetId
             })
             : undefined;
+        const text = input.text ?? (
+            input.seal
+                ? new MetalSeal(
+                    payload.length,
+                    (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
+                    (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
+                    input.sealComment || undefined,
+                ).stringify()
+            : undefined
+        );
 
-        const { key, txs, additive: additiveBytes } = await metalService.createForgeTxs(
+        const { key, txs, additive: actualAdditive } = await metalService.createForgeTxs(
             input.type,
             sourcePubAccount,
             targetPubAccount,
             targetId,
             payload,
-            input.additiveBytes,
+            input.additive,
+            text,
             metadataPool,
         );
         if (!txs.length) {
             throw new Error("There is nothing to forge.")
         }
 
-        const metalId = MetalService.calculateMetalId(
+        const metalId = MetalServiceV2.calculateMetalId(
             input.type,
             sourcePubAccount.address,
             targetPubAccount.address,
@@ -85,7 +99,7 @@ export namespace ForgeCLI {
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
-        const { batches, undeadBatches, totalFee } = input.deadlineHours > deadlineMinHours
+        const { batches, undeadBatches, totalFee, announced } = input.deadlineHours > deadlineMinHours
             ? await buildAndExecuteUndeadBatches(
                 txs,
                 input.signerAccount,
@@ -126,12 +140,13 @@ export namespace ForgeCLI {
             undeadBatches,
             key,
             totalFee,
-            additive: Convert.uint8ToUtf8(additiveBytes),
+            additive: actualAdditive,
+            text,
             sourcePubAccount,
             targetPubAccount,
             ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),
             ...(input.type === MetadataType.Namespace ? { namespaceId: input.namespaceId } : {}),
-            status: canAnnounce ? "forged" : "estimated",
+            status: announced ? "forged" : "estimated",
             metalId,
             signerPubAccount,
             type: input.type,

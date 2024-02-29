@@ -1,11 +1,11 @@
 import Long from "long";
-import {IntermediateOutput} from "../intermediate";
 import moment from "moment";
-import {Logger} from "../../libs";
-import {SymbolService} from "../../services";
+import { Logger } from "../../../libs";
+import { SymbolService } from "../../../services";
+import { IntermediateOutput } from "../intermediate";
 
 
-export namespace ReinforceOutput {
+export namespace ReinforceOutputV1 {
 
     export interface CommandlineOutput extends IntermediateOutput {
         status: "reinforced" | "estimated";
@@ -26,7 +26,6 @@ export namespace ReinforceOutput {
             (output.namespaceId ? `  Namespace ID: ${output.namespaceId.toHex()}\n` : "") +
             `  Metadata Key: ${output.key?.toHex()}\n` +
             `  Additive: ${output.additive}\n` +
-            (output.text ? `  Text: ${output.text}\n` : "") +
             `  Data size: ${output.payload.length}\n` +
             `  # of Aggregate TXs: ${output.batches?.length || output.undeadBatches?.length}\n` +
             `  TX Fee: ${SymbolService.toXYM(Long.fromString(output.totalFee.toString()))} XYM\n` +
