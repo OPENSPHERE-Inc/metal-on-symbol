@@ -1,11 +1,11 @@
-import {Convert, MetadataType, MosaicId, NamespaceId} from "symbol-sdk";
-import {deadlineMinHours, initCliEnv, isValueOption, NodeInput} from "../common";
-import {VERSION} from "./version";
-import {AccountsInput, validateAccountsInput} from "../accounts";
-import {SymbolService} from "../../services";
-import {Logger} from "../../libs";
-import {StreamInput, validateStreamInput} from "../stream";
-import {PACKAGE_VERSION} from "../../package_version";
+import { MetadataType, MosaicId, NamespaceId } from "symbol-sdk";
+import { Logger } from "../../libs";
+import { PACKAGE_VERSION } from "../../package_version";
+import { SymbolService } from "../../services";
+import { AccountsInput, validateAccountsInput } from "../accounts";
+import { deadlineMinHours, initCliEnv, isValueOption, NodeInput } from "../common";
+import { StreamInput, validateStreamInput } from "../stream";
+import { VERSION } from "./version";
 
 
 export namespace ForgeInput {
