@@ -1,10 +1,5 @@
-import mime from "mime";
-import path from "path";
-import {ReinforceInput} from "./input";
+import { AggregateUndeadTransaction, SignedAggregateTx } from "@opensphere-inc/symbol-service";
 import assert from "assert";
-import {IntermediateTxs, readIntermediateFile, writeIntermediateFile} from "../intermediate";
-import {ReinforceOutput} from "./output";
-import { MetadataTransaction, MetalSeal, SymbolService } from "../../services";
 import {
     Account,
     AggregateTransaction,
@@ -20,10 +15,13 @@ import {
     SignedTransaction,
     UInt64
 } from "symbol-sdk";
-import {Logger} from "../../libs";
-import {readStreamInput} from "../stream";
-import {announceBatches, metalService, necromancyService, symbolService} from "../common";
-import {AggregateUndeadTransaction, SignedAggregateTx} from "@opensphere-inc/symbol-service";
+import { Logger } from "../../libs";
+import { MetadataTransaction, SymbolService } from "../../services";
+import { announceBatches, metalService, necromancyService, symbolService } from "../common";
+import { IntermediateTxs, readIntermediateFile, writeIntermediateFile } from "../intermediate";
+import { readStreamInput } from "../stream";
+import { ReinforceInput } from "./input";
+import { ReinforceOutput } from "./output";
 
 
 export namespace ReinforceCLI {
@@ -150,8 +148,9 @@ export namespace ReinforceCLI {
     };
 
     interface ExecuteBatchesResult {
-        batches?: SignedAggregateTx[],
-        undeadBatches?: AggregateUndeadTransaction[],
+        batches?: SignedAggregateTx[];
+        undeadBatches?: AggregateUndeadTransaction[];
+        announced: boolean;
     }
 
     const buildAndExecuteBatches = async (
@@ -175,13 +174,14 @@ export namespace ReinforceCLI {
             );
         });
 
+        let announced = false;
         if (canAnnounce) {
             Logger.info(
                 `Announcing ${batches.length} aggregate TXs. ` +
                 `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
                 `will be paid by ${intermediateTxs.command} originator.`
             );
-            await announceBatches(
+            announced = await announceBatches(
                 batches,
                 signerPubAccount,
                 maxParallels,
@@ -191,6 +191,7 @@ export namespace ReinforceCLI {
 
         return {
             batches,
+            announced,
         };
     };
 
@@ -209,13 +210,14 @@ export namespace ReinforceCLI {
         // Add cosignatures of new cosigners
         undeadBatches = undeadBatches.map((undeadBatch) => necromancyService.cosignTx(undeadBatch, cosignerAccounts));
 
+        let announced = false;
         if (canAnnounce) {
             Logger.info(
                 `Announcing ${undeadBatches.length} aggregate TXs. ` +
                 `TX fee ${SymbolService.toXYM(new UInt64(intermediateTxs.totalFee))} XYM ` +
                 `will be paid by ${intermediateTxs.command} originator.`
             );
-            await announceBatches(
+            announced = await announceBatches(
                 await necromancyService.pickAndCastTxBatches(undeadBatches),
                 signerPubAccount,
                 maxParallels,
@@ -225,6 +227,7 @@ export namespace ReinforceCLI {
 
         return {
             undeadBatches,
+            announced,
         };
     };
 
@@ -265,7 +268,7 @@ export namespace ReinforceCLI {
             intermediateTxs.text,
         );
 
-        const { batches, undeadBatches } = intermediateTxs.undeadTxs
+        const { batches, undeadBatches, announced } = intermediateTxs.undeadTxs
             ? await buildAndExecuteUndeadBatches(
                 intermediateTxs,
                 referenceTxPool,
@@ -296,7 +299,7 @@ export namespace ReinforceCLI {
             targetPubAccount,
             ...(intermediateTxs.mosaicId ? { mosaicId: new MosaicId(intermediateTxs.mosaicId) } : {}),
             ...(intermediateTxs.namespaceId ? { namespaceId: new NamespaceId(intermediateTxs.namespaceId) } : {}),
-            status: input.announce ? "reinforced" : "estimated",
+            status: announced ? "reinforced" : "estimated",
             metalId: intermediateTxs.metalId,
             signerPubAccount,
             command: intermediateTxs.command,

@@ -134,7 +134,7 @@ describe("Forge CLI", () => {
         await MetalTest.scrapMetal(output.metalId, targetAccount.publicAccount, signerAccount.publicAccount, signerAccount, [ targetAccount ]);
     }, 600000);
 
-    it("Forge Metal into Account with Alt additive & seal comment", async () => {
+    it("Forge Metal into Account with Alt additive and metal seal comment", async () => {
         const { signerAccount } = await SymbolTest.getNamedAccounts();
         // Estimate metal ID without no additive
         const outputNoAdditive = await ForgeCLI.main([
@@ -181,6 +181,51 @@ describe("Forge CLI", () => {
         expect(outputWithAdditive?.additive).toBe(additive);
         expect(outputWithAdditive?.type).toBe(MetadataType.Account);
         expect(outputWithAdditive?.text).toBeUndefined();
+
+        assert(outputWithAdditive?.metalId);
+        await MetalTest.scrapMetal(outputWithAdditive.metalId, signerAccount.publicAccount, targetAccount.publicAccount, signerAccount, [ targetAccount ]);
+    }, 600000);
+
+    it("Forge Metal into Account with text section (Override metal seal)", async () => {
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
+        // Estimate metal ID with text section
+        const outputNoAdditive = await ForgeCLI.main([
+            "--estimate",
+            "--priv-key", signerAccount.privateKey,
+            "-s", signerAccount.publicKey,
+            "-t", targetAccount.publicKey,
+            "--cosigner", targetAccount.privateKey,
+            "-c",
+            "--fee-ratio", "0.35",
+            "--text", "Test Text 123",
+            inputFile,
+        ]);
+
+        expect(outputNoAdditive?.metalId).toBeDefined();
+        expect(outputNoAdditive?.additive).toBe(0);
+        expect(outputNoAdditive?.text).toBe("Test Text 123");
+
+        // Forge metal with text sesion
+        const additive = MetalServiceV2.generateRandomAdditive();
+        const outputWithAdditive = await ForgeCLI.main([
+            "-f",
+            "--priv-key", signerAccount.privateKey,
+            "-s", signerAccount.publicKey,
+            "-t", targetAccount.publicKey,
+            "--tgt-priv-key", targetAccount.privateKey,
+            "-c",
+            "-v",
+            "--additive", String(additive),
+            "--seal", "0",
+            "--text", "Test Text 123",
+            inputFile,
+        ]);
+
+        expect(outputWithAdditive?.metalId).toBeDefined();
+        expect(outputWithAdditive?.metalId).not.toBe(outputNoAdditive?.metalId);
+        expect(outputWithAdditive?.additive).toBe(additive);
+        expect(outputWithAdditive?.type).toBe(MetadataType.Account);
+        expect(outputWithAdditive?.text).toBe("Test Text 123");
 
         assert(outputWithAdditive?.metalId);
         await MetalTest.scrapMetal(outputWithAdditive.metalId, signerAccount.publicAccount, targetAccount.publicAccount, signerAccount, [ targetAccount ]);

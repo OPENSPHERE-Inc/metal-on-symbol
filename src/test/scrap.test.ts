@@ -274,7 +274,7 @@ describe("Scrap CLI", () => {
         expect(scrapOutput?.status).toBe("scrapped");
     }, 6000000);
 
-    it("Account Metal via input file with Alt additive", async () => {
+    it("Account Metal via input file with Alt additive and metal seal", async () => {
         const { signerAccount } = await SymbolTest.getNamedAccounts();
         const generatedAdditive = MetalServiceV2.generateRandomAdditive();
         const { metalId, additive } = await MetalTest.forgeMetal(
@@ -324,6 +324,60 @@ describe("Scrap CLI", () => {
             "--fee-ratio", "0.35",
             "-S3",
             "--comment", "comment123",
+        ]);
+
+        expect(scrapOutput?.metalId).toBeDefined();
+        expect(scrapOutput?.metalId).toBe(metalId);
+        expect(scrapOutput?.status).toBe("scrapped");
+    }, 6000000);
+
+    it("Account Metal via input file with text section (Override metal seal)", async () => {
+        const { signerAccount } = await SymbolTest.getNamedAccounts();
+        const generatedAdditive = MetalServiceV2.generateRandomAdditive();
+        const { metalId, additive } = await MetalTest.forgeMetal(
+            MetadataType.Account,
+            signerAccount.publicAccount,
+            targetAccount.publicAccount,
+            undefined,
+            testData,
+            signerAccount,
+            [ targetAccount ],
+            generatedAdditive,
+            "Test Text 123",
+        );
+
+        const estimateOutput = await ScrapCLI.main([
+            "-e",
+            "--priv-key", signerAccount.privateKey,
+            "--tgt-pub-key", targetAccount.publicKey,
+            "-i", inputFile,
+            "--additive", String(additive),
+            "--seal", "3",
+            "--comment", "comment123",
+            "--text", "Test Text 123"
+        ]);
+
+        expect(estimateOutput?.metalId).toBeDefined();
+        expect(estimateOutput?.metalId).toBe(metalId);
+        expect(estimateOutput?.type).toBe(MetadataType.Account);
+        expect(estimateOutput?.sourcePubAccount.toDTO()).toStrictEqual(signerAccount.publicAccount.toDTO());
+        expect(estimateOutput?.targetPubAccount.toDTO()).toStrictEqual(targetAccount.publicAccount.toDTO());
+        expect(estimateOutput?.mosaicId).toBeUndefined();
+        expect(estimateOutput?.namespaceId).toBeUndefined();
+        expect(additive).toStrictEqual(generatedAdditive);
+        expect(estimateOutput?.status).toBe("estimated");
+
+        const scrapOutput = await ScrapCLI.main([
+            "--force",
+            "--priv-key", signerAccount.privateKey,
+            "--tgt-priv-key", targetAccount.privateKey,
+            "--in", inputFile,
+            "--additive", String(additive),
+            "--parallels", "1",
+            "--fee-ratio", "0.35",
+            "-S0",
+            "--comment", "comment123",
+            "--text", "Test Text 123"
         ]);
 
         expect(scrapOutput?.metalId).toBeDefined();

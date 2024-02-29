@@ -104,7 +104,8 @@ export const announceBatches = async (
             stdout: process.stderr,
         })).decision;
         if (!decision) {
-            throw new Error("Canceled by user.");
+            Logger.warn("Canceled by user.");
+            return false;
         }
     }
 
@@ -119,12 +120,15 @@ export const announceBatches = async (
     } else {
         Logger.info(`Completed in ${moment().diff(startAt, "seconds", true)} secs.`);
     }
+
+    return true;
 };
 
 interface ExecuteBatchesResult {
-    totalFee: UInt64,
-    batches?: SignedAggregateTx[],
-    undeadBatches?: AggregateUndeadTransaction[],
+    totalFee: UInt64;
+    batches?: SignedAggregateTx[];
+    undeadBatches?: AggregateUndeadTransaction[];
+    announced: boolean;
 }
 
 export const buildAndExecuteBatches = async (
@@ -154,22 +158,24 @@ export const buildAndExecuteBatches = async (
         UInt64.fromUint(0)
     );
 
+    let announced = false;
     if (canAnnounce) {
         Logger.info(
             `Announcing ${batches.length} aggregate TXs ` +
             `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-       await announceBatches(
-           batches,
-           signerAccount,
-           maxParallels,
-           showPrompt
-       );
+        announced = await announceBatches(
+            batches,
+            signerAccount,
+            maxParallels,
+            showPrompt
+        );
     }
 
     return {
         batches,
         totalFee,
+        announced,
     };
 };
 
@@ -202,12 +208,13 @@ export const buildAndExecuteUndeadBatches = async (
         UInt64.fromUint(0)
     );
 
+    let announced = false;
     if (canAnnounce) {
         Logger.info(
             `Announcing ${undeadBatches.length} aggregate TXs ` +
             `with fee ${SymbolService.toXYM(Long.fromString(totalFee.toString()))} XYM total.`
         );
-        await announceBatches(
+        announced = await announceBatches(
             await necromancyService.pickAndCastTxBatches(undeadBatches),
             signerAccount,
             maxParallels,
@@ -218,6 +225,7 @@ export const buildAndExecuteUndeadBatches = async (
     return {
         undeadBatches,
         totalFee,
+        announced,
     };
 };
 

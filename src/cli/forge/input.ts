@@ -29,6 +29,7 @@ export namespace ForgeInput {
         verify: boolean;
         seal: number;
         sealComment?: string;
+        text?: string;
     }
 
     export const parseInput = (argv: string[]) => {
@@ -226,6 +227,14 @@ export namespace ForgeInput {
                     input.sealComment = value;
                     break;
                 }
+                case "--text": {
+                    const value = argv[++i];
+                    if (!isValueOption(value)) {
+                        throw new Error(`${token} must has text section payload as value.`);
+                    }
+                    input.text = value;
+                    break;
+                }
 
                 case "--src-priv-key": {
                     const value = argv[++i];
@@ -357,6 +366,7 @@ export namespace ForgeInput {
             `  -s public_key,\n` +
             `  --src-pub-key value    Specify source_account via public_key\n` +
             `  --src-priv-key value   Specify source_account via private_key\n` +
+            `  --text value           Specify text section payload (Override --seal and --comment option)\n` +
             `  -t public_key,\n` +
             `  --tgt-pub-key value    Specify target_account via public_key\n` +
             `  --tgt-priv-key value   Specify target_account via private_key\n` +

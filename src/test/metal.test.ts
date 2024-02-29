@@ -546,7 +546,7 @@ describe("MetalService", () => {
         await forgeWithText(testData, "e".repeat(CHUNK_PAYLOAD_MAX_SIZE + 100));
     }, 600000);
 
-    it.only("Forge with text but no payload (less than CHUNK_PAYLOAD_MAX_SIZE)", async () => {
+    it("Forge with text but no payload (less than CHUNK_PAYLOAD_MAX_SIZE)", async () => {
         await forgeWithText(new Uint8Array(0), "f".repeat(CHUNK_PAYLOAD_MAX_SIZE - 100));
     }, 600000);
 

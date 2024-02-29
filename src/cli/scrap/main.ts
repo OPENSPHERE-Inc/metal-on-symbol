@@ -35,14 +35,16 @@ export namespace ScrapCLI {
         let metalId = input.metalId;
         let targetId: undefined | MosaicId | NamespaceId;
         let additive = input.additive;
-        let text = input.seal && payload
-            ? new MetalSeal(
-                payload.length,
-                (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
-                (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
-                input.sealComment || undefined,
-            ).stringify()
-            : undefined;
+        let text = payload && (input.text ?? (
+            input.seal
+                ? new MetalSeal(
+                    payload.length,
+                    (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
+                    (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
+                    input.sealComment || undefined,
+                ).stringify()
+                : undefined
+        ));
 
         if (metalId) {
             const result = await metalService.fetchByMetalId(metalId);
@@ -116,7 +118,7 @@ export namespace ScrapCLI {
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
-        const { batches, undeadBatches, totalFee } = input.deadlineHours > deadlineMinHours
+        const { batches, undeadBatches, totalFee, announced } = input.deadlineHours > deadlineMinHours
             ? await buildAndExecuteUndeadBatches(
                 txs,
                 input.signerAccount,
@@ -150,7 +152,7 @@ export namespace ScrapCLI {
             targetPubAccount,
             ...(type === MetadataType.Mosaic ? { mosaicId: targetId as MosaicId } : {}),
             ...(type === MetadataType.Namespace ? { namespaceId: targetId as NamespaceId } : {}),
-            status: canAnnounce ? "scrapped" : "estimated",
+            status: announced ? "scrapped" : "estimated",
             metalId,
             signerPubAccount,
             additive: additive || MetalServiceV2.DEFAULT_ADDITIVE,

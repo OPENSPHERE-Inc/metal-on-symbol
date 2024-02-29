@@ -1,8 +1,8 @@
-# Metal on Symbol
+# Metal on Symbol V2
 
 ## V2 リリースノート
 
-- **ペイロードがこれまで Base64 だったものがバイナリになります。** その結果、容量効率が改善します。 
+- **ペイロードがこれまで Base64 だったものがバイナリになります。** その結果、容量効率が V1(Base64) 比約 2/3 に改善します。 
   バイナリ Value の Metadata を扱うために Symbol SDK (v2) に独自拡張を施しています (SDK に同梱)
 - ヘッダー領域を削減しペイロード領域を 1 チャンク 1012 バイトに拡張。
   - magic を　1 バイト文字から 1 ビット、version を 3 バイトから 1 バイトに縮小し、途中にリザーブ 7 ビット挟んで 2 バイトに格納。
@@ -200,10 +200,16 @@ npm install -g metal-on-symbol
 
 メインネットはもちろん、テストネットのノードも指定可能です。
 
-**Windows**
+**Windows (cmd)**
 
 ```shell
 set NODE_URL=https://example.jp:3001
+```
+
+**Windows (powershell)**
+
+```powershell
+$Env:NODE_URL="https://example.jp:3001"
 ```
 
 **Unix-like**
@@ -314,6 +320,10 @@ metal forge  -n namespace.name  test_data/e92m3.jpg
 > ファイル名はパスは含まれません（例： `path/to/example.jpg` は `example.jpg` が使用される）
 
 `--comment テキスト` オプションで [Metal Seal](#610-metal-seal) 内に任意のコメントテキストを追加できます。
+
+##### テキストセクション
+
+`--text テキスト` オプションで、生のテキストセクションを設定できます。このオプションは優先され、`--seal` オプションをオーバーライドします。
 
 ##### 見積だけ実行
 
@@ -432,6 +442,11 @@ Additive と シールが両方ある場合は、両方指定してください�
 > よくあるミス
 > 
 > `--seal 3` を使用していたが、ファイル名が Forge の時と違っている
+
+**テキストセクション**
+
+Forge の際にテキストセクションが与えられていた場合は、一字一句同じテキストセクションを与えてください。
+Forge 同様に `--text` オプションを使用します。
 
 ### 2.7. Reinforce（マルチシグの連署）
 

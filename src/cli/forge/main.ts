@@ -39,14 +39,16 @@ export namespace ForgeCLI {
                 targetId
             })
             : undefined;
-        const text = input.seal
-            ? new MetalSeal(
-                payload.length,
-                (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
-                (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
-                input.sealComment || undefined,
-            ).stringify()
-            : undefined;
+        const text = input.text ?? (
+            input.seal
+                ? new MetalSeal(
+                    payload.length,
+                    (input.seal > 1 && input.filePath && mime.getType(input.filePath)) || undefined,
+                    (input.seal > 2 && input.filePath && path.basename(input.filePath)) || undefined,
+                    input.sealComment || undefined,
+                ).stringify()
+            : undefined
+        );
 
         const { key, txs, additive: actualAdditive } = await metalService.createForgeTxs(
             input.type,
@@ -97,7 +99,7 @@ export namespace ForgeCLI {
         );
         const canAnnounce = hasEnoughCosigners && !input.estimate;
 
-        const { batches, undeadBatches, totalFee } = input.deadlineHours > deadlineMinHours
+        const { batches, undeadBatches, totalFee, announced } = input.deadlineHours > deadlineMinHours
             ? await buildAndExecuteUndeadBatches(
                 txs,
                 input.signerAccount,
@@ -144,7 +146,7 @@ export namespace ForgeCLI {
             targetPubAccount,
             ...(input.type === MetadataType.Mosaic ? { mosaicId: input.mosaicId } : {}),
             ...(input.type === MetadataType.Namespace ? { namespaceId: input.namespaceId } : {}),
-            status: canAnnounce ? "forged" : "estimated",
+            status: announced ? "forged" : "estimated",
             metalId,
             signerPubAccount,
             type: input.type,
