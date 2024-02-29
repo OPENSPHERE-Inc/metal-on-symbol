@@ -372,8 +372,8 @@ export namespace ScrapInput {
             `  --out value            Specify JSON file output_path.json that will contain intermediate TX\n` +
             `  --parallels value      Max TXs for parallel announcing (default:10)\n` +
             `  --priv-key value       Specify signer's private_key\n` +
-            `  --seal level           Specify Metal Seal level. 0 means no seal. (default:2)` +
-            `  -S0,-S1,-S2,-S3        Alias of --seal 0~3` +
+            `  --seal level           Specify Metal Seal level. 0 means no seal. (default:2)\n` +
+            `  -S0,-S1,-S2,-S3        Alias of --seal 0~3\n` +
             `  -s public_key,\n` +
             `  --src-pub-key value    Specify source_account via public_key\n` +
             `  --src-priv-key value   Specify source_account via private_key\n` +
